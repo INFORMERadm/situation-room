@@ -4,7 +4,7 @@ use ratatui::{
     text::Span,
     widgets::{
         canvas::{Canvas, Map, MapResolution},
-        Block, Borders, List, ListItem, Paragraph, BorderType,
+        Block, Borders, List, ListItem, Paragraph, BorderType, Sparkline,
     },
     Frame,
 };
@@ -25,8 +25,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     render_content(app, frame, chunks[1]);
     render_footer(app, frame, chunks[2]);
 }
-
-use chrono::Local;
 
 fn render_header(app: &App, frame: &mut Frame, area: Rect) {
     let time = Local::now().format("%H:%M:%S UTC").to_string();
@@ -90,7 +88,39 @@ fn render_panels(app: &App, frame: &mut Frame, area: Rect) {
 
     render_list_panel(frame, chunks[0], " SPORTS ", &app.sports_data, Color::Yellow);
     render_list_panel(frame, chunks[1], " GEOPOLITICS ", &app.geo_data, Color::Red);
-    render_list_panel(frame, chunks[2], " FINANCIAL ", &app.finance_data, Color::Green);
+    render_finance_panel(app, frame, chunks[2]);
+}
+
+fn render_finance_panel(app: &App, frame: &mut Frame, area: Rect) {
+     let block = Block::default().title(" FINANCIAL ").borders(Borders::ALL).border_style(Style::default().fg(Color::Green));
+     let inner_area = block.inner(area);
+     
+     frame.render_widget(block, area);
+     
+     let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(app.finance_data.len() as u16), 
+            Constraint::Min(1),
+        ])
+        .split(inner_area);
+        
+    let list_items: Vec<ListItem> = app.finance_data
+        .iter()
+        .map(|i| ListItem::new(format!("• {}", i)))
+        .collect();
+    
+    let list = List::new(list_items)
+        .style(Style::default().fg(Color::White));
+        
+    frame.render_widget(list, chunks[0]);
+    
+    let sparkline = Sparkline::default()
+        .block(Block::default().title("Trend").borders(Borders::TOP))
+        .data(&app.finance_history)
+        .style(Style::default().fg(Color::Green));
+        
+    frame.render_widget(sparkline, chunks[1]);
 }
 
 fn render_list_panel(frame: &mut Frame, area: Rect, title: &str, items: &[String], color: Color) {
