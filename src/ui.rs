@@ -43,19 +43,72 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
 }
 
 fn render_content(app: &App, frame: &mut Frame, area: Rect) {
-    // 3 Columns: Left Panels, Map (Center), Right Panels
+    // 3 Columns: Left Panels, Center (Map + New Panels), Right Panels
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Percentage(20), // Left
-            Constraint::Percentage(60), // Map (Center)
+            Constraint::Percentage(60), // Center
             Constraint::Percentage(20), // Right
         ])
         .split(area);
 
     render_left_panel(app, frame, chunks[0]);
-    render_map(app, frame, chunks[1]);
+    render_center_panel(app, frame, chunks[1]);
     render_right_panel(app, frame, chunks[2]);
+}
+
+fn render_center_panel(app: &App, frame: &mut Frame, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(70), // Map
+            Constraint::Percentage(30), // Bottom Info (Pizza + Comms)
+        ])
+        .split(area);
+        
+    render_map(app, frame, chunks[0]);
+    render_bottom_info(app, frame, chunks[1]);
+}
+
+fn render_bottom_info(app: &App, frame: &mut Frame, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ])
+        .split(area);
+
+    render_pizza_meter(app, frame, chunks[0]);
+    render_list_panel(frame, chunks[1], " OFFICIAL COMMS ", &app.official_comms, Color::White);
+}
+
+fn render_pizza_meter(app: &App, frame: &mut Frame, area: Rect) {
+    // Visualize Pizza Index as a Gauge
+    use ratatui::widgets::Gauge;
+    
+    let block = Block::default()
+        .title(" PENTAGON PIZZA INDEX ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+    
+    // Determine color based on index
+    let color = match app.pizza_meter {
+        0..=30 => Color::Green,
+        31..=70 => Color::Yellow,
+        _ => Color::Red,
+    };
+    
+    let label = format!("{}% (Baseline Normal)", app.pizza_meter);
+    
+    let gauge = Gauge::default()
+        .block(block)
+        .gauge_style(Style::default().fg(color))
+        .percent(app.pizza_meter as u16)
+        .label(label);
+        
+    frame.render_widget(gauge, area);
 }
 
 fn render_left_panel(app: &App, frame: &mut Frame, area: Rect) {

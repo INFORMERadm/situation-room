@@ -31,6 +31,10 @@ pub struct App {
     pub prediction_data: Vec<String>,
     pub flight_data: Vec<String>,
     pub trade_data: Vec<String>,
+    // New Panels
+    pub pizza_meter: u8, // 0-100 traffic index
+    pub official_comms: Vec<String>,
+    
     // Map
     pub map_events: Vec<MapEvent>,
     
@@ -79,6 +83,11 @@ impl App {
                 "Ever Given: Suez Canal (Clear)".to_string(),
                 "Baltic Dry Index: 1,500 (+20)".to_string(),
             ],
+            pizza_meter: 15, // Normal baseline
+            official_comms: vec![
+                "@POTUS: Monitoring situation in region.".to_string(),
+                "@Elysee: Strong commitment to stability.".to_string(),
+            ],
             map_events: vec![
                 MapEvent { lat: 50.45, lon: 30.52, category: EventCategory::Geopolitics, description: "Kyiv".into() },
                 MapEvent { lat: 25.03, lon: 121.56, category: EventCategory::Geopolitics, description: "Taipei".into() },
@@ -121,6 +130,25 @@ impl App {
                  event.lat += rng.random_range(-0.1..0.1);
                  event.lon += rng.random_range(-0.1..0.1);
              }
+        }
+        
+        // Randomly fluctuate Pizza Meter (Pentagon Traffic)
+        if rng.random_bool(0.02) {
+            let fluctuation = rng.random_range(-5..10);
+            self.pizza_meter = (self.pizza_meter as i32 + fluctuation).clamp(0, 100) as u8;
+        }
+
+        // Randomly add a new tweet
+        if rng.random_bool(0.01) {
+            let leaders = ["@POTUS", "@Pontifex", "@NATO", "@UN", "@ZelenskyyUa", "@KremlinRussia_E"];
+            let msgs = ["Updates expected soon.", "Briefing underway.", "Call concluded.", "Statement issued."];
+            let leader = leaders[rng.random_range(0..leaders.len())];
+            let msg = msgs[rng.random_range(0..msgs.len())];
+            
+            self.official_comms.insert(0, format!("{}: {}", leader, msg));
+            if self.official_comms.len() > 10 {
+                self.official_comms.pop();
+            }
         }
     }
 
