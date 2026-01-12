@@ -8,7 +8,7 @@ use ratatui::{
     },
     Frame,
 };
-use crate::app::App;
+use crate::app::{App, EventCategory};
 use chrono::Local;
 
 pub fn render(app: &mut App, frame: &mut Frame) {
@@ -43,16 +43,49 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
 }
 
 fn render_content(app: &App, frame: &mut Frame, area: Rect) {
+    // 3 Columns: Left Panels, Map (Center), Right Panels
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(70), // Map
-            Constraint::Percentage(30), // Side Panels
+            Constraint::Percentage(20), // Left
+            Constraint::Percentage(60), // Map (Center)
+            Constraint::Percentage(20), // Right
         ])
         .split(area);
 
-    render_map(app, frame, chunks[0]);
-    render_panels(app, frame, chunks[1]);
+    render_left_panel(app, frame, chunks[0]);
+    render_map(app, frame, chunks[1]);
+    render_right_panel(app, frame, chunks[2]);
+}
+
+fn render_left_panel(app: &App, frame: &mut Frame, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+            Constraint::Percentage(34),
+        ])
+        .split(area);
+
+    render_list_panel(frame, chunks[0], " SPORTS ", &app.sports_data, Color::Yellow);
+    render_list_panel(frame, chunks[1], " PREDICTION ", &app.prediction_data, Color::Magenta);
+    render_list_panel(frame, chunks[2], " FLIGHTS ", &app.flight_data, Color::Cyan);
+}
+
+fn render_right_panel(app: &App, frame: &mut Frame, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+            Constraint::Percentage(34),
+        ])
+        .split(area);
+
+    render_finance_panel(app, frame, chunks[0]);
+    render_list_panel(frame, chunks[1], " GEOPOLITICS ", &app.geo_data, Color::Red);
+    render_list_panel(frame, chunks[2], " TRADE ", &app.trade_data, Color::Blue);
 }
 
 fn render_map(app: &App, frame: &mut Frame, area: Rect) {
@@ -68,27 +101,22 @@ fn render_map(app: &App, frame: &mut Frame, area: Rect) {
             });
             
             // Draw Events
-            for (lat, lon, label) in &app.map_events {
-                 ctx.print(*lon, *lat, Span::styled("📍", Style::default().fg(Color::Red)));
-                 ctx.print(*lon + 2.0, *lat, Span::raw(label.clone()));
+            for event in &app.map_events {
+                 let (symbol, color) = match event.category {
+                     EventCategory::Geopolitics => ("📍", Color::Red),
+                     EventCategory::News => ("📰", Color::Yellow),
+                     EventCategory::Sports => ("🏀", Color::Magenta),
+                     EventCategory::Flight => ("✈", Color::Cyan),
+                     EventCategory::Trade => ("🚢", Color::Blue),
+                 };
+                 
+                 ctx.print(event.lon, event.lat, Span::styled(symbol, Style::default().fg(color)));
+                 // Only show text if zoomed in or sparse? For now just show it.
+                 // Offset text slightly
+                 ctx.print(event.lon + 2.0, event.lat, Span::raw(event.description.clone()));
             }
         });
     frame.render_widget(map, area);
-}
-
-fn render_panels(app: &App, frame: &mut Frame, area: Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage(33),
-            Constraint::Percentage(33),
-            Constraint::Percentage(34),
-        ])
-        .split(area);
-
-    render_list_panel(frame, chunks[0], " SPORTS ", &app.sports_data, Color::Yellow);
-    render_list_panel(frame, chunks[1], " GEOPOLITICS ", &app.geo_data, Color::Red);
-    render_finance_panel(app, frame, chunks[2]);
 }
 
 fn render_finance_panel(app: &App, frame: &mut Frame, area: Rect) {
@@ -137,7 +165,7 @@ fn render_list_panel(frame: &mut Frame, area: Rect, title: &str, items: &[String
 }
 
 fn render_footer(_app: &App, frame: &mut Frame, area: Rect) {
-    let info = Paragraph::new("Press 'q' to quit | 'r' to refresh data")
+    let info = Paragraph::new("Press 'q' to quit | 'r' to refresh data | v1.1.0")
         .style(Style::default().fg(Color::Gray))
         .block(Block::default().borders(Borders::TOP));
     frame.render_widget(info, area);

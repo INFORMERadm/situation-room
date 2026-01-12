@@ -2,6 +2,7 @@ mod app;
 mod event;
 mod tui;
 mod ui;
+mod api;
 
 use anyhow::Result;
 use app::App;
