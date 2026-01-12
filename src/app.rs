@@ -19,26 +19,67 @@ pub struct MapEvent {
     pub description: String,
 }
 
+// Card Data Structures
+#[derive(Debug, Clone)]
+pub struct SportsGame {
+    pub league: String,
+    pub match_up: String,
+    pub score: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct Prediction {
+    pub platform: String,
+    pub question: String,
+    pub odds: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct Flight {
+    pub callsign: String,
+    pub route: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct Stock {
+    pub symbol: String,
+    pub price: f64,
+    pub change: f64,
+    pub percent: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewsItem {
+    pub source: String,
+    pub headline: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct TradeItem {
+    pub entity: String,
+    pub location: String,
+    pub status: String,
+}
+
 #[derive(Debug, Default)]
 pub struct App {
     pub running: bool,
     pub title: String,
     // Panel Data
-    pub sports_data: Vec<String>,
-    pub geo_data: Vec<String>,
-    pub finance_data: Vec<String>,
+    pub sports_data: Vec<SportsGame>,
+    pub geo_data: Vec<NewsItem>,
+    pub finance_data: Vec<Stock>,
     pub finance_history: Vec<u64>,
-    pub prediction_data: Vec<String>,
-    pub flight_data: Vec<String>,
-    pub trade_data: Vec<String>,
-    // New Panels
-    pub pizza_meter: u8, // 0-100 traffic index
-    pub official_comms: Vec<String>,
-    
+    pub prediction_data: Vec<Prediction>,
+    pub flight_data: Vec<Flight>,
+    pub trade_data: Vec<TradeItem>,
     // Map
     pub map_events: Vec<MapEvent>,
-    
-    // Music
+    // ... rest of fields
+    pub pizza_meter: u8,
+    pub official_comms: Vec<String>,
     pub spotify: SpotifyManager,
     pub show_help: bool,
     pub demo_mode: bool,
@@ -74,46 +115,52 @@ impl App {
     }
 
     fn init_empty_state(&mut self) {
-        self.sports_data = vec!["[SYSTEM] Waiting for API feed...".to_string()];
-        self.geo_data = vec!["[SYSTEM] Connecting to satellite...".to_string()];
-        self.finance_data = vec!["[SYSTEM] Market data pending...".to_string()];
-        self.prediction_data = vec!["[SYSTEM] Oracle offline...".to_string()];
-        self.flight_data = vec!["[SYSTEM] Radar initializing...".to_string()];
-        self.trade_data = vec!["[SYSTEM] Logistics stream pending...".to_string()];
-        self.official_comms = vec!["[SECURE] Encrypted channel ready.".to_string()];
+        // We'll leave empty vecs for card view to show nothing or a "No Data" card
     }
 
     fn init_demo_data(&mut self) {
         self.title = "GLOBAL MONITOR (DEMO)".to_string();
+        
         self.sports_data = vec![
-            "NBA: LAL vs BOS - 102-98 (Q4)".to_string(),
-            "NFL: KC vs SF - 24-21 (Final)".to_string(),
-            "UCL: RMA vs MCI - 1-1 (HT)".to_string(),
+            SportsGame { league: "NBA".into(), match_up: "LAL vs BOS".into(), score: "102-98".into(), status: "Q4 2:30".into() },
+            SportsGame { league: "NFL".into(), match_up: "KC vs SF".into(), score: "24-21".into(), status: "FINAL".into() },
+            SportsGame { league: "UCL".into(), match_up: "RMA vs MCI".into(), score: "1-1".into(), status: "HT".into() },
+            SportsGame { league: "F1".into(), match_up: "Monaco GP".into(), score: "VER P1".into(), status: "Lap 45/78".into() },
         ];
+        
         self.geo_data = vec![
-            "Ukraine: Conflict active in East".to_string(),
-            "Taiwan: Naval exercises detected".to_string(),
-            "UN: Security Council Emergency Meeting".to_string(),
+            NewsItem { source: "Reuters".into(), headline: "Conflict escalates in Eastern region".into() },
+            NewsItem { source: "AP".into(), headline: "Naval exercises detected in Pacific".into() },
+            NewsItem { source: "UN".into(), headline: "Security Council emergency meeting called".into() },
         ];
+        
         self.finance_data = vec![
-            "S&P 500: 4,780 (+1.2%)".to_string(),
-            "BTC: $65,430 (+0.5%)".to_string(),
-            "GOLD: $2,045 (+0.1%)".to_string(),
+            Stock { symbol: "S&P 500".into(), price: 4780.0, change: 57.4, percent: 1.2 },
+            Stock { symbol: "BTC".into(), price: 65430.0, change: 320.0, percent: 0.5 },
+            Stock { symbol: "GOLD".into(), price: 2045.0, change: 2.1, percent: 0.1 },
+            Stock { symbol: "NVDA".into(), price: 890.5, change: -12.3, percent: -1.4 },
         ];
+        
         self.finance_history = vec![4700, 4710, 4720, 4715, 4730, 4750, 4740, 4760, 4780];
+        
         self.prediction_data = vec![
-            "Poly: Trump 2024 (45¢)".to_string(),
-            "Kalshi: Fed Rate Cut (60%)".to_string(),
-            "Poly: BTC > 100k 2024 (12¢)".to_string(),
+            Prediction { platform: "Poly".into(), question: "Trump 2024".into(), odds: "45¢".into() },
+            Prediction { platform: "Kalshi".into(), question: "Fed Rate Cut".into(), odds: "60%".into() },
+            Prediction { platform: "Poly".into(), question: "BTC > 100k".into(), odds: "12¢".into() },
         ];
+        
         self.flight_data = vec![
-            "AF1: In Transit (Atlantic)".to_string(),
-            "UA920: Delayed (LHR->SFO)".to_string(),
+            Flight { callsign: "AF1".into(), route: "ADW -> LHR".into(), status: "In Transit".into() },
+            Flight { callsign: "UA920".into(), route: "LHR -> SFO".into(), status: "Delayed".into() },
+            Flight { callsign: "G-5".into(), route: "GVA -> DXB".into(), status: "Landed".into() },
         ];
+        
         self.trade_data = vec![
-            "Ever Given: Suez Canal (Clear)".to_string(),
-            "Baltic Dry Index: 1,500 (+20)".to_string(),
+            TradeItem { entity: "Ever Given".into(), location: "Suez Canal".into(), status: "Clear".into() },
+            TradeItem { entity: "Baltic Dry".into(), location: "Global".into(), status: "1,500 (+20)".into() },
+            TradeItem { entity: "Maersk".into(), location: "Red Sea".into(), status: "Rerouted".into() },
         ];
+
         self.pizza_meter = 15;
         self.official_comms = vec![
             "@POTUS: Monitoring situation in region.".to_string(),
@@ -132,31 +179,33 @@ impl App {
     pub async fn tick(&mut self) {
         let mut rng = rand::rng();
         
-        // Update Spotify Status regardless of demo mode
         self.spotify.update_status().await;
 
-        // Only run data simulation if in Demo Mode
         if self.demo_mode {
-            // Randomly update finance
+            // Update Finance
             if rng.random_bool(0.1) {
-                let change: f64 = rng.random_range(-2.0..2.0);
-                let sign = if change >= 0.0 { "+" } else { "" };
-                let current_val = 4780.0 + rng.random_range(-10.0..10.0);
-                self.finance_data[0] = format!("S&P 500: {:.0} ({}{:.1}%)", current_val, sign, change);
-                
-                self.finance_history.push(current_val as u64);
-                if self.finance_history.len() > 40 {
-                    self.finance_history.remove(0);
+                if let Some(stock) = self.finance_data.first_mut() {
+                    let change_amt = rng.random_range(-2.0..2.0);
+                    stock.price += change_amt;
+                    stock.change += change_amt;
+                    stock.percent = (stock.change / (stock.price - stock.change)) * 100.0;
+                    
+                    self.finance_history.push(stock.price as u64);
+                    if self.finance_history.len() > 40 {
+                        self.finance_history.remove(0);
+                    }
                 }
             }
             
-            // Randomly update Prediction Markets
+            // Update Predictions
             if rng.random_bool(0.05) {
-                let val = rng.random_range(40..60);
-                self.prediction_data[0] = format!("Poly: Trump 2024 ({}¢)", val);
+                if let Some(pred) = self.prediction_data.first_mut() {
+                     let val = rng.random_range(40..60);
+                     pred.odds = format!("{}¢", val);
+                }
             }
 
-            // Randomly blink a map event
+            // Blink Map
             if rng.random_bool(0.05) {
                  if let Some(event) = self.map_events.get_mut(0) {
                      event.lat += rng.random_range(-0.1..0.1);
@@ -164,13 +213,13 @@ impl App {
                  }
             }
             
-            // Randomly fluctuate Pizza Meter
+            // Pizza Meter
             if rng.random_bool(0.02) {
                 let fluctuation = rng.random_range(-5..10);
                 self.pizza_meter = (self.pizza_meter as i32 + fluctuation).clamp(0, 100) as u8;
             }
 
-            // Randomly add a new tweet
+            // Tweets
             if rng.random_bool(0.01) {
                 let leaders = ["@POTUS", "@Pontifex", "@NATO", "@UN", "@ZelenskyyUa", "@KremlinRussia_E"];
                 let msgs = ["Updates expected soon.", "Briefing underway.", "Call concluded.", "Statement issued."];

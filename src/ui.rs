@@ -1,7 +1,7 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::Span,
+    text::{Span, Line},
     widgets::{
         canvas::{Canvas, Map, MapResolution},
         Block, Borders, List, ListItem, Paragraph, BorderType, Sparkline,
@@ -81,7 +81,19 @@ fn render_bottom_info(app: &App, frame: &mut Frame, area: Rect) {
         .split(area);
 
     render_pizza_meter(app, frame, chunks[0]);
-    render_list_panel(frame, chunks[1], " OFFICIAL COMMS ", &app.official_comms, Color::White);
+    
+    // Official Comms Renderer
+    let items: Vec<ListItem> = app.official_comms.iter().map(|comm| {
+        ListItem::new(vec![
+            Line::from(Span::raw(comm)),
+            Line::default() // spacer
+        ])
+    }).collect();
+    
+    let list = List::new(items)
+        .block(Block::default().title(" OFFICIAL COMMS ").borders(Borders::ALL).border_style(Style::default().fg(Color::White)));
+    
+    frame.render_widget(list, chunks[1]);
 }
 
 fn render_pizza_meter(app: &App, frame: &mut Frame, area: Rect) {
@@ -121,9 +133,9 @@ fn render_left_panel(app: &App, frame: &mut Frame, area: Rect) {
         ])
         .split(area);
 
-    render_list_panel(frame, chunks[0], " SPORTS ", &app.sports_data, Color::Yellow);
-    render_list_panel(frame, chunks[1], " FORECASTS ", &app.prediction_data, Color::Magenta);
-    render_list_panel(frame, chunks[2], " AVIATION ", &app.flight_data, Color::Cyan);
+    render_sports_panel(app, frame, chunks[0]);
+    render_prediction_panel(app, frame, chunks[1]);
+    render_flight_panel(app, frame, chunks[2]);
 }
 
 fn render_right_panel(app: &App, frame: &mut Frame, area: Rect) {
@@ -137,8 +149,95 @@ fn render_right_panel(app: &App, frame: &mut Frame, area: Rect) {
         .split(area);
 
     render_finance_panel(app, frame, chunks[0]);
-    render_list_panel(frame, chunks[1], " GLOBAL NEWS ", &app.geo_data, Color::Red);
-    render_list_panel(frame, chunks[2], " LOGISTICS ", &app.trade_data, Color::Blue);
+    render_news_panel(app, frame, chunks[1]);
+    render_trade_panel(app, frame, chunks[2]);
+}
+
+fn render_sports_panel(app: &App, frame: &mut Frame, area: Rect) {
+    let items: Vec<ListItem> = app.sports_data.iter().map(|game| {
+        let content = Line::from(vec![
+            Span::styled(format!("{} | ", game.league), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::raw(format!("{} ", game.match_up)),
+            Span::styled(format!("({})", game.status), Style::default().fg(Color::Gray)),
+        ]);
+        let score = Line::from(vec![
+            Span::raw("  "),
+            Span::styled(&game.score, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        ]);
+        ListItem::new(vec![content, score, Line::default()])
+    }).collect();
+    
+    let list = List::new(items)
+        .block(Block::default().title(" SPORTS ").borders(Borders::ALL).border_style(Style::default().fg(Color::Yellow)));
+    frame.render_widget(list, area);
+}
+
+fn render_prediction_panel(app: &App, frame: &mut Frame, area: Rect) {
+    let items: Vec<ListItem> = app.prediction_data.iter().map(|pred| {
+        let content = Line::from(vec![
+            Span::styled(format!("{} | ", pred.platform), Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+            Span::raw(&pred.question),
+        ]);
+        let odds = Line::from(vec![
+            Span::raw("  "),
+            Span::styled(&pred.odds, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        ]);
+        ListItem::new(vec![content, odds, Line::default()])
+    }).collect();
+
+    let list = List::new(items)
+        .block(Block::default().title(" FORECASTS ").borders(Borders::ALL).border_style(Style::default().fg(Color::Magenta)));
+    frame.render_widget(list, area);
+}
+
+fn render_flight_panel(app: &App, frame: &mut Frame, area: Rect) {
+    let items: Vec<ListItem> = app.flight_data.iter().map(|flight| {
+        let content = Line::from(vec![
+            Span::styled(format!("✈ {} ", flight.callsign), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(&flight.route),
+        ]);
+        let status = Line::from(vec![
+            Span::raw("  "),
+            Span::styled(&flight.status, Style::default().fg(Color::White)),
+        ]);
+        ListItem::new(vec![content, status, Line::default()])
+    }).collect();
+
+    let list = List::new(items)
+        .block(Block::default().title(" AVIATION ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)));
+    frame.render_widget(list, area);
+}
+
+fn render_news_panel(app: &App, frame: &mut Frame, area: Rect) {
+    let items: Vec<ListItem> = app.geo_data.iter().map(|news| {
+        let header = Line::from(vec![
+            Span::styled(format!("📰 {} ", news.source), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        ]);
+        let body = Line::from(Span::raw(&news.headline));
+        ListItem::new(vec![header, body, Line::default()])
+    }).collect();
+
+    let list = List::new(items)
+        .block(Block::default().title(" GLOBAL NEWS ").borders(Borders::ALL).border_style(Style::default().fg(Color::Red)));
+    frame.render_widget(list, area);
+}
+
+fn render_trade_panel(app: &App, frame: &mut Frame, area: Rect) {
+    let items: Vec<ListItem> = app.trade_data.iter().map(|trade| {
+        let header = Line::from(vec![
+            Span::styled(format!("🚢 {} ", trade.entity), Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+            Span::raw(&trade.location),
+        ]);
+        let status = Line::from(vec![
+             Span::raw("  "),
+             Span::styled(&trade.status, Style::default().fg(Color::White)),
+        ]);
+        ListItem::new(vec![header, status, Line::default()])
+    }).collect();
+
+    let list = List::new(items)
+        .block(Block::default().title(" LOGISTICS ").borders(Borders::ALL).border_style(Style::default().fg(Color::Blue)));
+    frame.render_widget(list, area);
 }
 
 fn render_map(app: &App, frame: &mut Frame, area: Rect) {
@@ -181,17 +280,24 @@ fn render_finance_panel(app: &App, frame: &mut Frame, area: Rect) {
      let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(app.finance_data.len() as u16), 
+            Constraint::Length(app.finance_data.len() as u16 * 2), 
             Constraint::Min(1),
         ])
         .split(inner_area);
         
-    let list_items: Vec<ListItem> = app.finance_data
-        .iter()
-        .map(|i| ListItem::new(format!("• {}", i)))
-        .collect();
+    let items: Vec<ListItem> = app.finance_data.iter().map(|stock| {
+        let color = if stock.change >= 0.0 { Color::Green } else { Color::Red };
+        let symbol = if stock.change >= 0.0 { "▲" } else { "▼" };
+        
+        let line = Line::from(vec![
+            Span::styled(format!("{} {} ", symbol, stock.symbol), Style::default().fg(color).add_modifier(Modifier::BOLD)),
+            Span::raw(format!("{:.2}", stock.price)),
+            Span::styled(format!(" ({:+.1}%)", stock.percent), Style::default().fg(color)),
+        ]);
+        ListItem::new(vec![line, Line::default()])
+    }).collect();
     
-    let list = List::new(list_items)
+    let list = List::new(items)
         .style(Style::default().fg(Color::White));
         
     frame.render_widget(list, chunks[0]);
@@ -202,19 +308,6 @@ fn render_finance_panel(app: &App, frame: &mut Frame, area: Rect) {
         .style(Style::default().fg(Color::Green));
         
     frame.render_widget(sparkline, chunks[1]);
-}
-
-fn render_list_panel(frame: &mut Frame, area: Rect, title: &str, items: &[String], color: Color) {
-    let list_items: Vec<ListItem> = items
-        .iter()
-        .map(|i| ListItem::new(format!("• {}", i)))
-        .collect();
-
-    let list = List::new(list_items)
-        .block(Block::default().title(title).borders(Borders::ALL).border_style(Style::default().fg(color)))
-        .style(Style::default().fg(Color::White));
-    
-    frame.render_widget(list, area);
 }
 
 fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
