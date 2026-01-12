@@ -47,7 +47,7 @@ impl App {
     pub fn new() -> Self {
         Self {
             running: true,
-            title: "SITUATION ROOM".to_string(),
+            title: "GLOBAL MONITOR".to_string(),
             show_help: false,
             spotify: SpotifyManager::new(),
             sports_data: vec![

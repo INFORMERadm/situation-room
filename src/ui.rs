@@ -28,7 +28,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
 fn render_header(app: &App, frame: &mut Frame, area: Rect) {
     let time = Local::now().format("%H:%M:%S UTC").to_string();
-    let title_text = format!(" {} - CLASSIFIED | {} ", app.title, time);
+    let title_text = format!(" {} | {} ", app.title, time);
     
     let title = Paragraph::new(title_text)
         .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
@@ -69,8 +69,8 @@ fn render_left_panel(app: &App, frame: &mut Frame, area: Rect) {
         .split(area);
 
     render_list_panel(frame, chunks[0], " SPORTS ", &app.sports_data, Color::Yellow);
-    render_list_panel(frame, chunks[1], " PREDICTION ", &app.prediction_data, Color::Magenta);
-    render_list_panel(frame, chunks[2], " FLIGHTS ", &app.flight_data, Color::Cyan);
+    render_list_panel(frame, chunks[1], " FORECASTS ", &app.prediction_data, Color::Magenta);
+    render_list_panel(frame, chunks[2], " AVIATION ", &app.flight_data, Color::Cyan);
 }
 
 fn render_right_panel(app: &App, frame: &mut Frame, area: Rect) {
@@ -84,13 +84,13 @@ fn render_right_panel(app: &App, frame: &mut Frame, area: Rect) {
         .split(area);
 
     render_finance_panel(app, frame, chunks[0]);
-    render_list_panel(frame, chunks[1], " GEOPOLITICS ", &app.geo_data, Color::Red);
-    render_list_panel(frame, chunks[2], " TRADE ", &app.trade_data, Color::Blue);
+    render_list_panel(frame, chunks[1], " GLOBAL NEWS ", &app.geo_data, Color::Red);
+    render_list_panel(frame, chunks[2], " LOGISTICS ", &app.trade_data, Color::Blue);
 }
 
 fn render_map(app: &App, frame: &mut Frame, area: Rect) {
     let map = Canvas::default()
-        .block(Block::default().title(" WORLD MAP ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)))
+        .block(Block::default().title(" GLOBAL VIEW ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)))
         .x_bounds([-180.0, 180.0])
         .y_bounds([-90.0, 90.0])
         .paint(|ctx| {
@@ -120,7 +120,7 @@ fn render_map(app: &App, frame: &mut Frame, area: Rect) {
 }
 
 fn render_finance_panel(app: &App, frame: &mut Frame, area: Rect) {
-     let block = Block::default().title(" FINANCIAL ").borders(Borders::ALL).border_style(Style::default().fg(Color::Green));
+     let block = Block::default().title(" MARKETS ").borders(Borders::ALL).border_style(Style::default().fg(Color::Green));
      let inner_area = block.inner(area);
      
      frame.render_widget(block, area);
@@ -167,13 +167,13 @@ fn render_list_panel(frame: &mut Frame, area: Rect, title: &str, items: &[String
 fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
     let music_status = if app.spotify.is_playing { "▶" } else { "⏸" };
     let music_info = format!(
-        " TACTICAL AUDIO: {} {} - {} ", 
+        " NOW PLAYING: {} {} - {} ", 
         music_status, 
         app.spotify.current_track, 
         app.spotify.current_artist
     );
 
-    let info_text = " [Q] Quit | [SPACE] Play/Pause | [N] Next | [?] Help | v1.2.0 ";
+    let info_text = " [Q] Quit | [SPACE] Play/Pause | [N] Next | [?] Help | v1.3.0 ";
     
     let layout = Layout::default()
         .direction(Direction::Horizontal)
