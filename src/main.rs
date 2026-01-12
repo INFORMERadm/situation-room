@@ -10,28 +10,34 @@ use app::App;
 use event::{Event, EventHandler};
 use std::time::Duration;
 use tui::Tui;
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Enable demo mode with simulated data
+    #[arg(short, long)]
+    demo: bool,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load env vars
     dotenv::dotenv().ok();
+    
+    // Parse args
+    let args = Args::parse();
 
     let mut terminal = tui::init()?;
-    let app_result = run_app(&mut terminal).await;
+    let app_result = run_app(&mut terminal, args.demo).await;
     tui::restore()?;
     app_result
 }
 
-async fn run_app(terminal: &mut Tui) -> Result<()> {
-    let mut app = App::new();
+async fn run_app(terminal: &mut Tui, demo_mode: bool) -> Result<()> {
+    let mut app = App::new(demo_mode);
     
     // Attempt Spotify Init (will prompt if env vars exist)
-    // We run this *before* entering the TUI loop to allow stdin interaction for the token URL if needed
-    // However, since we are in raw mode inside tui::init(), printing to stdout/stdin is tricky.
-    // Ideally, we'd initialize BEFORE tui::init(), but we want the TUI up.
-    // Strategy: We'll initialize it in the background, but if it needs auth, 
-    // it will fail or print to logs. For a robust CLI, we'd check for token first.
-    // For this prototype, let's just initialize it.
     let _ = app.spotify.init().await;
 
     let tick_rate = Duration::from_millis(250);

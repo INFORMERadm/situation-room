@@ -39,115 +39,148 @@ pub struct App {
     pub map_events: Vec<MapEvent>,
     
     // Music
-    // We wrap in Arc<Mutex> simply because we might want to spawn the update task separately
-    // But for simplicity in this prototype, we'll keep it direct or use a simplified approach.
-    // Actually, since SpotifyManager handles async internals, we can keep it here.
-    // However, App needs to be Send for some frameworks, but here we run in one main loop.
     pub spotify: SpotifyManager,
     pub show_help: bool,
+    pub demo_mode: bool,
 }
 
 impl App {
-    pub fn new() -> Self {
-        Self {
+    pub fn new(demo_mode: bool) -> Self {
+        let mut app = Self {
             running: true,
             title: "GLOBAL MONITOR".to_string(),
             show_help: false,
+            demo_mode,
             spotify: SpotifyManager::new(),
-            sports_data: vec![
-                "NBA: LAL vs BOS - 102-98 (Q4)".to_string(),
-                "NFL: KC vs SF - 24-21 (Final)".to_string(),
-                "UCL: RMA vs MCI - 1-1 (HT)".to_string(),
-            ],
-            geo_data: vec![
-                "Ukraine: Conflict active in East".to_string(),
-                "Taiwan: Naval exercises detected".to_string(),
-                "UN: Security Council Emergency Meeting".to_string(),
-            ],
-            finance_data: vec![
-                "S&P 500: 4,780 (+1.2%)".to_string(),
-                "BTC: $65,430 (+0.5%)".to_string(),
-                "GOLD: $2,045 (+0.1%)".to_string(),
-            ],
-            finance_history: vec![4700, 4710, 4720, 4715, 4730, 4750, 4740, 4760, 4780],
-            prediction_data: vec![
-                "Poly: Trump 2024 (45¢)".to_string(),
-                "Kalshi: Fed Rate Cut (60%)".to_string(),
-                "Poly: BTC > 100k 2024 (12¢)".to_string(),
-            ],
-            flight_data: vec![
-                "AF1: In Transit (Atlantic)".to_string(),
-                "UA920: Delayed (LHR->SFO)".to_string(),
-            ],
-            trade_data: vec![
-                "Ever Given: Suez Canal (Clear)".to_string(),
-                "Baltic Dry Index: 1,500 (+20)".to_string(),
-            ],
-            pizza_meter: 15, // Normal baseline
-            official_comms: vec![
-                "@POTUS: Monitoring situation in region.".to_string(),
-                "@Elysee: Strong commitment to stability.".to_string(),
-            ],
-            map_events: vec![
-                MapEvent { lat: 50.45, lon: 30.52, category: EventCategory::Geopolitics, description: "Kyiv".into() },
-                MapEvent { lat: 25.03, lon: 121.56, category: EventCategory::Geopolitics, description: "Taipei".into() },
-                MapEvent { lat: 40.71, lon: -74.00, category: EventCategory::News, description: "NY SE".into() },
-                MapEvent { lat: 34.05, lon: -118.24, category: EventCategory::Sports, description: "LA Arena".into() },
-                MapEvent { lat: 51.50, lon: -0.12, category: EventCategory::Flight, description: "LHR".into() },
-                MapEvent { lat: 1.35, lon: 103.81, category: EventCategory::Trade, description: "Singapore Port".into() },
-            ],
+            sports_data: vec![],
+            geo_data: vec![],
+            finance_data: vec![],
+            finance_history: vec![],
+            prediction_data: vec![],
+            flight_data: vec![],
+            trade_data: vec![],
+            pizza_meter: 0,
+            official_comms: vec![],
+            map_events: vec![],
+        };
+
+        if demo_mode {
+            app.init_demo_data();
+        } else {
+            app.init_empty_state();
         }
+
+        app
+    }
+
+    fn init_empty_state(&mut self) {
+        self.sports_data = vec!["[SYSTEM] Waiting for API feed...".to_string()];
+        self.geo_data = vec!["[SYSTEM] Connecting to satellite...".to_string()];
+        self.finance_data = vec!["[SYSTEM] Market data pending...".to_string()];
+        self.prediction_data = vec!["[SYSTEM] Oracle offline...".to_string()];
+        self.flight_data = vec!["[SYSTEM] Radar initializing...".to_string()];
+        self.trade_data = vec!["[SYSTEM] Logistics stream pending...".to_string()];
+        self.official_comms = vec!["[SECURE] Encrypted channel ready.".to_string()];
+    }
+
+    fn init_demo_data(&mut self) {
+        self.title = "GLOBAL MONITOR (DEMO)".to_string();
+        self.sports_data = vec![
+            "NBA: LAL vs BOS - 102-98 (Q4)".to_string(),
+            "NFL: KC vs SF - 24-21 (Final)".to_string(),
+            "UCL: RMA vs MCI - 1-1 (HT)".to_string(),
+        ];
+        self.geo_data = vec![
+            "Ukraine: Conflict active in East".to_string(),
+            "Taiwan: Naval exercises detected".to_string(),
+            "UN: Security Council Emergency Meeting".to_string(),
+        ];
+        self.finance_data = vec![
+            "S&P 500: 4,780 (+1.2%)".to_string(),
+            "BTC: $65,430 (+0.5%)".to_string(),
+            "GOLD: $2,045 (+0.1%)".to_string(),
+        ];
+        self.finance_history = vec![4700, 4710, 4720, 4715, 4730, 4750, 4740, 4760, 4780];
+        self.prediction_data = vec![
+            "Poly: Trump 2024 (45¢)".to_string(),
+            "Kalshi: Fed Rate Cut (60%)".to_string(),
+            "Poly: BTC > 100k 2024 (12¢)".to_string(),
+        ];
+        self.flight_data = vec![
+            "AF1: In Transit (Atlantic)".to_string(),
+            "UA920: Delayed (LHR->SFO)".to_string(),
+        ];
+        self.trade_data = vec![
+            "Ever Given: Suez Canal (Clear)".to_string(),
+            "Baltic Dry Index: 1,500 (+20)".to_string(),
+        ];
+        self.pizza_meter = 15;
+        self.official_comms = vec![
+            "@POTUS: Monitoring situation in region.".to_string(),
+            "@Elysee: Strong commitment to stability.".to_string(),
+        ];
+        self.map_events = vec![
+            MapEvent { lat: 50.45, lon: 30.52, category: EventCategory::Geopolitics, description: "Kyiv".into() },
+            MapEvent { lat: 25.03, lon: 121.56, category: EventCategory::Geopolitics, description: "Taipei".into() },
+            MapEvent { lat: 40.71, lon: -74.00, category: EventCategory::News, description: "NY SE".into() },
+            MapEvent { lat: 34.05, lon: -118.24, category: EventCategory::Sports, description: "LA Arena".into() },
+            MapEvent { lat: 51.50, lon: -0.12, category: EventCategory::Flight, description: "LHR".into() },
+            MapEvent { lat: 1.35, lon: 103.81, category: EventCategory::Trade, description: "Singapore Port".into() },
+        ];
     }
 
     pub async fn tick(&mut self) {
         let mut rng = rand::rng();
         
-        // Update Spotify Status
+        // Update Spotify Status regardless of demo mode
         self.spotify.update_status().await;
-        
-        // Randomly update finance
-        if rng.random_bool(0.1) {
-            let change: f64 = rng.random_range(-2.0..2.0);
-            let sign = if change >= 0.0 { "+" } else { "" };
-            let current_val = 4780.0 + rng.random_range(-10.0..10.0);
-            self.finance_data[0] = format!("S&P 500: {:.0} ({}{:.1}%)", current_val, sign, change);
-            
-            self.finance_history.push(current_val as u64);
-            if self.finance_history.len() > 40 {
-                self.finance_history.remove(0);
+
+        // Only run data simulation if in Demo Mode
+        if self.demo_mode {
+            // Randomly update finance
+            if rng.random_bool(0.1) {
+                let change: f64 = rng.random_range(-2.0..2.0);
+                let sign = if change >= 0.0 { "+" } else { "" };
+                let current_val = 4780.0 + rng.random_range(-10.0..10.0);
+                self.finance_data[0] = format!("S&P 500: {:.0} ({}{:.1}%)", current_val, sign, change);
+                
+                self.finance_history.push(current_val as u64);
+                if self.finance_history.len() > 40 {
+                    self.finance_history.remove(0);
+                }
             }
-        }
-        
-        // Randomly update Prediction Markets
-        if rng.random_bool(0.05) {
-            let val = rng.random_range(40..60);
-            self.prediction_data[0] = format!("Poly: Trump 2024 ({}¢)", val);
-        }
-
-        // Randomly blink a map event
-        if rng.random_bool(0.05) {
-             if let Some(event) = self.map_events.get_mut(0) {
-                 event.lat += rng.random_range(-0.1..0.1);
-                 event.lon += rng.random_range(-0.1..0.1);
-             }
-        }
-        
-        // Randomly fluctuate Pizza Meter (Pentagon Traffic)
-        if rng.random_bool(0.02) {
-            let fluctuation = rng.random_range(-5..10);
-            self.pizza_meter = (self.pizza_meter as i32 + fluctuation).clamp(0, 100) as u8;
-        }
-
-        // Randomly add a new tweet
-        if rng.random_bool(0.01) {
-            let leaders = ["@POTUS", "@Pontifex", "@NATO", "@UN", "@ZelenskyyUa", "@KremlinRussia_E"];
-            let msgs = ["Updates expected soon.", "Briefing underway.", "Call concluded.", "Statement issued."];
-            let leader = leaders[rng.random_range(0..leaders.len())];
-            let msg = msgs[rng.random_range(0..msgs.len())];
             
-            self.official_comms.insert(0, format!("{}: {}", leader, msg));
-            if self.official_comms.len() > 10 {
-                self.official_comms.pop();
+            // Randomly update Prediction Markets
+            if rng.random_bool(0.05) {
+                let val = rng.random_range(40..60);
+                self.prediction_data[0] = format!("Poly: Trump 2024 ({}¢)", val);
+            }
+
+            // Randomly blink a map event
+            if rng.random_bool(0.05) {
+                 if let Some(event) = self.map_events.get_mut(0) {
+                     event.lat += rng.random_range(-0.1..0.1);
+                     event.lon += rng.random_range(-0.1..0.1);
+                 }
+            }
+            
+            // Randomly fluctuate Pizza Meter
+            if rng.random_bool(0.02) {
+                let fluctuation = rng.random_range(-5..10);
+                self.pizza_meter = (self.pizza_meter as i32 + fluctuation).clamp(0, 100) as u8;
+            }
+
+            // Randomly add a new tweet
+            if rng.random_bool(0.01) {
+                let leaders = ["@POTUS", "@Pontifex", "@NATO", "@UN", "@ZelenskyyUa", "@KremlinRussia_E"];
+                let msgs = ["Updates expected soon.", "Briefing underway.", "Call concluded.", "Statement issued."];
+                let leader = leaders[rng.random_range(0..leaders.len())];
+                let msg = msgs[rng.random_range(0..msgs.len())];
+                
+                self.official_comms.insert(0, format!("{}: {}", leader, msg));
+                if self.official_comms.len() > 10 {
+                    self.official_comms.pop();
+                }
             }
         }
     }
