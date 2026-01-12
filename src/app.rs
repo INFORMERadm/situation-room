@@ -1,5 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use rand::Rng;
+use crate::music::SpotifyManager;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EventCategory {
@@ -32,6 +33,14 @@ pub struct App {
     pub trade_data: Vec<String>,
     // Map
     pub map_events: Vec<MapEvent>,
+    
+    // Music
+    // We wrap in Arc<Mutex> simply because we might want to spawn the update task separately
+    // But for simplicity in this prototype, we'll keep it direct or use a simplified approach.
+    // Actually, since SpotifyManager handles async internals, we can keep it here.
+    // However, App needs to be Send for some frameworks, but here we run in one main loop.
+    pub spotify: SpotifyManager,
+    pub show_help: bool,
 }
 
 impl App {
@@ -39,6 +48,8 @@ impl App {
         Self {
             running: true,
             title: "SITUATION ROOM".to_string(),
+            show_help: false,
+            spotify: SpotifyManager::new(),
             sports_data: vec![
                 "NBA: LAL vs BOS - 102-98 (Q4)".to_string(),
                 "NFL: KC vs SF - 24-21 (Final)".to_string(),
@@ -79,8 +90,11 @@ impl App {
         }
     }
 
-    pub fn tick(&mut self) {
+    pub async fn tick(&mut self) {
         let mut rng = rand::rng();
+        
+        // Update Spotify Status
+        self.spotify.update_status().await;
         
         // Randomly update finance
         if rng.random_bool(0.1) {
@@ -114,9 +128,13 @@ impl App {
         self.running = false;
     }
 
-    pub fn on_key(&mut self, key: KeyEvent) {
+    pub async fn on_key(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => self.quit(),
+            KeyCode::Char(' ') => self.spotify.toggle_play().await,
+            KeyCode::Char('n') => self.spotify.next_track().await,
+            KeyCode::Char('p') => self.spotify.previous_track().await,
+            KeyCode::Char('?') => self.show_help = !self.show_help,
             _ => {}
         }
     }

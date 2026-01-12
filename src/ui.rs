@@ -164,9 +164,34 @@ fn render_list_panel(frame: &mut Frame, area: Rect, title: &str, items: &[String
     frame.render_widget(list, area);
 }
 
-fn render_footer(_app: &App, frame: &mut Frame, area: Rect) {
-    let info = Paragraph::new("Press 'q' to quit | 'r' to refresh data | v1.1.0")
-        .style(Style::default().fg(Color::Gray))
+fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
+    let music_status = if app.spotify.is_playing { "▶" } else { "⏸" };
+    let music_info = format!(
+        " TACTICAL AUDIO: {} {} - {} ", 
+        music_status, 
+        app.spotify.current_track, 
+        app.spotify.current_artist
+    );
+
+    let info_text = " [Q] Quit | [SPACE] Play/Pause | [N] Next | [?] Help | v1.2.0 ";
+    
+    let layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Min(0),
+            Constraint::Length(info_text.len() as u16 + 2),
+        ])
+        .split(area);
+
+    let music = Paragraph::new(music_info)
+        .style(Style::default().fg(Color::Green))
         .block(Block::default().borders(Borders::TOP));
-    frame.render_widget(info, area);
+        
+    let controls = Paragraph::new(info_text)
+        .style(Style::default().fg(Color::Gray))
+        .block(Block::default().borders(Borders::TOP))
+        .alignment(ratatui::layout::Alignment::Right);
+
+    frame.render_widget(music, layout[0]);
+    frame.render_widget(controls, layout[1]);
 }
