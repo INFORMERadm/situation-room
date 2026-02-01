@@ -2,3 +2,6 @@ target/
 **/*.rs.bk
 Cargo.lock
 .DS_Store
+
+# Environment variables
+.env
