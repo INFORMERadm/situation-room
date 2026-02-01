@@ -97,30 +97,58 @@ fn render_bottom_info(app: &App, frame: &mut Frame, area: Rect) {
 }
 
 fn render_pizza_meter(app: &App, frame: &mut Frame, area: Rect) {
-    // Visualize Pizza Index as a Gauge
-    use ratatui::widgets::Gauge;
+    use ratatui::widgets::BarChart;
     
-    let block = Block::default()
-        .title(" PENTAGON PIZZA INDEX ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow));
-    
-    // Determine color based on index
-    let color = match app.pizza_meter {
-        0..=30 => Color::Green,
-        31..=70 => Color::Yellow,
-        _ => Color::Red,
+    // DOUGHCON color based on level (1=critical red, 5=calm blue)
+    let (color, title_suffix) = match app.pizza_index.doughcon {
+        1 => (Color::Red, "DOUGHCON 1"),
+        2 => (Color::LightRed, "DOUGHCON 2"),
+        3 => (Color::Yellow, "DOUGHCON 3"),
+        4 => (Color::Green, "DOUGHCON 4"),
+        _ => (Color::Blue, "DOUGHCON 5"),
     };
     
-    let label = format!("{}% (Baseline Normal)", app.pizza_meter);
+    let block = Block::default()
+        .title(format!(" PENTAGON PIZZA INDEX | {} ", title_suffix))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(color));
     
-    let gauge = Gauge::default()
-        .block(block)
-        .gauge_style(Style::default().fg(color))
-        .percent(app.pizza_meter as u16)
-        .label(label);
-        
-    frame.render_widget(gauge, area);
+    let inner_area = block.inner(area);
+    frame.render_widget(block, area);
+    
+    // Split into status text and bar chart
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(2),
+            Constraint::Min(1),
+        ])
+        .split(inner_area);
+    
+    // Status text
+    let status_text = format!("{}: {}%", app.pizza_index.status, app.pizza_index.index);
+    let status = Paragraph::new(status_text)
+        .style(Style::default().fg(color).add_modifier(Modifier::BOLD));
+    frame.render_widget(status, chunks[0]);
+    
+    // Simple bar representation using current activity level
+    // Similar to Google Maps "Popular Times" style
+    let data: Vec<(&str, u64)> = vec![
+        ("12p", (app.pizza_index.index as u64).saturating_sub(20).max(10)),
+        ("3p", (app.pizza_index.index as u64).saturating_sub(10).max(15)),
+        ("6p", app.pizza_index.index as u64),
+        ("9p", (app.pizza_index.index as u64).saturating_sub(15).max(10)),
+        ("12a", (app.pizza_index.index as u64).saturating_sub(30).max(5)),
+    ];
+    
+    let bar_chart = BarChart::default()
+        .data(&data)
+        .bar_width(3)
+        .bar_gap(1)
+        .bar_style(Style::default().fg(color))
+        .value_style(Style::default().fg(Color::White));
+    
+    frame.render_widget(bar_chart, chunks[1]);
 }
 
 fn render_left_panel(app: &App, frame: &mut Frame, area: Rect) {
@@ -252,7 +280,7 @@ fn render_map(app: &App, frame: &mut Frame, area: Rect) {
                 resolution: MapResolution::High,
             });
             
-            // Draw Events
+            // Draw static map events (legacy)
             for event in &app.map_events {
                  let (symbol, color) = match event.category {
                      EventCategory::Geopolitics => ("📍", Color::Red),
@@ -263,9 +291,21 @@ fn render_map(app: &App, frame: &mut Frame, area: Rect) {
                  };
                  
                  ctx.print(event.lon, event.lat, Span::styled(symbol, Style::default().fg(color)));
-                 // Only show text if zoomed in or sparse? For now just show it.
-                 // Offset text slightly
                  ctx.print(event.lon + 2.0, event.lat, Span::raw(event.description.clone()));
+            }
+            
+            // Draw live flight markers
+            for flight in &app.flight_data {
+                if let (Some(lat), Some(lon)) = (flight.lat, flight.lon) {
+                    ctx.print(lon, lat, Span::styled("✈", Style::default().fg(Color::Cyan)));
+                }
+            }
+            
+            // Draw trade/shipping markers
+            for trade in &app.trade_data {
+                if let (Some(lat), Some(lon)) = (trade.lat, trade.lon) {
+                    ctx.print(lon, lat, Span::styled("🚢", Style::default().fg(Color::Blue)));
+                }
             }
         });
     frame.render_widget(map, area);
@@ -277,14 +317,6 @@ fn render_finance_panel(app: &App, frame: &mut Frame, area: Rect) {
      
      frame.render_widget(block, area);
      
-     let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(app.finance_data.len() as u16 * 2), 
-            Constraint::Min(1),
-        ])
-        .split(inner_area);
-        
     let items: Vec<ListItem> = app.finance_data.iter().map(|stock| {
         let color = if stock.change >= 0.0 { Color::Green } else { Color::Red };
         let symbol = if stock.change >= 0.0 { "▲" } else { "▼" };
@@ -300,14 +332,7 @@ fn render_finance_panel(app: &App, frame: &mut Frame, area: Rect) {
     let list = List::new(items)
         .style(Style::default().fg(Color::White));
         
-    frame.render_widget(list, chunks[0]);
-    
-    let sparkline = Sparkline::default()
-        .block(Block::default().title("Trend").borders(Borders::TOP))
-        .data(&app.finance_history)
-        .style(Style::default().fg(Color::Green));
-        
-    frame.render_widget(sparkline, chunks[1]);
+    frame.render_widget(list, inner_area);
 }
 
 fn render_footer(app: &App, frame: &mut Frame, area: Rect) {

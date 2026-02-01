@@ -4,38 +4,27 @@ mod tui;
 mod ui;
 mod api;
 mod music;
+mod data;
 
 use anyhow::Result;
 use app::App;
 use event::{Event, EventHandler};
 use std::time::Duration;
 use tui::Tui;
-use clap::Parser;
-
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// Enable demo mode with simulated data
-    #[arg(short, long)]
-    demo: bool,
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load env vars
     dotenv::dotenv().ok();
-    
-    // Parse args
-    let args = Args::parse();
 
     let mut terminal = tui::init()?;
-    let app_result = run_app(&mut terminal, args.demo).await;
+    let app_result = run_app(&mut terminal).await;
     tui::restore()?;
     app_result
 }
 
-async fn run_app(terminal: &mut Tui, demo_mode: bool) -> Result<()> {
-    let mut app = App::new(demo_mode);
+async fn run_app(terminal: &mut Tui) -> Result<()> {
+    let mut app = App::new();
     
     // Attempt Spotify Init (will prompt if env vars exist)
     let _ = app.spotify.init().await;
