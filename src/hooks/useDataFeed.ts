@@ -45,6 +45,7 @@ function generateFlights(): Flight[] {
 
 function generateMarkets(): MarketItem[] {
   return [
+    { symbol: 'EUR/USD', price: 1.0842 + randomBetween(-0.005, 0.005), change: 0.12 + randomBetween(-0.3, 0.3), isCrypto: false },
     { symbol: 'BTC', price: 78533 + randomBetween(-500, 500), change: -6.2 + randomBetween(-1, 1), isCrypto: true },
     { symbol: 'ETH', price: 2443.72 + randomBetween(-50, 50), change: -9.1 + randomBetween(-1, 1), isCrypto: true },
     { symbol: 'SOL', price: 105.02 + randomBetween(-5, 5), change: -10.7 + randomBetween(-1, 1), isCrypto: true },

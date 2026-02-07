@@ -26,10 +26,12 @@ export default function MarketsPanel({ data }: Props) {
             <span style={{ color, fontWeight: 700 }}>{arrow}</span>
             <span style={{ color: '#f0f6fc', fontWeight: 700 }}>{m.symbol}</span>
             <span style={{ color: '#c9d1d9' }}>
-              {m.price.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {m.symbol === 'EUR/USD'
+                ? m.price.toFixed(4)
+                : m.price.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
             </span>
             <span style={{ color, fontWeight: 600, fontSize: 11 }}>
               ({m.change >= 0 ? '+' : ''}{m.change.toFixed(1)}%)
