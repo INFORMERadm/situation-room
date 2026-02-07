@@ -76,10 +76,10 @@ export default function WorldMap({ markers }: Props) {
     const cols = Math.floor(w / STEP);
     const rows = Math.floor(h / STEP);
 
-    ctx.fillStyle = '#080c12';
+    ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, w, h);
 
-    ctx.fillStyle = '#2a2d32';
+    ctx.fillStyle = '#151a21';
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         ctx.fillRect(c * STEP, r * STEP, CELL, CELL);
@@ -114,7 +114,7 @@ export default function WorldMap({ markers }: Props) {
           c > 0 && grid[r * cols + (c - 1)],
           c < cols - 1 && grid[r * cols + (c + 1)],
         ].filter(Boolean).length;
-        ctx.fillStyle = neighbors >= 2 ? '#1a6a7a' : '#155565';
+        ctx.fillStyle = neighbors >= 2 ? '#6b7280' : '#4b5563';
         ctx.fillRect(c * STEP, r * STEP, CELL, CELL);
       }
     }
@@ -168,7 +168,7 @@ export default function WorldMap({ markers }: Props) {
       ref={containerRef}
       style={{
         border: '1px solid #1a3a4a',
-        background: '#080c12',
+        background: '#0d1117',
         position: 'relative',
         overflow: 'hidden',
         height: '100%',
