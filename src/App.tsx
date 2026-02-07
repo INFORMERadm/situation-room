@@ -66,7 +66,7 @@ export default function App() {
           <div style={colChildStyle}><AviationPanel data={data.flights} /></div>
         </div>
         <div style={centerStyle}>
-          <WorldMap markers={data.markers} />
+          <WorldMap />
           <div style={centerBottomStyle}>
             <PizzaIndex data={data.pizza} />
             <OfficialComms messages={data.comms} />
