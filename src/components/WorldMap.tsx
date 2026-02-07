@@ -79,7 +79,7 @@ export default function WorldMap({ markers }: Props) {
     ctx.fillStyle = '#080c12';
     ctx.fillRect(0, 0, w, h);
 
-    ctx.fillStyle = '#0c1118';
+    ctx.fillStyle = '#2a2d32';
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         ctx.fillRect(c * STEP, r * STEP, CELL, CELL);
@@ -172,6 +172,7 @@ export default function WorldMap({ markers }: Props) {
         position: 'relative',
         overflow: 'hidden',
         height: '100%',
+        paddingTop: 24,
       }}
     >
       <div
