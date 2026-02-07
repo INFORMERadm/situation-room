@@ -134,7 +134,7 @@ function mapQuote(
 }
 
 async function fetchMarkets() {
-  const cached = await getCached("markets", 120_000);
+  const cached = await getCached("markets", 30_000);
   if (cached) return cached;
 
   const markets: unknown[] = [];

@@ -3,6 +3,41 @@ import type { MarketItem, MarketCategory, SearchResult, QuoteDetail } from '../t
 import { fetchSymbolSearch, fetchQuote } from '../lib/api';
 import Panel from './Panel';
 
+function useFlashChanges(data: MarketItem[]) {
+  const prevRef = useRef<Map<string, number>>(new Map());
+  const [flashes, setFlashes] = useState<Map<string, 'up' | 'down'>>(new Map());
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    const newFlashes = new Map<string, 'up' | 'down'>();
+
+    for (const item of data) {
+      const oldPrice = prev.get(item.symbol);
+      if (oldPrice !== undefined && oldPrice !== item.price) {
+        newFlashes.set(item.symbol, item.price > oldPrice ? 'up' : 'down');
+      }
+    }
+
+    if (newFlashes.size > 0) {
+      setFlashes(newFlashes);
+      const timer = setTimeout(() => setFlashes(new Map()), 1200);
+      return () => clearTimeout(timer);
+    }
+
+    const next = new Map<string, number>();
+    for (const item of data) next.set(item.symbol, item.price);
+    prevRef.current = next;
+  }, [data]);
+
+  useEffect(() => {
+    const next = new Map<string, number>();
+    for (const item of data) next.set(item.symbol, item.price);
+    prevRef.current = next;
+  }, [data]);
+
+  return flashes;
+}
+
 interface Props {
   data: MarketItem[];
 }
@@ -196,6 +231,7 @@ function QuoteCard({ quote, onClose }: { quote: QuoteDetail; onClose: () => void
 
 export default function MarketsPanel({ data }: Props) {
   const [selectedQuote, setSelectedQuote] = useState<QuoteDetail | null>(null);
+  const flashes = useFlashChanges(data);
 
   const grouped = CATEGORY_ORDER.reduce<Record<MarketCategory, MarketItem[]>>((acc, cat) => {
     acc[cat] = data.filter((m) => m.category === cat);
@@ -223,6 +259,12 @@ export default function MarketsPanel({ data }: Props) {
               const color = isUp ? '#00ff88' : '#ff4757';
               const arrow = isUp ? '\u25B2' : '\u25BC';
               const displaySymbol = m.name || m.symbol;
+              const flash = flashes.get(m.symbol);
+              const flashBg = flash === 'up'
+                ? 'rgba(0, 255, 136, 0.15)'
+                : flash === 'down'
+                  ? 'rgba(255, 71, 87, 0.15)'
+                  : 'transparent';
               return (
                 <div
                   key={i}
@@ -232,6 +274,11 @@ export default function MarketsPanel({ data }: Props) {
                     alignItems: 'baseline',
                     gap: 6,
                     fontSize: 11,
+                    background: flashBg,
+                    transition: 'background 0.3s ease-out',
+                    padding: '1px 3px',
+                    margin: '0 -3px 3px',
+                    borderRadius: 2,
                   }}
                 >
                   <span style={{ color, fontWeight: 700, fontSize: 9 }}>{arrow}</span>

@@ -166,7 +166,7 @@ export function useDataFeed() {
   useEffect(() => {
     const feeds = [
       { name: 'sports', interval: 30000 },
-      { name: 'markets', interval: 15000 },
+      { name: 'markets', interval: 10000 },
       { name: 'news', interval: 60000 },
       { name: 'flights', interval: 30000 },
       { name: 'pizza', interval: 60000 },
