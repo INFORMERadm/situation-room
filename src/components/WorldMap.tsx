@@ -172,7 +172,7 @@ export default function WorldMap({ markers }: Props) {
         position: 'relative',
         overflow: 'hidden',
         height: '100%',
-        paddingTop: 24,
+        paddingTop: 104,
       }}
     >
       <div
