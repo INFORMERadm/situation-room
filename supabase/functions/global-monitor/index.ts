@@ -103,22 +103,57 @@ async function fetchMarkets() {
 }
 
 async function fetchNews() {
-  try {
-    const res = await fetch(
-      "https://api.gdeltproject.org/api/v2/doc/doc?query=geopolitics%20OR%20military%20OR%20intelligence&mode=ArtList&maxrecords=5&format=json&sort=DateDesc"
-    );
-    const json = await res.json();
-    const articles = json.articles?.slice(0, 5) || [];
-    return articles.map(
-      (a: { domain: string; title: string; seendate: string }) => ({
-        source: a.domain || "unknown",
-        headline:
-          a.title?.length > 80 ? a.title.slice(0, 77) + "..." : a.title || "",
-      })
-    );
-  } catch {
-    return [];
+  const sources = [
+    {
+      url: "https://api.gdeltproject.org/api/v2/doc/doc?query=geopolitics%20OR%20military&mode=ArtList&maxrecords=8&format=json&sort=DateDesc",
+      parse: (json: Record<string, unknown>) => {
+        const articles =
+          (json.articles as { domain: string; title: string }[]) || [];
+        return articles.slice(0, 5).map((a) => ({
+          source: (a.domain || "unknown").replace(/^www\./, ""),
+          headline:
+            a.title?.length > 80
+              ? a.title.slice(0, 77) + "..."
+              : a.title || "",
+        }));
+      },
+    },
+    {
+      url: "https://api.gdeltproject.org/api/v2/doc/doc?query=defense%20OR%20pentagon%20OR%20nato&mode=ArtList&maxrecords=8&format=json&sort=DateDesc",
+      parse: (json: Record<string, unknown>) => {
+        const articles =
+          (json.articles as { domain: string; title: string }[]) || [];
+        return articles.slice(0, 5).map((a) => ({
+          source: (a.domain || "unknown").replace(/^www\./, ""),
+          headline:
+            a.title?.length > 80
+              ? a.title.slice(0, 77) + "..."
+              : a.title || "",
+        }));
+      },
+    },
+  ];
+
+  for (const src of sources) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(src.url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text.startsWith("{") && !text.startsWith("[")) continue;
+      const json = JSON.parse(text);
+      const results = src.parse(json);
+      if (results.length > 0) return results;
+    } catch {
+      continue;
+    }
   }
+
+  return [
+    { source: "gdelt", headline: "News feed temporarily unavailable" },
+  ];
 }
 
 async function fetchFlights() {

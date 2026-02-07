@@ -1,22 +1,55 @@
 import { useRef, useEffect, useCallback } from 'react';
 import type { MapMarker } from '../types';
-import { COASTLINES, GRID_LINES } from '../lib/mapData';
+import { COASTLINES } from '../lib/mapData';
 
 interface Props {
   markers: MapMarker[];
 }
 
-function projectMercator(
+const CELL = 4;
+const GAP = 1;
+const STEP = CELL + GAP;
+
+function latLonToGrid(
   lat: number,
   lon: number,
-  w: number,
-  h: number,
+  cols: number,
+  rows: number,
 ): [number, number] {
-  const x = ((lon + 180) / 360) * w;
+  const col = Math.round(((lon + 180) / 360) * (cols - 1));
   const latRad = (lat * Math.PI) / 180;
   const mercN = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
-  const y = h / 2 - (w * mercN) / (2 * Math.PI);
-  return [x, y];
+  const row = Math.round((rows - 1) / 2 - ((cols - 1) * mercN) / (2 * Math.PI));
+  return [col, row];
+}
+
+function bresenham(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  grid: Uint8Array,
+  cols: number,
+  rows: number,
+) {
+  let dx = Math.abs(x1 - x0);
+  let dy = Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
+  let cx = x0;
+  let cy = y0;
+
+  for (;;) {
+    if (cx >= 0 && cx < cols && cy >= 0 && cy < rows) {
+      grid[cy * cols + cx] = 1;
+    }
+    if (cx === x1 && cy === y1) break;
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; cx += sx; }
+    if (e2 < dx) { err += dx; cy += sy; }
+    if (dx === 0 && dy === 0) break;
+  }
 }
 
 export default function WorldMap({ markers }: Props) {
@@ -38,51 +71,51 @@ export default function WorldMap({ markers }: Props) {
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
     ctx.scale(dpr, dpr);
-    ctx.fillStyle = '#0a0e14';
+
+    const cols = Math.floor(w / STEP);
+    const rows = Math.floor(h / STEP);
+
+    ctx.fillStyle = '#080c12';
     ctx.fillRect(0, 0, w, h);
 
-    ctx.strokeStyle = '#0f1a22';
-    ctx.lineWidth = 0.5;
-    for (const g of GRID_LINES) {
-      if (g.lat !== undefined) {
-        const [, y] = projectMercator(g.lat, 0, w, h);
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
+    ctx.fillStyle = '#0c1118';
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        ctx.fillRect(c * STEP, r * STEP, CELL, CELL);
       }
     }
 
-    ctx.strokeStyle = '#2a5a6a';
-    ctx.lineWidth = 1.2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    const grid = new Uint8Array(cols * rows);
 
     for (const segment of COASTLINES) {
-      if (segment.length < 2) continue;
-      ctx.beginPath();
-      const [startY, startX] = segment[0];
-      const [sx, sy] = projectMercator(startY, startX, w, h);
-      ctx.moveTo(sx, sy);
-      for (let i = 1; i < segment.length; i++) {
-        const [lat, lon] = segment[i];
-        const [px, py] = projectMercator(lat, lon, w, h);
-        ctx.lineTo(px, py);
+      for (let i = 0; i < segment.length - 1; i++) {
+        const [lat0, lon0] = segment[i];
+        const [lat1, lon1] = segment[i + 1];
+        if (Math.abs(lon1 - lon0) > 90) continue;
+        const [c0, r0] = latLonToGrid(lat0, lon0, cols, rows);
+        const [c1, r1] = latLonToGrid(lat1, lon1, cols, rows);
+        bresenham(c0, r0, c1, r1, grid, cols, rows);
       }
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = '#1a4a5a';
-    for (const segment of COASTLINES) {
       for (const [lat, lon] of segment) {
-        const [px, py] = projectMercator(lat, lon, w, h);
-        if (px >= 0 && px <= w && py >= 0 && py <= h) {
-          ctx.beginPath();
-          ctx.arc(px, py, 1, 0, Math.PI * 2);
-          ctx.fill();
+        const [c, r] = latLonToGrid(lat, lon, cols, rows);
+        if (c >= 0 && c < cols && r >= 0 && r < rows) {
+          grid[r * cols + c] = 1;
         }
+      }
+    }
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!grid[r * cols + c]) continue;
+        const neighbors = [
+          r > 0 && grid[(r - 1) * cols + c],
+          r < rows - 1 && grid[(r + 1) * cols + c],
+          c > 0 && grid[r * cols + (c - 1)],
+          c < cols - 1 && grid[r * cols + (c + 1)],
+        ].filter(Boolean).length;
+        ctx.fillStyle = neighbors >= 2 ? '#1a6a7a' : '#155565';
+        ctx.fillRect(c * STEP, r * STEP, CELL, CELL);
       }
     }
 
@@ -94,31 +127,27 @@ export default function WorldMap({ markers }: Props) {
 
     const now = Date.now();
     for (const m of markers) {
-      const [x, y] = projectMercator(m.lat, m.lon, w, h);
-      if (x < 0 || x > w || y < 0 || y > h) continue;
+      const [mc, mr] = latLonToGrid(m.lat, m.lon, cols, rows);
+      if (mc < 0 || mc >= cols || mr < 0 || mr >= rows) continue;
 
       const color = MARKER_COLORS[m.type] || '#ff4757';
+      const px = mc * STEP;
+      const py = mr * STEP;
 
-      const pulse = 0.4 + 0.6 * Math.abs(Math.sin(now / 1000 + x));
-      ctx.fillStyle = color + Math.round(pulse * 30).toString(16).padStart(2, '0');
-      ctx.beginPath();
-      ctx.arc(x, y, 8, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = color + '66';
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fill();
-
+      const pulse = 0.3 + 0.7 * Math.abs(Math.sin(now / 800 + mc));
+      ctx.globalAlpha = pulse * 0.25;
       ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillRect(px - STEP * 2, py - STEP * 2, CELL + STEP * 4, CELL + STEP * 4);
+      ctx.globalAlpha = 0.5;
+      ctx.fillRect(px - STEP, py - STEP, CELL + STEP * 2, CELL + STEP * 2);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.fillRect(px, py, CELL, CELL);
 
       if (m.label) {
         ctx.fillStyle = color;
         ctx.font = '9px JetBrains Mono, monospace';
-        ctx.fillText(m.label, x + 6, y + 3);
+        ctx.fillText(m.label, px + STEP + 4, py + CELL);
       }
     }
   }, [markers]);
@@ -127,10 +156,10 @@ export default function WorldMap({ markers }: Props) {
     draw();
     const handleResize = () => draw();
     window.addEventListener('resize', handleResize);
-    const animFrame = setInterval(draw, 2000);
+    const anim = setInterval(draw, 2000);
     return () => {
       window.removeEventListener('resize', handleResize);
-      clearInterval(animFrame);
+      clearInterval(anim);
     };
   }, [draw]);
 
@@ -139,7 +168,7 @@ export default function WorldMap({ markers }: Props) {
       ref={containerRef}
       style={{
         border: '1px solid #1a3a4a',
-        background: '#0a0e14',
+        background: '#080c12',
         position: 'relative',
         overflow: 'hidden',
         height: '100%',

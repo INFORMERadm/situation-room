@@ -215,6 +215,3 @@ export const COASTLINES: [number, number][][] = [
    [24,52],[24,54],[25,55],[26,56],[27,56],[28,52],[30,48]],
 ];
 
-export const GRID_LINES: { lat?: number; lon?: number }[] = [
-  { lat: 66.5 }, { lat: 23.5 }, { lat: 0 }, { lat: -23.5 }, { lat: -66.5 },
-];
