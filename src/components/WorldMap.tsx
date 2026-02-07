@@ -9,6 +9,7 @@ interface Props {
 const CELL = 4;
 const GAP = 1;
 const STEP = CELL + GAP;
+const MAP_Y_OFFSET = 80;
 
 function latLonToGrid(
   lat: number,
@@ -75,6 +76,8 @@ export default function WorldMap({ markers }: Props) {
 
     const cols = Math.floor(w / STEP);
     const rows = Math.floor(h / STEP);
+    const offsetRows = Math.floor(MAP_Y_OFFSET / STEP);
+    const mapRows = rows - offsetRows;
 
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, w, h);
@@ -86,36 +89,36 @@ export default function WorldMap({ markers }: Props) {
       }
     }
 
-    const grid = new Uint8Array(cols * rows);
+    const grid = new Uint8Array(cols * mapRows);
 
     for (const segment of COASTLINES) {
       for (let i = 0; i < segment.length - 1; i++) {
         const [lat0, lon0] = segment[i];
         const [lat1, lon1] = segment[i + 1];
         if (Math.abs(lon1 - lon0) > 90) continue;
-        const [c0, r0] = latLonToGrid(lat0, lon0, cols, rows);
-        const [c1, r1] = latLonToGrid(lat1, lon1, cols, rows);
-        bresenham(c0, r0, c1, r1, grid, cols, rows);
+        const [c0, r0] = latLonToGrid(lat0, lon0, cols, mapRows);
+        const [c1, r1] = latLonToGrid(lat1, lon1, cols, mapRows);
+        bresenham(c0, r0, c1, r1, grid, cols, mapRows);
       }
       for (const [lat, lon] of segment) {
-        const [c, r] = latLonToGrid(lat, lon, cols, rows);
-        if (c >= 0 && c < cols && r >= 0 && r < rows) {
+        const [c, r] = latLonToGrid(lat, lon, cols, mapRows);
+        if (c >= 0 && c < cols && r >= 0 && r < mapRows) {
           grid[r * cols + c] = 1;
         }
       }
     }
 
-    for (let r = 0; r < rows; r++) {
+    for (let r = 0; r < mapRows; r++) {
       for (let c = 0; c < cols; c++) {
         if (!grid[r * cols + c]) continue;
         const neighbors = [
           r > 0 && grid[(r - 1) * cols + c],
-          r < rows - 1 && grid[(r + 1) * cols + c],
+          r < mapRows - 1 && grid[(r + 1) * cols + c],
           c > 0 && grid[r * cols + (c - 1)],
           c < cols - 1 && grid[r * cols + (c + 1)],
         ].filter(Boolean).length;
         ctx.fillStyle = neighbors >= 2 ? '#6b7280' : '#4b5563';
-        ctx.fillRect(c * STEP, r * STEP, CELL, CELL);
+        ctx.fillRect(c * STEP, (r + offsetRows) * STEP, CELL, CELL);
       }
     }
 
@@ -127,12 +130,12 @@ export default function WorldMap({ markers }: Props) {
 
     const now = Date.now();
     for (const m of markers) {
-      const [mc, mr] = latLonToGrid(m.lat, m.lon, cols, rows);
-      if (mc < 0 || mc >= cols || mr < 0 || mr >= rows) continue;
+      const [mc, mr] = latLonToGrid(m.lat, m.lon, cols, mapRows);
+      if (mc < 0 || mc >= cols || mr < 0 || mr >= mapRows) continue;
 
       const color = MARKER_COLORS[m.type] || '#ff4757';
       const px = mc * STEP;
-      const py = mr * STEP;
+      const py = (mr + offsetRows) * STEP;
 
       const pulse = 0.3 + 0.7 * Math.abs(Math.sin(now / 800 + mc));
       ctx.globalAlpha = pulse * 0.25;
@@ -172,7 +175,6 @@ export default function WorldMap({ markers }: Props) {
         position: 'relative',
         overflow: 'hidden',
         height: '100%',
-        paddingTop: 104,
       }}
     >
       <div
