@@ -5,7 +5,6 @@ import ForecastsPanel from './components/ForecastsPanel';
 import AviationPanel from './components/AviationPanel';
 import MarketsPanel from './components/MarketsPanel';
 import NewsPanel from './components/NewsPanel';
-import LogisticsPanel from './components/LogisticsPanel';
 import WorldMap from './components/WorldMap';
 import PizzaIndex from './components/PizzaIndex';
 import OfficialComms from './components/OfficialComms';
@@ -74,9 +73,8 @@ export default function App() {
           </div>
         </div>
         <div style={colStyle}>
-          <div style={colChildStyle}><MarketsPanel data={data.markets} /></div>
-          <div style={colChildStyle}><NewsPanel data={data.news} /></div>
-          <div style={colChildStyle}><LogisticsPanel data={data.logistics} /></div>
+          <div style={{ flex: 2, minHeight: 0 }}><MarketsPanel data={data.markets} /></div>
+          <div style={{ flex: 1, minHeight: 0 }}><NewsPanel data={data.news} /></div>
         </div>
       </div>
       <Footer />
