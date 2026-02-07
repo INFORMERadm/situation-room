@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Header from '../components/Header';
 import TickerStrip from '../components/markets/TickerStrip';
 import MarketSearch from '../components/markets/MarketSearch';
@@ -45,11 +46,32 @@ const centerStyle: React.CSSProperties = {
 
 const rightStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateRows: '1fr 1fr 1fr',
+  gridTemplateRows: '1fr 1.5fr',
   borderLeft: '1px solid #292929',
   minHeight: 0,
   overflow: 'hidden',
 };
+
+const toggleBarStyle: React.CSSProperties = {
+  display: 'flex',
+  borderBottom: '1px solid #292929',
+  background: '#0a0a0a',
+};
+
+const toggleButtonStyle = (isActive: boolean): React.CSSProperties => ({
+  flex: 1,
+  padding: '8px 12px',
+  background: isActive ? '#1a1a1a' : 'transparent',
+  color: isActive ? '#ffffff' : '#888888',
+  border: 'none',
+  borderBottom: isActive ? '2px solid #00c853' : '2px solid transparent',
+  fontSize: '10px',
+  fontWeight: 600,
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
+});
 
 const panelDivider: React.CSSProperties = {
   borderBottom: '1px solid #292929',
@@ -57,6 +79,7 @@ const panelDivider: React.CSSProperties = {
 
 export default function MarketsDashboard() {
   const data = useMarketsDashboard();
+  const [rightPanelView, setRightPanelView] = useState<'news' | 'economic'>('news');
 
   return (
     <div style={pageStyle}>
@@ -66,16 +89,13 @@ export default function MarketsDashboard() {
       <div style={mainStyle}>
         <div style={sidebarStyle}>
           <MarketSearch onSelect={data.selectSymbol} currentSymbol={data.selectedSymbol} />
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', ...panelDivider }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <MarketMovers
               gainers={data.movers.gainers}
               losers={data.movers.losers}
               active={data.movers.active}
               onSelect={data.selectSymbol}
             />
-          </div>
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <MarketNews news={data.news} onSelectSymbol={data.selectSymbol} />
           </div>
         </div>
 
@@ -110,11 +130,28 @@ export default function MarketsDashboard() {
           <div style={panelDivider}>
             <EarningsCalendar earnings={data.earnings} onSelect={data.selectSymbol} />
           </div>
-          <div style={panelDivider}>
-            <EconomicCalendar events={data.economic} />
-          </div>
-          <div>
-            <MarketNews news={data.news.slice(10)} onSelectSymbol={data.selectSymbol} />
+          <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+            <div style={toggleBarStyle}>
+              <button
+                style={toggleButtonStyle(rightPanelView === 'news')}
+                onClick={() => setRightPanelView('news')}
+              >
+                Market News
+              </button>
+              <button
+                style={toggleButtonStyle(rightPanelView === 'economic')}
+                onClick={() => setRightPanelView('economic')}
+              >
+                Economic Calendar
+              </button>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              {rightPanelView === 'news' ? (
+                <MarketNews news={data.news.slice(10)} onSelectSymbol={data.selectSymbol} />
+              ) : (
+                <EconomicCalendar events={data.economic} />
+              )}
+            </div>
           </div>
         </div>
       </div>
