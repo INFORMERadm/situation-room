@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.48.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,11 +8,230 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const FMP_KEY = Deno.env.get("FMP_API_KEY") ?? "";
+const FMP_BASE = "https://financialmodelingprep.com/stable";
+
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
+
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+async function getCached(key: string, maxAgeMs: number) {
+  const { data } = await supabase
+    .from("market_cache")
+    .select("data, updated_at")
+    .eq("cache_key", key)
+    .maybeSingle();
+
+  if (!data) return null;
+  const age = Date.now() - new Date(data.updated_at).getTime();
+  if (age > maxAgeMs) return null;
+  return data.data;
+}
+
+async function setCache(key: string, payload: unknown) {
+  await supabase.from("market_cache").upsert({
+    cache_key: key,
+    data: payload,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+async function fmpFetch(endpoint: string, params: Record<string, string> = {}) {
+  const url = new URL(`${FMP_BASE}/${endpoint}`);
+  url.searchParams.set("apikey", FMP_KEY);
+  for (const [k, v] of Object.entries(params)) {
+    url.searchParams.set(k, v);
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  const res = await fetch(url.toString(), { signal: controller.signal });
+  clearTimeout(timeout);
+  if (!res.ok) throw new Error(`FMP ${endpoint}: ${res.status}`);
+  return res.json();
+}
+
+interface FmpQuote {
+  symbol?: string;
+  name?: string;
+  price?: number;
+  changesPercentage?: number;
+  change?: number;
+  dayHigh?: number;
+  dayLow?: number;
+  volume?: number;
+  marketCap?: number;
+  open?: number;
+  previousClose?: number;
+}
+
+const FALLBACK_MARKETS = [
+  { symbol: "^GSPC", price: 5950.25, change: 0.4, category: "index", name: "S&P 500" },
+  { symbol: "^IXIC", price: 19200.10, change: 0.6, category: "index", name: "NASDAQ" },
+  { symbol: "^DJI", price: 43800.50, change: 0.2, category: "index", name: "Dow Jones" },
+  { symbol: "AAPL", price: 228.50, change: 1.2, category: "stock", name: "Apple" },
+  { symbol: "MSFT", price: 415.30, change: 0.8, category: "stock", name: "Microsoft" },
+  { symbol: "NVDA", price: 132.40, change: -0.5, category: "stock", name: "NVIDIA" },
+  { symbol: "EURUSD", price: 1.0842, change: 0.12, category: "forex", name: "EUR/USD" },
+  { symbol: "GBPUSD", price: 1.2650, change: -0.08, category: "forex", name: "GBP/USD" },
+  { symbol: "USDJPY", price: 154.30, change: 0.25, category: "forex", name: "USD/JPY" },
+  { symbol: "BTCUSD", price: 97500, change: -2.1, category: "crypto", name: "Bitcoin" },
+  { symbol: "ETHUSD", price: 2650, change: -3.4, category: "crypto", name: "Ethereum" },
+  { symbol: "SOLUSD", price: 195, change: -4.2, category: "crypto", name: "Solana" },
+];
+
+const INDEX_NAMES: Record<string, string> = {
+  "^GSPC": "S&P 500",
+  "^IXIC": "NASDAQ",
+  "^DJI": "Dow Jones",
+};
+
+const FOREX_NAMES: Record<string, string> = {
+  EURUSD: "EUR/USD",
+  GBPUSD: "GBP/USD",
+  USDJPY: "USD/JPY",
+};
+
+const CRYPTO_NAMES: Record<string, string> = {
+  BTCUSD: "Bitcoin",
+  ETHUSD: "Ethereum",
+  SOLUSD: "Solana",
+};
+
+function mapQuote(
+  q: FmpQuote,
+  category: string,
+  nameMap?: Record<string, string>
+) {
+  const sym = q.symbol ?? "";
+  return {
+    symbol: sym,
+    price: q.price ?? 0,
+    change: q.changesPercentage ?? 0,
+    category,
+    name: nameMap?.[sym] ?? q.name ?? sym,
+  };
+}
+
+async function fetchMarkets() {
+  const cached = await getCached("markets", 120_000);
+  if (cached) return cached;
+
+  const markets: unknown[] = [];
+
+  try {
+    const indexData: FmpQuote[] = await fmpFetch("batch-quote", {
+      symbols: "^GSPC,^IXIC,^DJI",
+    });
+    for (const q of indexData) markets.push(mapQuote(q, "index", INDEX_NAMES));
+  } catch { /* skip */ }
+
+  try {
+    const stockData: FmpQuote[] = await fmpFetch("batch-quote", {
+      symbols: "AAPL,MSFT,NVDA",
+    });
+    for (const q of stockData) markets.push(mapQuote(q, "stock"));
+  } catch { /* skip */ }
+
+  try {
+    const forexData: FmpQuote[] = await fmpFetch("batch-quote", {
+      symbols: "EURUSD,GBPUSD,USDJPY",
+    });
+    for (const q of forexData) markets.push(mapQuote(q, "forex", FOREX_NAMES));
+  } catch { /* skip */ }
+
+  try {
+    const cryptoData: FmpQuote[] = await fmpFetch("batch-quote", {
+      symbols: "BTCUSD,ETHUSD,SOLUSD",
+    });
+    for (const q of cryptoData)
+      markets.push(mapQuote(q, "crypto", CRYPTO_NAMES));
+  } catch { /* skip */ }
+
+  const result = markets.length > 0 ? markets : FALLBACK_MARKETS;
+  await setCache("markets", result);
+  return result;
+}
+
+async function searchSymbol(query: string) {
+  if (!query || query.length < 1) return [];
+
+  const cacheKey = `search:${query.toLowerCase()}`;
+  const cached = await getCached(cacheKey, 300_000);
+  if (cached) return cached;
+
+  const seen = new Set<string>();
+  const results: { symbol: string; name: string; exchange: string; type: string }[] = [];
+
+  try {
+    const symbolResults = await fmpFetch("search-symbol", { query });
+    for (const r of (symbolResults as { symbol?: string; name?: string; exchangeShortName?: string; type?: string }[])) {
+      if (r.symbol && !seen.has(r.symbol)) {
+        seen.add(r.symbol);
+        results.push({
+          symbol: r.symbol,
+          name: r.name ?? r.symbol,
+          exchange: r.exchangeShortName ?? "",
+          type: r.type ?? "stock",
+        });
+      }
+    }
+  } catch { /* skip */ }
+
+  try {
+    const nameResults = await fmpFetch("search-name", { query });
+    for (const r of (nameResults as { symbol?: string; name?: string; exchangeShortName?: string; type?: string }[])) {
+      if (r.symbol && !seen.has(r.symbol)) {
+        seen.add(r.symbol);
+        results.push({
+          symbol: r.symbol,
+          name: r.name ?? r.symbol,
+          exchange: r.exchangeShortName ?? "",
+          type: r.type ?? "stock",
+        });
+      }
+    }
+  } catch { /* skip */ }
+
+  const trimmed = results.slice(0, 8);
+  await setCache(cacheKey, trimmed);
+  return trimmed;
+}
+
+async function fetchQuote(symbol: string) {
+  if (!symbol) return null;
+
+  const cacheKey = `quote:${symbol.toUpperCase()}`;
+  const cached = await getCached(cacheKey, 60_000);
+  if (cached) return cached;
+
+  const data: FmpQuote[] = await fmpFetch("quote", { symbol });
+  const q = data?.[0];
+  if (!q) return null;
+
+  const result = {
+    symbol: q.symbol ?? symbol,
+    name: q.name ?? symbol,
+    price: q.price ?? 0,
+    change: q.change ?? 0,
+    changesPercentage: q.changesPercentage ?? 0,
+    dayHigh: q.dayHigh ?? 0,
+    dayLow: q.dayLow ?? 0,
+    volume: q.volume ?? 0,
+    marketCap: q.marketCap ?? 0,
+    open: q.open ?? 0,
+    previousClose: q.previousClose ?? 0,
+  };
+
+  await setCache(cacheKey, result);
+  return result;
 }
 
 async function fetchSports() {
@@ -49,57 +269,6 @@ async function fetchSports() {
     }
   }
   return results;
-}
-
-async function fetchMarkets() {
-  const markets = [];
-
-  try {
-    const fxRes = await fetch(
-      "https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD"
-    );
-    const fxJson = await fxRes.json();
-    const rate = fxJson?.rates?.USD;
-    if (rate) {
-      markets.push({
-        symbol: "EUR/USD",
-        price: rate,
-        change: 0.12,
-        isCrypto: false,
-      });
-    }
-  } catch {
-    markets.push({
-      symbol: "EUR/USD",
-      price: 1.0842,
-      change: 0.12,
-      isCrypto: false,
-    });
-  }
-
-  try {
-    const res = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true"
-    );
-    const json = await res.json();
-    const map: Record<string, { symbol: string; isCrypto: boolean }> = {
-      bitcoin: { symbol: "BTC", isCrypto: true },
-      ethereum: { symbol: "ETH", isCrypto: true },
-      solana: { symbol: "SOL", isCrypto: true },
-    };
-    for (const [id, meta] of Object.entries(map)) {
-      markets.push({
-        symbol: meta.symbol,
-        price: json[id]?.usd || 0,
-        change: json[id]?.usd_24h_change || 0,
-        isCrypto: meta.isCrypto,
-      });
-    }
-  } catch {
-    // crypto unavailable
-  }
-
-  return markets;
 }
 
 async function fetchNews() {
@@ -230,6 +399,16 @@ Deno.serve(async (req: Request) => {
       case "markets": {
         const markets = await fetchMarkets();
         return jsonResponse({ markets });
+      }
+      case "search-symbol": {
+        const query = url.searchParams.get("query") ?? "";
+        const results = await searchSymbol(query);
+        return jsonResponse({ results });
+      }
+      case "quote": {
+        const symbol = url.searchParams.get("symbol") ?? "";
+        const quote = await fetchQuote(symbol);
+        return jsonResponse({ quote });
       }
       case "news": {
         const news = await fetchNews();

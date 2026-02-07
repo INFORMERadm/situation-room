@@ -19,11 +19,35 @@ export interface Flight {
   lon: number;
 }
 
+export type MarketCategory = 'index' | 'stock' | 'forex' | 'crypto';
+
 export interface MarketItem {
   symbol: string;
   price: number;
   change: number;
-  isCrypto: boolean;
+  category: MarketCategory;
+  name?: string;
+}
+
+export interface SearchResult {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+}
+
+export interface QuoteDetail {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changesPercentage: number;
+  dayHigh: number;
+  dayLow: number;
+  volume: number;
+  marketCap: number;
+  open: number;
+  previousClose: number;
 }
 
 export interface NewsItem {

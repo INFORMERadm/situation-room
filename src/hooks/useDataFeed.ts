@@ -45,10 +45,18 @@ function generateFlights(): Flight[] {
 
 function generateMarkets(): MarketItem[] {
   return [
-    { symbol: 'EUR/USD', price: 1.0842 + randomBetween(-0.005, 0.005), change: 0.12 + randomBetween(-0.3, 0.3), isCrypto: false },
-    { symbol: 'BTC', price: 78533 + randomBetween(-500, 500), change: -6.2 + randomBetween(-1, 1), isCrypto: true },
-    { symbol: 'ETH', price: 2443.72 + randomBetween(-50, 50), change: -9.1 + randomBetween(-1, 1), isCrypto: true },
-    { symbol: 'SOL', price: 105.02 + randomBetween(-5, 5), change: -10.7 + randomBetween(-1, 1), isCrypto: true },
+    { symbol: '^GSPC', price: 5950 + randomBetween(-20, 20), change: 0.4 + randomBetween(-0.5, 0.5), category: 'index', name: 'S&P 500' },
+    { symbol: '^IXIC', price: 19200 + randomBetween(-50, 50), change: 0.6 + randomBetween(-0.5, 0.5), category: 'index', name: 'NASDAQ' },
+    { symbol: '^DJI', price: 43800 + randomBetween(-100, 100), change: 0.2 + randomBetween(-0.5, 0.5), category: 'index', name: 'Dow Jones' },
+    { symbol: 'AAPL', price: 228.5 + randomBetween(-2, 2), change: 1.2 + randomBetween(-1, 1), category: 'stock', name: 'Apple' },
+    { symbol: 'MSFT', price: 415.3 + randomBetween(-3, 3), change: 0.8 + randomBetween(-1, 1), category: 'stock', name: 'Microsoft' },
+    { symbol: 'NVDA', price: 132.4 + randomBetween(-2, 2), change: -0.5 + randomBetween(-1, 1), category: 'stock', name: 'NVIDIA' },
+    { symbol: 'EURUSD', price: 1.0842 + randomBetween(-0.005, 0.005), change: 0.12 + randomBetween(-0.3, 0.3), category: 'forex', name: 'EUR/USD' },
+    { symbol: 'GBPUSD', price: 1.2650 + randomBetween(-0.003, 0.003), change: -0.08 + randomBetween(-0.3, 0.3), category: 'forex', name: 'GBP/USD' },
+    { symbol: 'USDJPY', price: 154.30 + randomBetween(-0.5, 0.5), change: 0.25 + randomBetween(-0.3, 0.3), category: 'forex', name: 'USD/JPY' },
+    { symbol: 'BTCUSD', price: 97500 + randomBetween(-500, 500), change: -2.1 + randomBetween(-1, 1), category: 'crypto', name: 'Bitcoin' },
+    { symbol: 'ETHUSD', price: 2650 + randomBetween(-50, 50), change: -3.4 + randomBetween(-1, 1), category: 'crypto', name: 'Ethereum' },
+    { symbol: 'SOLUSD', price: 195 + randomBetween(-5, 5), change: -4.2 + randomBetween(-1, 1), category: 'crypto', name: 'Solana' },
   ];
 }
 
