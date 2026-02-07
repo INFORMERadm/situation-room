@@ -544,6 +544,46 @@ async function fetchMarketNews() {
   if (cached) return cached;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(
+      "https://rss.app/feeds/_wsGBiJ7aEHbD3fVL.xml",
+      { signal: controller.signal }
+    );
+    clearTimeout(timeout);
+
+    if (!res.ok) throw new Error(`RSS fetch failed: ${res.status}`);
+    const xml = await res.text();
+
+    const items: { title: string; site: string; url: string; publishedDate: string; symbol: string; image: string }[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+    while ((match = itemRegex.exec(xml)) !== null && items.length < 30) {
+      const block = match[1];
+      const title = (block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || block.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim() ?? "";
+      const link = (block.match(/<link>([\s\S]*?)<\/link>/))?.[1]?.trim() ?? "";
+      const pubDate = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/))?.[1]?.trim() ?? "";
+      const creator = (block.match(/<dc:creator><!\[CDATA\[([\s\S]*?)\]\]><\/dc:creator>/) || block.match(/<dc:creator>([\s\S]*?)<\/dc:creator>/))?.[1]?.trim() ?? "";
+
+      if (title) {
+        items.push({
+          title,
+          site: creator.replace(/^@/, "") || "Breaking News",
+          url: link,
+          publishedDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+          symbol: "",
+          image: "",
+        });
+      }
+    }
+
+    if (items.length > 0) {
+      await setCache("market-news", items);
+      return items;
+    }
+  } catch { /* fall through to FMP fallback */ }
+
+  try {
     const data = await fmpFetch("stock-news", { limit: "20" });
     const result = (data as Record<string, unknown>[]).map((n) => ({
       title: (n.title as string) ?? "",
