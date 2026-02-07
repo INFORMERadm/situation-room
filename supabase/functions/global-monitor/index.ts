@@ -63,6 +63,7 @@ interface FmpQuote {
   name?: string;
   price?: number;
   changesPercentage?: number;
+  changePercentage?: number;
   change?: number;
   dayHigh?: number;
   dayLow?: number;
@@ -70,6 +71,7 @@ interface FmpQuote {
   marketCap?: number;
   open?: number;
   previousClose?: number;
+  [key: string]: unknown;
 }
 
 const FALLBACK_MARKETS = [
@@ -105,6 +107,17 @@ const CRYPTO_NAMES: Record<string, string> = {
   SOLUSD: "Solana",
 };
 
+function extractPctChange(q: FmpQuote): number {
+  if (typeof q.changesPercentage === "number") return q.changesPercentage;
+  if (typeof q.changePercentage === "number") return q.changePercentage;
+  const price = q.price ?? 0;
+  const change = q.change ?? 0;
+  if (price > 0 && change !== 0) {
+    return (change / (price - change)) * 100;
+  }
+  return 0;
+}
+
 function mapQuote(
   q: FmpQuote,
   category: string,
@@ -114,7 +127,7 @@ function mapQuote(
   return {
     symbol: sym,
     price: q.price ?? 0,
-    change: q.changesPercentage ?? 0,
+    change: extractPctChange(q),
     category,
     name: nameMap?.[sym] ?? q.name ?? sym,
   };

@@ -9,7 +9,7 @@ interface Props {
 const CELL = 4;
 const GAP = 1;
 const STEP = CELL + GAP;
-const MAP_Y_OFFSET = 80;
+const MAP_Y_OFFSET = 20;
 
 function latLonToGrid(
   lat: number,
