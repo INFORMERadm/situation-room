@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { MarketItem } from '../../types';
 
 interface Props {
@@ -12,6 +13,9 @@ function formatPrice(price: number, category: string): string {
 }
 
 export default function TickerStrip({ items, onSelect }: Props) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [paused, setPaused] = useState(false);
+
   const grouped: Record<string, MarketItem[]> = {};
   for (const item of items) {
     const cat = item.category ?? 'other';
@@ -27,16 +31,31 @@ export default function TickerStrip({ items, onSelect }: Props) {
     crypto: 'CRYPTO',
   };
 
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 0,
-      borderBottom: '1px solid #292929',
-      padding: '8px 0',
-      overflowX: 'auto',
-      minHeight: 42,
-    }}>
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || items.length === 0) return;
+
+    let animId: number;
+    let pos = 0;
+
+    const step = () => {
+      if (!paused) {
+        pos -= 0.5;
+        const half = track.scrollWidth / 2;
+        if (half > 0 && Math.abs(pos) >= half) {
+          pos += half;
+        }
+        track.style.transform = `translateX(${pos}px)`;
+      }
+      animId = requestAnimationFrame(step);
+    };
+
+    animId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animId);
+  }, [items, paused]);
+
+  const renderItems = () => (
+    <>
       {categoryOrder.map(cat => {
         const catItems = grouped[cat];
         if (!catItems || catItems.length === 0) return null;
@@ -81,6 +100,7 @@ export default function TickerStrip({ items, onSelect }: Props) {
                   color: item.change >= 0 ? '#00c853' : '#ff1744',
                   fontSize: 10,
                   fontWeight: 500,
+                  whiteSpace: 'nowrap',
                 }}>
                   {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}%
                 </span>
@@ -89,10 +109,38 @@ export default function TickerStrip({ items, onSelect }: Props) {
           </div>
         );
       })}
-      {items.length === 0 && (
-        <span style={{ color: '#555', fontSize: 11, padding: '0 16px' }}>
-          Loading market data...
-        </span>
+    </>
+  );
+
+  return (
+    <div
+      style={{
+        borderBottom: '1px solid #292929',
+        overflow: 'hidden',
+        minHeight: 42,
+        position: 'relative',
+      }}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      {items.length === 0 ? (
+        <div style={{ display: 'flex', alignItems: 'center', height: 42, padding: '0 16px' }}>
+          <span style={{ color: '#555', fontSize: 11 }}>Loading market data...</span>
+        </div>
+      ) : (
+        <div
+          ref={trackRef}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '8px 0',
+            whiteSpace: 'nowrap',
+            willChange: 'transform',
+          }}
+        >
+          {renderItems()}
+          {renderItems()}
+        </div>
       )}
     </div>
   );
