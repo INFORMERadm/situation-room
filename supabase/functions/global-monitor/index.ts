@@ -247,6 +247,297 @@ async function fetchQuote(symbol: string) {
   return result;
 }
 
+async function fetchMarketOverview() {
+  const cached = await getCached("market-overview", 10_000);
+  if (cached) return cached;
+
+  const overview: unknown[] = [];
+  const OVERVIEW_INDEX_NAMES: Record<string, string> = {
+    "^GSPC": "S&P 500", "^IXIC": "NASDAQ", "^DJI": "Dow Jones",
+    "^RUT": "Russell 2000", "^VIX": "VIX", "^FTSE": "FTSE 100",
+    "^GDAXI": "DAX", "^N225": "Nikkei 225",
+  };
+
+  try {
+    const data: FmpQuote[] = await fmpFetch("batch-quote", {
+      symbols: "^GSPC,^IXIC,^DJI,^RUT,^VIX,^FTSE,^GDAXI,^N225",
+    });
+    for (const q of data) overview.push(mapQuote(q, "index", OVERVIEW_INDEX_NAMES));
+  } catch { /* skip */ }
+
+  try {
+    const data: FmpQuote[] = await fmpFetch("batch-quote", {
+      symbols: "GCUSD,SIUSD,CLUSD",
+    });
+    const commodityNames: Record<string, string> = {
+      GCUSD: "Gold", SIUSD: "Silver", CLUSD: "Crude Oil",
+    };
+    for (const q of data) overview.push(mapQuote(q, "commodity", commodityNames));
+  } catch { /* skip */ }
+
+  try {
+    const data: FmpQuote[] = await fmpFetch("batch-quote", {
+      symbols: "EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD",
+    });
+    const fxNames: Record<string, string> = {
+      EURUSD: "EUR/USD", GBPUSD: "GBP/USD", USDJPY: "USD/JPY",
+      USDCHF: "USD/CHF", AUDUSD: "AUD/USD",
+    };
+    for (const q of data) overview.push(mapQuote(q, "forex", fxNames));
+  } catch { /* skip */ }
+
+  try {
+    const data: FmpQuote[] = await fmpFetch("batch-quote", {
+      symbols: "BTCUSD,ETHUSD,SOLUSD,XRPUSD,ADAUSD",
+    });
+    const cryptoNames: Record<string, string> = {
+      BTCUSD: "Bitcoin", ETHUSD: "Ethereum", SOLUSD: "Solana",
+      XRPUSD: "XRP", ADAUSD: "Cardano",
+    };
+    for (const q of data) overview.push(mapQuote(q, "crypto", cryptoNames));
+  } catch { /* skip */ }
+
+  await setCache("market-overview", overview);
+  return overview;
+}
+
+async function fetchMarketMovers() {
+  const cached = await getCached("market-movers", 60_000);
+  if (cached) return cached;
+
+  const result: { gainers: unknown[]; losers: unknown[]; active: unknown[] } = {
+    gainers: [], losers: [], active: [],
+  };
+
+  try {
+    const data = await fmpFetch("biggest-gainers");
+    result.gainers = (data as FmpQuote[]).slice(0, 10).map((q) => ({
+      symbol: q.symbol ?? "",
+      name: q.name ?? q.symbol ?? "",
+      price: q.price ?? 0,
+      change: q.change ?? 0,
+      changesPercentage: extractPctChange(q),
+    }));
+  } catch { /* skip */ }
+
+  try {
+    const data = await fmpFetch("biggest-losers");
+    result.losers = (data as FmpQuote[]).slice(0, 10).map((q) => ({
+      symbol: q.symbol ?? "",
+      name: q.name ?? q.symbol ?? "",
+      price: q.price ?? 0,
+      change: q.change ?? 0,
+      changesPercentage: extractPctChange(q),
+    }));
+  } catch { /* skip */ }
+
+  try {
+    const data = await fmpFetch("most-active-stocks");
+    result.active = (data as FmpQuote[]).slice(0, 10).map((q) => ({
+      symbol: q.symbol ?? "",
+      name: q.name ?? q.symbol ?? "",
+      price: q.price ?? 0,
+      change: q.change ?? 0,
+      changesPercentage: extractPctChange(q),
+    }));
+  } catch { /* skip */ }
+
+  await setCache("market-movers", result);
+  return result;
+}
+
+async function fetchSectorPerformance() {
+  const cached = await getCached("sector-performance", 60_000);
+  if (cached) return cached;
+
+  try {
+    const data = await fmpFetch("sector-performance");
+    const result = (data as { sector?: string; changesPercentage?: string }[]).map((s) => ({
+      sector: s.sector ?? "",
+      changesPercentage: s.changesPercentage ?? "0",
+    }));
+    await setCache("sector-performance", result);
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+async function fetchHistoricalChart(symbol: string, timeframe: string) {
+  if (!symbol) return [];
+
+  const cacheKey = `chart:${symbol.toUpperCase()}:${timeframe}`;
+  const cacheTtl = timeframe === "daily" ? 300_000 : 30_000;
+  const cached = await getCached(cacheKey, cacheTtl);
+  if (cached) return cached;
+
+  try {
+    let endpoint: string;
+    const params: Record<string, string> = { symbol };
+
+    if (timeframe === "daily") {
+      endpoint = "historical-price-eod/full";
+    } else {
+      endpoint = `historical-chart/${timeframe}`;
+    }
+
+    const data = await fmpFetch(endpoint, params);
+    let prices: unknown[];
+
+    if (timeframe === "daily") {
+      const hist = (data as { historical?: unknown[] })?.historical ?? data;
+      prices = (hist as { date?: string; open?: number; high?: number; low?: number; close?: number; volume?: number }[])
+        .slice(0, 365)
+        .map((p) => ({
+          date: p.date ?? "",
+          open: p.open ?? 0,
+          high: p.high ?? 0,
+          low: p.low ?? 0,
+          close: p.close ?? 0,
+          volume: p.volume ?? 0,
+        }));
+    } else {
+      prices = (data as { date?: string; open?: number; high?: number; low?: number; close?: number; volume?: number }[])
+        .slice(0, 500)
+        .map((p) => ({
+          date: p.date ?? "",
+          open: p.open ?? 0,
+          high: p.high ?? 0,
+          low: p.low ?? 0,
+          close: p.close ?? 0,
+          volume: p.volume ?? 0,
+        }));
+    }
+
+    await setCache(cacheKey, prices);
+    return prices;
+  } catch {
+    return [];
+  }
+}
+
+async function fetchCompanyProfile(symbol: string) {
+  if (!symbol) return null;
+
+  const cacheKey = `profile:${symbol.toUpperCase()}`;
+  const cached = await getCached(cacheKey, 300_000);
+  if (cached) return cached;
+
+  try {
+    const data = await fmpFetch("profile", { symbol });
+    const p = (data as Record<string, unknown>[])?.[0];
+    if (!p) return null;
+
+    const result = {
+      symbol: (p.symbol as string) ?? symbol,
+      companyName: (p.companyName as string) ?? symbol,
+      sector: (p.sector as string) ?? "",
+      industry: (p.industry as string) ?? "",
+      description: (p.description as string) ?? "",
+      ceo: (p.ceo as string) ?? "",
+      fullTimeEmployees: (p.fullTimeEmployees as number) ?? 0,
+      mktCap: (p.mktCap as number) ?? 0,
+      beta: (p.beta as number) ?? 0,
+      website: (p.website as string) ?? "",
+      image: (p.image as string) ?? "",
+      exchange: (p.exchangeShortName as string) ?? (p.exchange as string) ?? "",
+      currency: (p.currency as string) ?? "USD",
+      country: (p.country as string) ?? "",
+      price: (p.price as number) ?? 0,
+      changes: (p.changes as number) ?? 0,
+      range: (p.range as string) ?? "",
+      volAvg: (p.volAvg as number) ?? 0,
+      dcfDiff: (p.dcfDiff as number) ?? 0,
+      dcf: (p.dcf as number) ?? 0,
+      ipoDate: (p.ipoDate as string) ?? "",
+    };
+
+    await setCache(cacheKey, result);
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchEarningsCalendar() {
+  const cached = await getCached("earnings-calendar", 300_000);
+  if (cached) return cached;
+
+  try {
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    const from = today.toISOString().slice(0, 10);
+    const to = nextWeek.toISOString().slice(0, 10);
+
+    const data = await fmpFetch("earning-calendar", { from, to });
+    const result = (data as Record<string, unknown>[]).slice(0, 20).map((e) => ({
+      symbol: (e.symbol as string) ?? "",
+      date: (e.date as string) ?? "",
+      epsEstimated: (e.epsEstimated as number) ?? null,
+      eps: (e.eps as number) ?? null,
+      revenueEstimated: (e.revenueEstimated as number) ?? null,
+      revenue: (e.revenue as number) ?? null,
+    }));
+
+    await setCache("earnings-calendar", result);
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+async function fetchEconomicCalendar() {
+  const cached = await getCached("economic-calendar", 300_000);
+  if (cached) return cached;
+
+  try {
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    const from = today.toISOString().slice(0, 10);
+    const to = nextWeek.toISOString().slice(0, 10);
+
+    const data = await fmpFetch("economic-calendar", { from, to });
+    const result = (data as Record<string, unknown>[]).slice(0, 20).map((e) => ({
+      event: (e.event as string) ?? "",
+      date: (e.date as string) ?? "",
+      country: (e.country as string) ?? "",
+      impact: (e.impact as string) ?? "Low",
+      previous: (e.previous as number) ?? null,
+      estimate: (e.estimate as number) ?? null,
+      actual: (e.actual as number) ?? null,
+    }));
+
+    await setCache("economic-calendar", result);
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+async function fetchMarketNews() {
+  const cached = await getCached("market-news", 120_000);
+  if (cached) return cached;
+
+  try {
+    const data = await fmpFetch("stock-news", { limit: "20" });
+    const result = (data as Record<string, unknown>[]).map((n) => ({
+      title: (n.title as string) ?? "",
+      site: (n.site as string) ?? "",
+      url: (n.url as string) ?? "",
+      publishedDate: (n.publishedDate as string) ?? "",
+      symbol: (n.symbol as string) ?? "",
+      image: (n.image as string) ?? "",
+    }));
+
+    await setCache("market-news", result);
+    return result;
+  } catch {
+    return [];
+  }
+}
+
 async function fetchSports() {
   const leagues = [
     { key: "basketball/nba", tag: "NBA" },
@@ -434,6 +725,41 @@ Deno.serve(async (req: Request) => {
       case "pizza": {
         const pizza = await fetchPizza();
         return jsonResponse({ pizza });
+      }
+      case "market-overview": {
+        const overview = await fetchMarketOverview();
+        return jsonResponse({ overview });
+      }
+      case "market-movers": {
+        const movers = await fetchMarketMovers();
+        return jsonResponse(movers);
+      }
+      case "sector-performance": {
+        const sectors = await fetchSectorPerformance();
+        return jsonResponse({ sectors });
+      }
+      case "historical-chart": {
+        const symbol = url.searchParams.get("symbol") ?? "";
+        const timeframe = url.searchParams.get("timeframe") ?? "daily";
+        const chart = await fetchHistoricalChart(symbol, timeframe);
+        return jsonResponse({ chart });
+      }
+      case "company-profile": {
+        const symbol = url.searchParams.get("symbol") ?? "";
+        const profile = await fetchCompanyProfile(symbol);
+        return jsonResponse({ profile });
+      }
+      case "earnings-calendar": {
+        const earnings = await fetchEarningsCalendar();
+        return jsonResponse({ earnings });
+      }
+      case "economic-calendar": {
+        const events = await fetchEconomicCalendar();
+        return jsonResponse({ events });
+      }
+      case "market-news": {
+        const marketNews = await fetchMarketNews();
+        return jsonResponse({ news: marketNews });
       }
       default:
         return jsonResponse({ error: "Unknown feed" }, 400);

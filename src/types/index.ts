@@ -76,3 +76,77 @@ export interface MapMarker {
   type: 'flight' | 'shipping' | 'event';
   label?: string;
 }
+
+export interface CompanyProfile {
+  symbol: string;
+  companyName: string;
+  sector: string;
+  industry: string;
+  description: string;
+  ceo: string;
+  fullTimeEmployees: number;
+  mktCap: number;
+  beta: number;
+  website: string;
+  image: string;
+  exchange: string;
+  currency: string;
+  country: string;
+  price: number;
+  changes: number;
+  range: string;
+  volAvg: number;
+  dcfDiff: number;
+  dcf: number;
+  ipoDate: string;
+}
+
+export interface HistoricalPrice {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface MarketMover {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changesPercentage: number;
+}
+
+export interface SectorPerf {
+  sector: string;
+  changesPercentage: string;
+}
+
+export interface EarningsEvent {
+  symbol: string;
+  date: string;
+  epsEstimated: number | null;
+  eps: number | null;
+  revenueEstimated: number | null;
+  revenue: number | null;
+}
+
+export interface EconomicEvent {
+  event: string;
+  date: string;
+  country: string;
+  impact: string;
+  previous: number | null;
+  estimate: number | null;
+  actual: number | null;
+}
+
+export interface MarketNewsItem {
+  title: string;
+  site: string;
+  url: string;
+  publishedDate: string;
+  symbol: string;
+  image: string;
+}

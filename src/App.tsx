@@ -1,3 +1,4 @@
+import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import SportsPanel from './components/SportsPanel';
@@ -9,6 +10,7 @@ import WorldMap from './components/WorldMap';
 import PizzaIndex from './components/PizzaIndex';
 import OfficialComms from './components/OfficialComms';
 import { useDataFeed } from './hooks/useDataFeed';
+import MarketsDashboard from './pages/MarketsDashboard';
 
 const dashStyle: React.CSSProperties = {
   display: 'grid',
@@ -53,7 +55,7 @@ const centerBottomStyle: React.CSSProperties = {
   minHeight: 0,
 };
 
-export default function App() {
+function GlobalMonitor() {
   const data = useDataFeed();
 
   return (
@@ -79,5 +81,14 @@ export default function App() {
       </div>
       <Footer />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<GlobalMonitor />} />
+      <Route path="/markets" element={<MarketsDashboard />} />
+    </Routes>
   );
 }
