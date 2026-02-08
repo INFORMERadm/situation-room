@@ -540,7 +540,7 @@ async function fetchEconomicCalendar() {
 }
 
 async function fetchMarketNews() {
-  const cached = await getCached("market-news", 120_000);
+  const cached = await getCached("market-news", 60_000);
   if (cached) return cached;
 
   try {
