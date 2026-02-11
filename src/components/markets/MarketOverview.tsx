@@ -6,6 +6,8 @@ interface Props {
   onSelect: (symbol: string) => void;
 }
 
+type FlashDirection = 'up' | 'down' | null;
+
 const STORAGE_KEY = 'global-monitor-watchlist';
 
 const DEFAULT_WATCHLIST = [
@@ -56,6 +58,8 @@ function saveWatchlist(list: WatchlistEntry[]) {
 export default function MarketOverview({ onSelect }: Props) {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>(loadWatchlist);
   const [quotes, setQuotes] = useState<Record<string, QuoteDetail>>({});
+  const [flashes, setFlashes] = useState<Record<string, FlashDirection>>({});
+  const prevPricesRef = useRef<Record<string, number>>({});
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -63,6 +67,7 @@ export default function MarketOverview({ onSelect }: Props) {
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const flashTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const fetchQuotes = useCallback(async (symbols: string[]) => {
     if (symbols.length === 0) return;
@@ -75,6 +80,30 @@ export default function MarketOverview({ onSelect }: Props) {
         newQuotes[symbols[i]] = r.value;
       }
     });
+
+    const newFlashes: Record<string, FlashDirection> = {};
+    for (const [sym, q] of Object.entries(newQuotes)) {
+      const prev = prevPricesRef.current[sym];
+      if (prev !== undefined && q.price !== prev) {
+        newFlashes[sym] = q.price > prev ? 'up' : 'down';
+      }
+      prevPricesRef.current[sym] = q.price;
+    }
+
+    if (Object.keys(newFlashes).length > 0) {
+      setFlashes((prev) => ({ ...prev, ...newFlashes }));
+      for (const sym of Object.keys(newFlashes)) {
+        if (flashTimersRef.current[sym]) clearTimeout(flashTimersRef.current[sym]);
+        flashTimersRef.current[sym] = setTimeout(() => {
+          setFlashes((prev) => {
+            const next = { ...prev };
+            delete next[sym];
+            return next;
+          });
+        }, 1200);
+      }
+    }
+
     setQuotes((prev) => ({ ...prev, ...newQuotes }));
   }, []);
 
@@ -335,6 +364,12 @@ export default function MarketOverview({ onSelect }: Props) {
           const q = quotes[item.symbol];
           const isUp = q ? q.changesPercentage >= 0 : true;
           const color = isUp ? '#00c853' : '#ff1744';
+          const flash = flashes[item.symbol];
+          const flashBg = flash === 'up'
+            ? 'rgba(0, 200, 83, 0.15)'
+            : flash === 'down'
+              ? 'rgba(255, 23, 68, 0.15)'
+              : 'transparent';
           return (
             <button
               key={item.symbol}
@@ -346,23 +381,23 @@ export default function MarketOverview({ onSelect }: Props) {
                 alignItems: 'center',
                 width: '100%',
                 padding: '6px 12px',
-                background: 'transparent',
+                background: flashBg,
                 border: 'none',
                 borderBottom: '1px solid #1e1e1e',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
-                transition: 'background 0.1s',
+                transition: 'background 0.6s ease-out',
                 position: 'relative',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#1a1a1a';
+                if (!flash) e.currentTarget.style.background = '#1a1a1a';
                 const btn = e.currentTarget.querySelector(
                   '[data-remove]',
                 ) as HTMLElement;
                 if (btn) btn.style.opacity = '1';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
+                if (!flash) e.currentTarget.style.background = 'transparent';
                 const btn = e.currentTarget.querySelector(
                   '[data-remove]',
                 ) as HTMLElement;
@@ -389,9 +424,10 @@ export default function MarketOverview({ onSelect }: Props) {
               </div>
               <span
                 style={{
-                  color: '#ccc',
+                  color: flash === 'up' ? '#00c853' : flash === 'down' ? '#ff1744' : '#ccc',
                   fontSize: 11,
                   textAlign: 'right',
+                  transition: 'color 0.6s ease-out',
                 }}
               >
                 {q

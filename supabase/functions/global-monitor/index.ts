@@ -234,7 +234,7 @@ async function fetchQuote(symbol: string) {
     name: q.name ?? symbol,
     price: q.price ?? 0,
     change: q.change ?? 0,
-    changesPercentage: q.changesPercentage ?? 0,
+    changesPercentage: extractPctChange(q),
     dayHigh: q.dayHigh ?? 0,
     dayLow: q.dayLow ?? 0,
     volume: q.volume ?? 0,
