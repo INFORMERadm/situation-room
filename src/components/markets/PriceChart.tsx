@@ -1,5 +1,16 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { HistoricalPrice } from '../../types';
+import type { IndicatorConfig, IndicatorId } from '../../lib/indicators';
+import {
+  DEFAULT_INDICATORS,
+  computeSMA,
+  computeEMA,
+  computeBollingerBands,
+  computeVWAP,
+  computeRSI,
+  computeMACD,
+} from '../../lib/indicators';
+import IndicatorMenu from './IndicatorMenu';
 
 interface Props {
   data: HistoricalPrice[];
@@ -26,18 +37,36 @@ const CHART_TYPES: { label: string; value: ChartType }[] = [
   { label: 'Candle', value: 'candlestick' },
 ];
 
-function computeSMA(data: number[], period: number): (number | null)[] {
-  const result: (number | null)[] = [];
-  for (let i = 0; i < data.length; i++) {
-    if (i < period - 1) {
-      result.push(null);
-    } else {
-      let sum = 0;
-      for (let j = i - period + 1; j <= i; j++) sum += data[j];
-      result.push(sum / period);
-    }
+function isEnabled(indicators: IndicatorConfig[], id: IndicatorId): boolean {
+  return indicators.find(i => i.id === id)?.enabled ?? false;
+}
+
+function getColor(indicators: IndicatorConfig[], id: IndicatorId): string {
+  return indicators.find(i => i.id === id)?.color ?? '#fff';
+}
+
+function drawOverlayLine(
+  ctx: CanvasRenderingContext2D,
+  values: (number | null)[],
+  toX: (i: number) => number,
+  toY: (p: number) => number,
+  color: string,
+  dashed: boolean
+) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  if (dashed) ctx.setLineDash([3, 3]);
+  else ctx.setLineDash([]);
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v === null) continue;
+    if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
+    else ctx.lineTo(toX(i), toY(v));
   }
-  return result;
+  ctx.stroke();
+  ctx.setLineDash([]);
 }
 
 export default function PriceChart({ data, symbol, timeframe, onTimeframeChange, loading }: Props) {
@@ -46,6 +75,15 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
   const [hover, setHover] = useState<{ x: number; y: number; idx: number } | null>(null);
   const [dims, setDims] = useState({ w: 800, h: 400 });
   const [chartType, setChartType] = useState<ChartType>('area');
+  const [indicators, setIndicators] = useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
+
+  const toggleIndicator = useCallback((id: string) => {
+    setIndicators(prev => prev.map(i => i.id === id ? { ...i, enabled: !i.enabled } : i));
+  }, []);
+
+  const hasRSI = isEnabled(indicators, 'rsi');
+  const hasMACD = isEnabled(indicators, 'macd');
+  const oscillatorPanels = (hasRSI ? 1 : 0) + (hasMACD ? 1 : 0);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -95,21 +133,27 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
     const PAD_R = 16;
     const PAD_T = 16;
     const PAD_B = 50;
+    const OSC_PANEL_H = 70;
+    const OSC_TOTAL = oscillatorPanels * OSC_PANEL_H;
+    const CHART_H = H - PAD_T - PAD_B - OSC_TOTAL;
     const CHART_W = W - PAD_L - PAD_R;
-    const CHART_H = H - PAD_T - PAD_B;
-    const VOL_H = 40;
+    const VOL_H = isEnabled(indicators, 'volume') ? 40 : 0;
 
     ctx.fillStyle = '#121212';
     ctx.fillRect(0, 0, W, H);
 
+    if (CHART_H < 40) return;
+
     const closes = slicedData.map(d => d.close);
     const volumes = slicedData.map(d => d.volume);
+    const highs = slicedData.map(d => d.high);
+    const lows = slicedData.map(d => d.low);
     const useOHLC = chartType === 'bar' || chartType === 'candlestick';
     const minP = useOHLC
-      ? Math.min(...slicedData.map(d => d.low)) * 0.998
+      ? Math.min(...lows) * 0.998
       : Math.min(...closes) * 0.998;
     const maxP = useOHLC
-      ? Math.max(...slicedData.map(d => d.high)) * 1.002
+      ? Math.max(...highs) * 1.002
       : Math.max(...closes) * 1.002;
     const maxV = Math.max(...volumes, 1);
     const priceRange = maxP - minP || 1;
@@ -133,42 +177,62 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       ctx.fillText(price.toFixed(2), PAD_L - 6, y + 3);
     }
 
-    ctx.fillStyle = '#292929';
-    for (let i = 0; i < slicedData.length; i++) {
-      const x = toX(i);
-      const barH = (volumes[i] / maxV) * VOL_H;
-      const barW = Math.max(1, CHART_W / slicedData.length - 1);
-      ctx.fillStyle = closes[i] >= (slicedData[i].open || closes[i]) ? '#00c85333' : '#ff174433';
-      ctx.fillRect(x - barW / 2, PAD_T + CHART_H - barH, barW, barH);
+    if (isEnabled(indicators, 'volume')) {
+      for (let i = 0; i < slicedData.length; i++) {
+        const x = toX(i);
+        const barH = (volumes[i] / maxV) * VOL_H;
+        const barW = Math.max(1, CHART_W / slicedData.length - 1);
+        ctx.fillStyle = closes[i] >= (slicedData[i].open || closes[i]) ? '#00c85333' : '#ff174433';
+        ctx.fillRect(x - barW / 2, PAD_T + CHART_H - barH, barW, barH);
+      }
     }
 
-    const sma20 = computeSMA(closes, 20);
-    const sma50 = computeSMA(closes, 50);
+    if (isEnabled(indicators, 'bollinger')) {
+      const bb = computeBollingerBands(closes, 20, 2);
+      const bbColor = getColor(indicators, 'bollinger');
 
-    ctx.strokeStyle = '#ff9800';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    let started = false;
-    for (let i = 0; i < sma50.length; i++) {
-      const v = sma50[i];
-      if (v === null) continue;
-      if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
-      else ctx.lineTo(toX(i), toY(v));
-    }
-    ctx.stroke();
+      ctx.fillStyle = bbColor + '0a';
+      ctx.beginPath();
+      let bbStarted = false;
+      for (let i = 0; i < bb.upper.length; i++) {
+        const u = bb.upper[i];
+        if (u === null) continue;
+        if (!bbStarted) { ctx.moveTo(toX(i), toY(u)); bbStarted = true; }
+        else ctx.lineTo(toX(i), toY(u));
+      }
+      for (let i = bb.lower.length - 1; i >= 0; i--) {
+        const l = bb.lower[i];
+        if (l === null) continue;
+        ctx.lineTo(toX(i), toY(l));
+      }
+      ctx.closePath();
+      ctx.fill();
 
-    ctx.strokeStyle = '#29b6f6';
-    ctx.beginPath();
-    started = false;
-    for (let i = 0; i < sma20.length; i++) {
-      const v = sma20[i];
-      if (v === null) continue;
-      if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
-      else ctx.lineTo(toX(i), toY(v));
+      drawOverlayLine(ctx, bb.upper, toX, toY, bbColor, true);
+      drawOverlayLine(ctx, bb.lower, toX, toY, bbColor, true);
     }
-    ctx.stroke();
-    ctx.setLineDash([]);
+
+    if (isEnabled(indicators, 'sma20')) {
+      drawOverlayLine(ctx, computeSMA(closes, 20), toX, toY, getColor(indicators, 'sma20'), true);
+    }
+    if (isEnabled(indicators, 'sma50')) {
+      drawOverlayLine(ctx, computeSMA(closes, 50), toX, toY, getColor(indicators, 'sma50'), true);
+    }
+    if (isEnabled(indicators, 'sma100')) {
+      drawOverlayLine(ctx, computeSMA(closes, 100), toX, toY, getColor(indicators, 'sma100'), true);
+    }
+    if (isEnabled(indicators, 'sma200')) {
+      drawOverlayLine(ctx, computeSMA(closes, 200), toX, toY, getColor(indicators, 'sma200'), true);
+    }
+    if (isEnabled(indicators, 'ema12')) {
+      drawOverlayLine(ctx, computeEMA(closes, 12), toX, toY, getColor(indicators, 'ema12'), false);
+    }
+    if (isEnabled(indicators, 'ema26')) {
+      drawOverlayLine(ctx, computeEMA(closes, 26), toX, toY, getColor(indicators, 'ema26'), false);
+    }
+    if (isEnabled(indicators, 'vwap')) {
+      drawOverlayLine(ctx, computeVWAP(closes, highs, lows, volumes), toX, toY, getColor(indicators, 'vwap'), false);
+    }
 
     const isUp = closes[closes.length - 1] >= closes[0];
     const lineColor = isUp ? '#00c853' : '#ff1744';
@@ -254,7 +318,7 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       const idx = Math.floor((i / (labelCount - 1)) * (slicedData.length - 1));
       const d = slicedData[idx];
       const label = d.date.length > 10 ? d.date.slice(5, 16) : d.date.slice(5, 10);
-      ctx.fillText(label, toX(idx), H - PAD_B + 16);
+      ctx.fillText(label, toX(idx), PAD_T + CHART_H + 16);
     }
 
     if (hover && hover.idx >= 0 && hover.idx < slicedData.length) {
@@ -305,22 +369,157 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       ctx.fillStyle = '#ccc';
       ctx.font = '10px JetBrains Mono, monospace';
       ctx.textAlign = 'left';
-      tooltipLines.forEach((line, i) => {
-        ctx.fillText(line, tx + 8, ty + 14 + i * 13);
+      tooltipLines.forEach((line, li) => {
+        ctx.fillText(line, tx + 8, ty + 14 + li * 13);
       });
     }
 
-    ctx.fillStyle = '#555';
-    ctx.font = '9px JetBrains Mono, monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText('SMA 20', PAD_L + 4, H - 6);
-    ctx.fillStyle = '#29b6f6';
-    ctx.fillRect(PAD_L + 46, H - 11, 16, 2);
-    ctx.fillStyle = '#555';
-    ctx.fillText('SMA 50', PAD_L + 72, H - 6);
-    ctx.fillStyle = '#ff9800';
-    ctx.fillRect(PAD_L + 114, H - 11, 16, 2);
-  }, [slicedData, dims, hover, chartType]);
+    let panelY = PAD_T + CHART_H + 30;
+
+    if (hasRSI) {
+      const rsiData = computeRSI(closes, 14);
+      const oscTop = panelY;
+      const oscH = OSC_PANEL_H - 10;
+
+      ctx.strokeStyle = '#292929';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, oscTop);
+      ctx.lineTo(W - PAD_R, oscTop);
+      ctx.stroke();
+
+      ctx.fillStyle = '#555';
+      ctx.font = '9px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('RSI (14)', PAD_L + 4, oscTop + 10);
+
+      const rsiToY = (v: number) => oscTop + 4 + (1 - v / 100) * (oscH - 8);
+
+      ctx.strokeStyle = '#292929';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([2, 2]);
+      [30, 70].forEach(level => {
+        const ly = rsiToY(level);
+        ctx.beginPath();
+        ctx.moveTo(PAD_L, ly);
+        ctx.lineTo(W - PAD_R, ly);
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = 'rgba(206,147,216,0.05)';
+      ctx.fillRect(PAD_L, rsiToY(70), CHART_W, rsiToY(30) - rsiToY(70));
+
+      ctx.strokeStyle = getColor(indicators, 'rsi');
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      let rsiStarted = false;
+      for (let i = 0; i < rsiData.length; i++) {
+        const v = rsiData[i];
+        if (v === null) continue;
+        if (!rsiStarted) { ctx.moveTo(toX(i), rsiToY(v)); rsiStarted = true; }
+        else ctx.lineTo(toX(i), rsiToY(v));
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = '#444';
+      ctx.font = '8px JetBrains Mono, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('70', PAD_L - 4, rsiToY(70) + 3);
+      ctx.fillText('30', PAD_L - 4, rsiToY(30) + 3);
+
+      panelY += OSC_PANEL_H;
+    }
+
+    if (hasMACD) {
+      const macdData = computeMACD(closes, 12, 26, 9);
+      const oscTop = panelY;
+      const oscH = OSC_PANEL_H - 10;
+
+      ctx.strokeStyle = '#292929';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, oscTop);
+      ctx.lineTo(W - PAD_R, oscTop);
+      ctx.stroke();
+
+      ctx.fillStyle = '#555';
+      ctx.font = '9px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('MACD (12,26,9)', PAD_L + 4, oscTop + 10);
+
+      const allVals: number[] = [];
+      macdData.macd.forEach(v => { if (v !== null) allVals.push(v); });
+      macdData.signal.forEach(v => { if (v !== null) allVals.push(v); });
+      macdData.histogram.forEach(v => { if (v !== null) allVals.push(Math.abs(v)); });
+      const macdMax = Math.max(...allVals.map(Math.abs), 0.01);
+
+      const macdToY = (v: number) => oscTop + 4 + oscH / 2 - (v / macdMax) * (oscH / 2 - 4);
+
+      ctx.strokeStyle = '#292929';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, macdToY(0));
+      ctx.lineTo(W - PAD_R, macdToY(0));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const histBarW = Math.max(1, CHART_W / slicedData.length - 1);
+      for (let i = 0; i < macdData.histogram.length; i++) {
+        const v = macdData.histogram[i];
+        if (v === null) continue;
+        const x = toX(i);
+        const zeroY = macdToY(0);
+        const barY = macdToY(v);
+        ctx.fillStyle = v >= 0 ? '#00c85366' : '#ff174466';
+        ctx.fillRect(x - histBarW / 2, Math.min(zeroY, barY), histBarW, Math.abs(barY - zeroY));
+      }
+
+      ctx.strokeStyle = getColor(indicators, 'macd');
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      let macdStarted = false;
+      for (let i = 0; i < macdData.macd.length; i++) {
+        const v = macdData.macd[i];
+        if (v === null) continue;
+        if (!macdStarted) { ctx.moveTo(toX(i), macdToY(v)); macdStarted = true; }
+        else ctx.lineTo(toX(i), macdToY(v));
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = '#ff6d00';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      let sigStarted = false;
+      for (let i = 0; i < macdData.signal.length; i++) {
+        const v = macdData.signal[i];
+        if (v === null) continue;
+        if (!sigStarted) { ctx.moveTo(toX(i), macdToY(v)); sigStarted = true; }
+        else ctx.lineTo(toX(i), macdToY(v));
+      }
+      ctx.stroke();
+    }
+
+    const activeOverlays = indicators.filter(
+      i => i.enabled && i.category !== 'oscillator' && i.category !== 'volume'
+    );
+    if (activeOverlays.length > 0) {
+      ctx.font = '9px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      let legendX = PAD_L + 4;
+      const legendY = H - 6;
+      for (const ind of activeOverlays) {
+        ctx.fillStyle = '#555';
+        ctx.fillText(ind.label, legendX, legendY);
+        const textW = ctx.measureText(ind.label).width;
+        legendX += textW + 4;
+        ctx.fillStyle = ind.color;
+        ctx.fillRect(legendX, legendY - 5, 12, 2);
+        legendX += 20;
+      }
+    }
+  }, [slicedData, dims, hover, chartType, indicators, oscillatorPanels, hasRSI, hasMACD]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -380,6 +579,8 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
               {ct.label}
             </button>
           ))}
+          <div style={{ width: 1, height: 16, background: '#292929', margin: '0 6px' }} />
+          <IndicatorMenu indicators={indicators} onToggle={toggleIndicator} />
           <div style={{ width: 1, height: 16, background: '#292929', margin: '0 6px' }} />
           {TIMEFRAMES.map(tf => {
             const isActive = tf.label === activeLabel ||
