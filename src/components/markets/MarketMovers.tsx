@@ -15,10 +15,10 @@ export default function MarketMovers({ gainers, losers, active, onSelect }: Prop
   const [tab, setTab] = useState<Tab>('overview');
 
   const tabs: { key: Tab; label: string; color: string }[] = [
+    { key: 'overview', label: 'Overview', color: '#ffa726' },
     { key: 'gainers', label: 'Gainers', color: '#00c853' },
     { key: 'losers', label: 'Losers', color: '#ff1744' },
     { key: 'active', label: 'Active', color: '#29b6f6' },
-    { key: 'overview', label: 'Overview', color: '#ffa726' },
   ];
 
   const items = tab === 'gainers' ? gainers : tab === 'losers' ? losers : active;
