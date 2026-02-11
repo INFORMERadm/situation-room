@@ -92,8 +92,6 @@ export default function MarketNews({ news, onSelectSymbol }: Props) {
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <span style={{ color: '#555', fontSize: 9 }}>{item.site}</span>
-              <span style={{ color: '#333', fontSize: 9 }}>|</span>
               <span style={{ color: '#555', fontSize: 9 }}>{timeAgo(item.publishedDate)}</span>
               {item.symbol && (
                 <button
