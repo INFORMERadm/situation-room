@@ -135,14 +135,14 @@ export default function WorldClocks() {
           display: 'flex',
           alignItems: 'center',
           gap: 2,
-          color: '#00ff88',
+          color: '#1a1a1a',
           fontSize: 11,
           fontWeight: 600,
           letterSpacing: 0.5,
           marginRight: 8,
         }}
       >
-        <span style={{ opacity: 0.5, marginRight: 2 }}>UTC</span>
+        <span style={{ color: '#444', marginRight: 2 }}>UTC</span>
         <span>{times['UTC'] || '--:--:--'}</span>
       </div>
 
@@ -154,7 +154,7 @@ export default function WorldClocks() {
             alignItems: 'center',
             gap: 2,
             padding: '0 8px',
-            borderLeft: '1px solid #292929',
+            borderLeft: '1px solid rgba(0,0,0,0.15)',
             fontSize: 11,
             letterSpacing: 0.5,
             position: 'relative',
@@ -168,13 +168,13 @@ export default function WorldClocks() {
             if (btn) btn.style.opacity = '0';
           }}
         >
-          <span style={{ color: '#888', marginRight: 2, fontSize: 10 }}>
+          <span style={{ color: '#444', marginRight: 2, fontSize: 10 }}>
             {c.label.toUpperCase()}
           </span>
-          <span style={{ color: '#c9d1d9', fontWeight: 600 }}>
+          <span style={{ color: '#1a1a1a', fontWeight: 600 }}>
             {times[c.zone] || '--:--:--'}
           </span>
-          <span style={{ color: '#555', fontSize: 9, marginLeft: 2 }}>
+          <span style={{ color: '#444', fontSize: 9, marginLeft: 2 }}>
             {getAbbreviation(c.zone)}
           </span>
           <button
@@ -210,10 +210,10 @@ export default function WorldClocks() {
           ref={buttonRef}
           onClick={() => setShowPicker(!showPicker)}
           style={{
-            background: showPicker ? '#1a1a1a' : 'transparent',
-            border: '1px solid #292929',
+            background: showPicker ? 'rgba(0,0,0,0.15)' : 'transparent',
+            border: '1px solid rgba(0,0,0,0.2)',
             borderRadius: 3,
-            color: '#888',
+            color: '#1a1a1a',
             width: 22,
             height: 22,
             fontSize: 14,
@@ -225,12 +225,12 @@ export default function WorldClocks() {
             transition: 'all 0.15s',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#00c853';
-            e.currentTarget.style.color = '#00c853';
+            e.currentTarget.style.borderColor = 'rgba(0,0,0,0.5)';
+            e.currentTarget.style.color = '#000';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = '#292929';
-            e.currentTarget.style.color = '#888';
+            e.currentTarget.style.borderColor = 'rgba(0,0,0,0.2)';
+            e.currentTarget.style.color = '#1a1a1a';
           }}
         >
           +

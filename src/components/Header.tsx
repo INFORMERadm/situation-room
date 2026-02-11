@@ -7,14 +7,15 @@ export default function Header() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderBottom: '1px solid #292929',
+        borderBottom: '1px solid #c47400',
         padding: '6px 16px',
         minHeight: 34,
+        background: '#e88a00',
       }}
     >
       <div
         style={{
-          color: '#00ff88',
+          color: '#1a1a1a',
           fontWeight: 700,
           fontSize: 13,
           letterSpacing: 1,
