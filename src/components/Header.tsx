@@ -1,31 +1,30 @@
-import { useState, useEffect } from 'react';
+import WorldClocks from './WorldClocks';
 
 export default function Header() {
-  const [time, setTime] = useState(new Date().toISOString().slice(11, 19));
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTime(new Date().toISOString().slice(11, 19));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
         borderBottom: '1px solid #292929',
         padding: '6px 16px',
-        color: '#00ff88',
-        fontWeight: 700,
-        fontSize: 13,
-        letterSpacing: 1,
-        textTransform: 'uppercase',
+        minHeight: 34,
       }}
     >
-      GLOBAL MONITOR | {time} UTC
+      <div
+        style={{
+          color: '#00ff88',
+          fontWeight: 700,
+          fontSize: 13,
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        GLOBAL MONITOR
+      </div>
+      <WorldClocks />
     </div>
   );
 }
