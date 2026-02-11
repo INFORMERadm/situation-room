@@ -81,7 +81,7 @@ export default function MarketOverview({ onSelect }: Props) {
   useEffect(() => {
     const symbols = watchlist.map((w) => w.symbol);
     fetchQuotes(symbols);
-    const interval = setInterval(() => fetchQuotes(symbols), 30_000);
+    const interval = setInterval(() => fetchQuotes(symbols), 10_000);
     return () => clearInterval(interval);
   }, [watchlist, fetchQuotes]);
 

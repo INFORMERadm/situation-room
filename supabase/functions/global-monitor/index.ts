@@ -222,7 +222,7 @@ async function fetchQuote(symbol: string) {
   if (!symbol) return null;
 
   const cacheKey = `quote:${symbol.toUpperCase()}`;
-  const cached = await getCached(cacheKey, 60_000);
+  const cached = await getCached(cacheKey, 10_000);
   if (cached) return cached;
 
   const data: FmpQuote[] = await fmpFetch("quote", { symbol });
