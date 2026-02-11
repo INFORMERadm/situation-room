@@ -82,7 +82,7 @@ export default function EconomicCalendar({ events }: Props) {
               padding: '6px 12px',
               background: '#1a1a1a',
               borderBottom: '1px solid #292929',
-              color: group.label.startsWith('Today') ? '#4fc3f7' : '#888',
+              color: group.label.startsWith('Today') ? '#ff9800' : '#888',
               fontSize: 10,
               fontWeight: 600,
               letterSpacing: 0.5,
