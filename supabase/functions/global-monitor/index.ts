@@ -603,7 +603,7 @@ async function fetchMarketNews() {
     const items: { title: string; site: string; url: string; publishedDate: string; symbol: string; image: string }[] = [];
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
-    while ((match = itemRegex.exec(xml)) !== null && items.length < 30) {
+    while ((match = itemRegex.exec(xml)) !== null && items.length < 50) {
       const block = match[1];
       const title = (block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || block.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim() ?? "";
       const link = (block.match(/<link>([\s\S]*?)<\/link>/))?.[1]?.trim() ?? "";
@@ -629,7 +629,7 @@ async function fetchMarketNews() {
   } catch { /* fall through to FMP fallback */ }
 
   try {
-    const data = await fmpFetch("stock-news", { limit: "20" });
+    const data = await fmpFetch("stock-news", { limit: "50" });
     const result = (data as Record<string, unknown>[]).map((n) => ({
       title: (n.title as string) ?? "",
       site: (n.site as string) ?? "",
