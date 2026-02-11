@@ -10,15 +10,15 @@ const STORAGE_KEY = 'global-monitor-watchlist';
 
 const DEFAULT_WATCHLIST = [
   { symbol: 'EURUSD', name: 'EUR/USD' },
-  { symbol: 'BTC=F', name: 'Bitcoin Futures' },
-  { symbol: 'YM=F', name: 'Dow Jones Industrial Futures' },
-  { symbol: 'NQ=F', name: 'Nasdaq Futures' },
-  { symbol: 'ES=F', name: 'S&P 500 E-mini Futures' },
-  { symbol: 'CL=F', name: 'Crude Oil Futures' },
-  { symbol: 'NG=F', name: 'Natural Gas Futures' },
-  { symbol: 'GC=F', name: 'Gold Futures' },
-  { symbol: 'SI=F', name: 'Silver Futures' },
-  { symbol: 'HG=F', name: 'Copper Futures' },
+  { symbol: 'BTCUSD', name: 'Bitcoin' },
+  { symbol: '^DJI', name: 'Dow Jones Industrial' },
+  { symbol: '^IXIC', name: 'Nasdaq Composite' },
+  { symbol: 'ESUSD', name: 'S&P 500 E-mini' },
+  { symbol: 'CLUSD', name: 'Crude Oil (WTI)' },
+  { symbol: 'NGUSD', name: 'Natural Gas' },
+  { symbol: 'GCUSD', name: 'Gold' },
+  { symbol: 'SIUSD', name: 'Silver' },
+  { symbol: 'HGUSD', name: 'Copper' },
   { symbol: 'AAPL', name: 'Apple Inc.' },
   { symbol: 'MSFT', name: 'Microsoft Corporation' },
   { symbol: 'GOOGL', name: 'Alphabet Inc.' },
@@ -32,7 +32,9 @@ interface WatchlistEntry {
 }
 
 const WATCHLIST_VERSION_KEY = 'global-monitor-watchlist-v';
-const CURRENT_VERSION = '2';
+const CURRENT_VERSION = '3';
+
+const FOREX_SYMBOLS = new Set(['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD']);
 
 function loadWatchlist(): WatchlistEntry[] {
   try {
@@ -392,7 +394,11 @@ export default function MarketOverview({ onSelect }: Props) {
                   textAlign: 'right',
                 }}
               >
-                {q ? `$${q.price.toFixed(2)}` : '--'}
+                {q
+                  ? FOREX_SYMBOLS.has(item.symbol)
+                    ? q.price.toFixed(4)
+                    : `$${q.price.toFixed(2)}`
+                  : '--'}
               </span>
               <span
                 style={{
