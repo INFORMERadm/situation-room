@@ -80,9 +80,7 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
   const [dims, setDims] = useState({ w: 800, h: 400 });
   const [chartType, setChartType] = useState<ChartType>('area');
   const [indicators, setIndicators] = useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
-  const [viewStart, setViewStart] = useState(0);
-  const [viewEnd, setViewEnd] = useState(0);
-  const viewRef = useRef({ start: 0, end: 0 });
+  const [viewRange, setViewRange] = useState({ start: 0, end: 0 });
 
   const toggleIndicator = useCallback((id: string) => {
     setIndicators(prev => prev.map(i => i.id === id ? { ...i, enabled: !i.enabled } : i));
@@ -123,23 +121,17 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
   })();
 
   useEffect(() => {
-    const end = Math.max(0, slicedData.length - 1);
-    setViewStart(0);
-    setViewEnd(end);
-    viewRef.current = { start: 0, end };
+    setViewRange({ start: 0, end: Math.max(0, slicedData.length - 1) });
   }, [slicedData.length, timeframe]);
-
-  useEffect(() => {
-    viewRef.current = { start: viewStart, end: viewEnd };
-  }, [viewStart, viewEnd]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const total = slicedData.length;
+
     const handler = (e: WheelEvent) => {
       e.preventDefault();
-      const total = slicedData.length;
       if (total < 4) return;
 
       const rect = canvas.getBoundingClientRect();
@@ -149,43 +141,38 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       const chartW = dims.w - PAD_L - PAD_R;
       const ratio = Math.max(0, Math.min(1, (mouseX - PAD_L) / chartW));
 
-      const cur = viewRef.current;
-      const curLen = cur.end - cur.start + 1;
+      setViewRange(prev => {
+        const curLen = prev.end - prev.start + 1;
+        const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87;
+        let newLen = Math.round(curLen * zoomFactor);
+        newLen = Math.max(MIN_ZOOM_POINTS, Math.min(total, newLen));
 
-      const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87;
-      let newLen = Math.round(curLen * zoomFactor);
-      newLen = Math.max(MIN_ZOOM_POINTS, Math.min(total, newLen));
+        if (newLen === curLen) return prev;
+        if (newLen >= total) return { start: 0, end: total - 1 };
 
-      if (newLen === curLen) return;
+        const diff = newLen - curLen;
+        const leftAdj = Math.round(diff * ratio);
+        const rightAdj = diff - leftAdj;
 
-      if (newLen >= total) {
-        setViewStart(0);
-        setViewEnd(total - 1);
-        return;
-      }
+        let ns = prev.start - leftAdj;
+        let ne = prev.end + rightAdj;
 
-      const diff = newLen - curLen;
-      const leftAdj = Math.round(diff * ratio);
-      const rightAdj = diff - leftAdj;
+        if (ns < 0) { ne -= ns; ns = 0; }
+        if (ne >= total) { ns -= (ne - total + 1); ne = total - 1; }
+        ns = Math.max(0, ns);
+        ne = Math.min(total - 1, ne);
 
-      let ns = cur.start - leftAdj;
-      let ne = cur.end + rightAdj;
-
-      if (ns < 0) { ne -= ns; ns = 0; }
-      if (ne >= total) { ns -= (ne - total + 1); ne = total - 1; }
-      ns = Math.max(0, ns);
-      ne = Math.min(total - 1, ne);
-
-      if (ne - ns + 1 < MIN_ZOOM_POINTS) return;
-
-      setViewStart(ns);
-      setViewEnd(ne);
+        if (ne - ns + 1 < MIN_ZOOM_POINTS) return prev;
+        return { start: ns, end: ne };
+      });
     };
 
     canvas.addEventListener('wheel', handler, { passive: false });
     return () => canvas.removeEventListener('wheel', handler);
   }, [dims.w, slicedData.length]);
 
+  const viewStart = viewRange.start;
+  const viewEnd = viewRange.end;
   const viewLen = viewEnd - viewStart + 1;
 
   const draw = useCallback(() => {
