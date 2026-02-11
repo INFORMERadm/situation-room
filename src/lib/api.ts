@@ -31,6 +31,17 @@ export async function fetchQuote(symbol: string) {
   return json.quote ?? null;
 }
 
+export async function fetchBatchQuotes(symbols: string[]) {
+  if (symbols.length === 0) return {};
+  const res = await fetch(
+    `${API_BASE}/global-monitor?feed=batch-quotes&symbols=${encodeURIComponent(symbols.join(','))}`,
+    { headers }
+  );
+  if (!res.ok) throw new Error(`Batch quotes failed: ${res.status}`);
+  const json = await res.json();
+  return json.quotes ?? {};
+}
+
 export async function fetchMarketOverview() {
   const res = await fetch(`${API_BASE}/global-monitor?feed=market-overview`, { headers });
   if (!res.ok) throw new Error(`Market overview failed: ${res.status}`);

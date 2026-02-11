@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchSymbolSearch, fetchQuote } from '../../lib/api';
+import { fetchSymbolSearch, fetchBatchQuotes } from '../../lib/api';
 import type { SearchResult, QuoteDetail } from '../../types';
 
 interface Props {
@@ -69,50 +69,44 @@ export default function MarketOverview({ onSelect }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const flashTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  const fetchQuotes = useCallback(async (symbols: string[]) => {
+  const refreshQuotes = useCallback(async (symbols: string[]) => {
     if (symbols.length === 0) return;
-    const results = await Promise.allSettled(
-      symbols.map((s) => fetchQuote(s)),
-    );
-    const newQuotes: Record<string, QuoteDetail> = {};
-    results.forEach((r, i) => {
-      if (r.status === 'fulfilled' && r.value) {
-        newQuotes[symbols[i]] = r.value;
-      }
-    });
+    try {
+      const batch = await fetchBatchQuotes(symbols) as Record<string, QuoteDetail>;
 
-    const newFlashes: Record<string, FlashDirection> = {};
-    for (const [sym, q] of Object.entries(newQuotes)) {
-      const prev = prevPricesRef.current[sym];
-      if (prev !== undefined && q.price !== prev) {
-        newFlashes[sym] = q.price > prev ? 'up' : 'down';
+      const newFlashes: Record<string, FlashDirection> = {};
+      for (const [sym, q] of Object.entries(batch)) {
+        const prev = prevPricesRef.current[sym];
+        if (prev !== undefined && q.price !== prev) {
+          newFlashes[sym] = q.price > prev ? 'up' : 'down';
+        }
+        prevPricesRef.current[sym] = q.price;
       }
-      prevPricesRef.current[sym] = q.price;
-    }
 
-    if (Object.keys(newFlashes).length > 0) {
-      setFlashes((prev) => ({ ...prev, ...newFlashes }));
-      for (const sym of Object.keys(newFlashes)) {
-        if (flashTimersRef.current[sym]) clearTimeout(flashTimersRef.current[sym]);
-        flashTimersRef.current[sym] = setTimeout(() => {
-          setFlashes((prev) => {
-            const next = { ...prev };
-            delete next[sym];
-            return next;
-          });
-        }, 1200);
+      if (Object.keys(newFlashes).length > 0) {
+        setFlashes((prev) => ({ ...prev, ...newFlashes }));
+        for (const sym of Object.keys(newFlashes)) {
+          if (flashTimersRef.current[sym]) clearTimeout(flashTimersRef.current[sym]);
+          flashTimersRef.current[sym] = setTimeout(() => {
+            setFlashes((prev) => {
+              const next = { ...prev };
+              delete next[sym];
+              return next;
+            });
+          }, 1200);
+        }
       }
-    }
 
-    setQuotes((prev) => ({ ...prev, ...newQuotes }));
+      setQuotes((prev) => ({ ...prev, ...batch }));
+    } catch {}
   }, []);
 
   useEffect(() => {
     const symbols = watchlist.map((w) => w.symbol);
-    fetchQuotes(symbols);
-    const interval = setInterval(() => fetchQuotes(symbols), 10_000);
+    refreshQuotes(symbols);
+    const interval = setInterval(() => refreshQuotes(symbols), 3_000);
     return () => clearInterval(interval);
-  }, [watchlist, fetchQuotes]);
+  }, [watchlist, refreshQuotes]);
 
   useEffect(() => {
     if (!searchQuery || searchQuery.length < 1) {
@@ -163,7 +157,7 @@ export default function MarketOverview({ onSelect }: Props) {
     setShowSearch(false);
     setSearchQuery('');
     setSearchResults([]);
-    fetchQuotes([result.symbol]);
+    refreshQuotes([result.symbol]);
   };
 
   const removeInstrument = (symbol: string) => {

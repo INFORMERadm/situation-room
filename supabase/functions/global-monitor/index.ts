@@ -247,6 +247,38 @@ async function fetchQuote(symbol: string) {
   return result;
 }
 
+async function fetchBatchQuotes(symbols: string[]) {
+  if (symbols.length === 0) return {};
+
+  const symbolStr = symbols.map((s) => s.toUpperCase()).sort().join(",");
+  const cacheKey = `batch-quotes:${symbolStr}`;
+  const cached = await getCached(cacheKey, 3_000);
+  if (cached) return cached;
+
+  const data: FmpQuote[] = await fmpFetch("batch-quote", { symbols: symbolStr });
+  const result: Record<string, unknown> = {};
+  for (const q of data) {
+    const sym = q.symbol ?? "";
+    if (!sym) continue;
+    result[sym] = {
+      symbol: sym,
+      name: q.name ?? sym,
+      price: q.price ?? 0,
+      change: q.change ?? 0,
+      changesPercentage: extractPctChange(q),
+      dayHigh: q.dayHigh ?? 0,
+      dayLow: q.dayLow ?? 0,
+      volume: q.volume ?? 0,
+      marketCap: q.marketCap ?? 0,
+      open: q.open ?? 0,
+      previousClose: q.previousClose ?? 0,
+    };
+  }
+
+  await setCache(cacheKey, result);
+  return result;
+}
+
 async function fetchMarketOverview() {
   const cached = await getCached("market-overview", 10_000);
   if (cached) return cached;
@@ -821,6 +853,11 @@ Deno.serve(async (req: Request) => {
         const symbol = url.searchParams.get("symbol") ?? "";
         const quote = await fetchQuote(symbol);
         return jsonResponse({ quote });
+      }
+      case "batch-quotes": {
+        const symbols = (url.searchParams.get("symbols") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        const quotes = await fetchBatchQuotes(symbols);
+        return jsonResponse({ quotes });
       }
       case "news": {
         const news = await fetchNews();
