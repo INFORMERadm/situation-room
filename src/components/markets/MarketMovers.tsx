@@ -12,7 +12,7 @@ interface Props {
 type Tab = 'gainers' | 'losers' | 'active' | 'overview';
 
 export default function MarketMovers({ gainers, losers, active, onSelect }: Props) {
-  const [tab, setTab] = useState<Tab>('gainers');
+  const [tab, setTab] = useState<Tab>('overview');
 
   const tabs: { key: Tab; label: string; color: string }[] = [
     { key: 'gainers', label: 'Gainers', color: '#00c853' },
