@@ -147,7 +147,7 @@ export default function MarketsDashboard() {
             </div>
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               {rightPanelView === 'news' ? (
-                <MarketNews news={data.news.slice(10)} onSelectSymbol={data.selectSymbol} />
+                <MarketNews news={data.news} onSelectSymbol={data.selectSymbol} />
               ) : (
                 <EconomicCalendar events={data.economic} />
               )}

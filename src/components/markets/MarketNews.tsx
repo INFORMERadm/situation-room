@@ -6,6 +6,8 @@ interface Props {
   onSelectSymbol: (symbol: string) => void;
 }
 
+const STREAM_INTERVAL = 80;
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -17,21 +19,48 @@ function timeAgo(dateStr: string): string {
   return `${days}d`;
 }
 
-function fingerprint(items: MarketNewsItem[]): string {
-  return items.map(i => i.url).join('|');
-}
-
 export default function MarketNews({ news, onSelectSymbol }: Props) {
-  const [animKey, setAnimKey] = useState(0);
-  const prevFingerprint = useRef('');
+  const [visibleCount, setVisibleCount] = useState(0);
+  const prevNewsRef = useRef<MarketNewsItem[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const fp = fingerprint(news);
-    if (fp && fp !== prevFingerprint.current) {
-      prevFingerprint.current = fp;
-      setAnimKey(k => k + 1);
+    const changed =
+      news.length !== prevNewsRef.current.length ||
+      news.some((item, i) => item.url !== prevNewsRef.current[i]?.url);
+
+    if (!changed) return;
+
+    prevNewsRef.current = news;
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
+
+    setVisibleCount(0);
+
+    if (news.length === 0) return;
+
+    let count = 0;
+    timerRef.current = setInterval(() => {
+      count += 1;
+      setVisibleCount(count);
+      if (count >= news.length) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }, STREAM_INTERVAL);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [news]);
+
+  const visible = news.slice(0, visibleCount);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -49,15 +78,15 @@ export default function MarketNews({ news, onSelectSymbol }: Props) {
         {news.length === 0 && (
           <div style={{ padding: 16, color: '#555', fontSize: 11 }}>Loading news...</div>
         )}
-        {news.map((item, i) => (
+        {visible.map((item, i) => (
           <div
-            key={`${animKey}-${i}`}
+            key={item.url || i}
             style={{
               padding: '8px 12px',
               borderBottom: '1px solid #1e1e1e',
               transition: 'background 0.1s',
               cursor: 'default',
-              animation: `newsStreamIn 0.35s ease-out ${i * 50}ms both`,
+              animation: 'newsStreamIn 0.3s ease-out both',
             }}
             onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
