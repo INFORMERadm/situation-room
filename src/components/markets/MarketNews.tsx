@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import type { MarketNewsItem } from '../../types';
 
 interface Props {
@@ -16,7 +17,22 @@ function timeAgo(dateStr: string): string {
   return `${days}d`;
 }
 
+function fingerprint(items: MarketNewsItem[]): string {
+  return items.map(i => i.url).join('|');
+}
+
 export default function MarketNews({ news, onSelectSymbol }: Props) {
+  const [animKey, setAnimKey] = useState(0);
+  const prevFingerprint = useRef('');
+
+  useEffect(() => {
+    const fp = fingerprint(news);
+    if (fp && fp !== prevFingerprint.current) {
+      prevFingerprint.current = fp;
+      setAnimKey(k => k + 1);
+    }
+  }, [news]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div style={{
@@ -35,12 +51,13 @@ export default function MarketNews({ news, onSelectSymbol }: Props) {
         )}
         {news.map((item, i) => (
           <div
-            key={i}
+            key={`${animKey}-${i}`}
             style={{
               padding: '8px 12px',
               borderBottom: '1px solid #1e1e1e',
               transition: 'background 0.1s',
               cursor: 'default',
+              animation: `newsStreamIn 0.35s ease-out ${i * 50}ms both`,
             }}
             onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
