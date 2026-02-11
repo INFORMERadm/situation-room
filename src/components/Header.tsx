@@ -16,7 +16,7 @@ export default function Header() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        border: '1px solid #00ff88',
+        border: 'none',
         padding: '6px 16px',
         color: '#00ff88',
         fontWeight: 700,
