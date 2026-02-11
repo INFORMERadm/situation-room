@@ -9,6 +9,16 @@ interface Props {
 const STORAGE_KEY = 'global-monitor-watchlist';
 
 const DEFAULT_WATCHLIST = [
+  { symbol: 'EURUSD', name: 'EUR/USD' },
+  { symbol: 'BTC=F', name: 'Bitcoin Futures' },
+  { symbol: 'YM=F', name: 'Dow Jones Industrial Futures' },
+  { symbol: 'NQ=F', name: 'Nasdaq Futures' },
+  { symbol: 'ES=F', name: 'S&P 500 E-mini Futures' },
+  { symbol: 'CL=F', name: 'Crude Oil Futures' },
+  { symbol: 'NG=F', name: 'Natural Gas Futures' },
+  { symbol: 'GC=F', name: 'Gold Futures' },
+  { symbol: 'SI=F', name: 'Silver Futures' },
+  { symbol: 'HG=F', name: 'Copper Futures' },
   { symbol: 'AAPL', name: 'Apple Inc.' },
   { symbol: 'MSFT', name: 'Microsoft Corporation' },
   { symbol: 'GOOGL', name: 'Alphabet Inc.' },
@@ -21,10 +31,18 @@ interface WatchlistEntry {
   name: string;
 }
 
+const WATCHLIST_VERSION_KEY = 'global-monitor-watchlist-v';
+const CURRENT_VERSION = '2';
+
 function loadWatchlist(): WatchlistEntry[] {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    const version = localStorage.getItem(WATCHLIST_VERSION_KEY);
+    if (version === CURRENT_VERSION) {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    }
+    localStorage.setItem(WATCHLIST_VERSION_KEY, CURRENT_VERSION);
+    saveWatchlist(DEFAULT_WATCHLIST);
   } catch {}
   return DEFAULT_WATCHLIST;
 }
