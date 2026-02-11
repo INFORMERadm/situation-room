@@ -37,6 +37,8 @@ const CHART_TYPES: { label: string; value: ChartType }[] = [
   { label: 'Candle', value: 'candlestick' },
 ];
 
+const MIN_ZOOM_POINTS = 10;
+
 function isEnabled(indicators: IndicatorConfig[], id: IndicatorId): boolean {
   return indicators.find(i => i.id === id)?.enabled ?? false;
 }
@@ -51,7 +53,9 @@ function drawOverlayLine(
   toX: (i: number) => number,
   toY: (p: number) => number,
   color: string,
-  dashed: boolean
+  dashed: boolean,
+  rangeStart: number,
+  rangeEnd: number
 ) {
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
@@ -59,9 +63,9 @@ function drawOverlayLine(
   else ctx.setLineDash([]);
   ctx.beginPath();
   let started = false;
-  for (let i = 0; i < values.length; i++) {
+  for (let i = rangeStart; i <= rangeEnd; i++) {
     const v = values[i];
-    if (v === null) continue;
+    if (v === null || v === undefined) continue;
     if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
     else ctx.lineTo(toX(i), toY(v));
   }
@@ -76,6 +80,9 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
   const [dims, setDims] = useState({ w: 800, h: 400 });
   const [chartType, setChartType] = useState<ChartType>('area');
   const [indicators, setIndicators] = useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
+  const [viewStart, setViewStart] = useState(0);
+  const [viewEnd, setViewEnd] = useState(0);
+  const viewRef = useRef({ start: 0, end: 0 });
 
   const toggleIndicator = useCallback((id: string) => {
     setIndicators(prev => prev.map(i => i.id === id ? { ...i, enabled: !i.enabled } : i));
@@ -115,9 +122,75 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
     return reversed;
   })();
 
+  useEffect(() => {
+    const end = Math.max(0, slicedData.length - 1);
+    setViewStart(0);
+    setViewEnd(end);
+    viewRef.current = { start: 0, end };
+  }, [slicedData.length, timeframe]);
+
+  useEffect(() => {
+    viewRef.current = { start: viewStart, end: viewEnd };
+  }, [viewStart, viewEnd]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const total = slicedData.length;
+      if (total < 4) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const PAD_L = 60;
+      const PAD_R = 16;
+      const chartW = dims.w - PAD_L - PAD_R;
+      const ratio = Math.max(0, Math.min(1, (mouseX - PAD_L) / chartW));
+
+      const cur = viewRef.current;
+      const curLen = cur.end - cur.start + 1;
+
+      const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87;
+      let newLen = Math.round(curLen * zoomFactor);
+      newLen = Math.max(MIN_ZOOM_POINTS, Math.min(total, newLen));
+
+      if (newLen === curLen) return;
+
+      if (newLen >= total) {
+        setViewStart(0);
+        setViewEnd(total - 1);
+        return;
+      }
+
+      const diff = newLen - curLen;
+      const leftAdj = Math.round(diff * ratio);
+      const rightAdj = diff - leftAdj;
+
+      let ns = cur.start - leftAdj;
+      let ne = cur.end + rightAdj;
+
+      if (ns < 0) { ne -= ns; ns = 0; }
+      if (ne >= total) { ns -= (ne - total + 1); ne = total - 1; }
+      ns = Math.max(0, ns);
+      ne = Math.min(total - 1, ne);
+
+      if (ne - ns + 1 < MIN_ZOOM_POINTS) return;
+
+      setViewStart(ns);
+      setViewEnd(ne);
+    };
+
+    canvas.addEventListener('wheel', handler, { passive: false });
+    return () => canvas.removeEventListener('wheel', handler);
+  }, [dims.w, slicedData.length]);
+
+  const viewLen = viewEnd - viewStart + 1;
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || slicedData.length < 2) return;
+    if (!canvas || slicedData.length < 2 || viewLen < 2) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -148,17 +221,23 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
     const volumes = slicedData.map(d => d.volume);
     const highs = slicedData.map(d => d.high);
     const lows = slicedData.map(d => d.low);
+
+    const visCloses = closes.slice(viewStart, viewEnd + 1);
+    const visVolumes = volumes.slice(viewStart, viewEnd + 1);
+    const visHighs = highs.slice(viewStart, viewEnd + 1);
+    const visLows = lows.slice(viewStart, viewEnd + 1);
+
     const useOHLC = chartType === 'bar' || chartType === 'candlestick';
     const minP = useOHLC
-      ? Math.min(...lows) * 0.998
-      : Math.min(...closes) * 0.998;
+      ? Math.min(...visLows) * 0.998
+      : Math.min(...visCloses) * 0.998;
     const maxP = useOHLC
-      ? Math.max(...highs) * 1.002
-      : Math.max(...closes) * 1.002;
-    const maxV = Math.max(...volumes, 1);
+      ? Math.max(...visHighs) * 1.002
+      : Math.max(...visCloses) * 1.002;
+    const maxV = Math.max(...visVolumes, 1);
     const priceRange = maxP - minP || 1;
 
-    const toX = (i: number) => PAD_L + (i / (slicedData.length - 1)) * CHART_W;
+    const toX = (i: number) => PAD_L + ((i - viewStart) / (viewLen - 1)) * CHART_W;
     const toY = (p: number) => PAD_T + (1 - (p - minP) / priceRange) * (CHART_H - VOL_H);
 
     const gridLines = 5;
@@ -178,10 +257,10 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
     }
 
     if (isEnabled(indicators, 'volume')) {
-      for (let i = 0; i < slicedData.length; i++) {
+      for (let i = viewStart; i <= viewEnd; i++) {
         const x = toX(i);
         const barH = (volumes[i] / maxV) * VOL_H;
-        const barW = Math.max(1, CHART_W / slicedData.length - 1);
+        const barW = Math.max(1, CHART_W / viewLen - 1);
         ctx.fillStyle = closes[i] >= (slicedData[i].open || closes[i]) ? '#00c85333' : '#ff174433';
         ctx.fillRect(x - barW / 2, PAD_T + CHART_H - barH, barW, barH);
       }
@@ -194,13 +273,13 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       ctx.fillStyle = bbColor + '0a';
       ctx.beginPath();
       let bbStarted = false;
-      for (let i = 0; i < bb.upper.length; i++) {
+      for (let i = viewStart; i <= viewEnd; i++) {
         const u = bb.upper[i];
         if (u === null) continue;
         if (!bbStarted) { ctx.moveTo(toX(i), toY(u)); bbStarted = true; }
         else ctx.lineTo(toX(i), toY(u));
       }
-      for (let i = bb.lower.length - 1; i >= 0; i--) {
+      for (let i = viewEnd; i >= viewStart; i--) {
         const l = bb.lower[i];
         if (l === null) continue;
         ctx.lineTo(toX(i), toY(l));
@@ -208,43 +287,43 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       ctx.closePath();
       ctx.fill();
 
-      drawOverlayLine(ctx, bb.upper, toX, toY, bbColor, true);
-      drawOverlayLine(ctx, bb.lower, toX, toY, bbColor, true);
+      drawOverlayLine(ctx, bb.upper, toX, toY, bbColor, true, viewStart, viewEnd);
+      drawOverlayLine(ctx, bb.lower, toX, toY, bbColor, true, viewStart, viewEnd);
     }
 
     if (isEnabled(indicators, 'sma20')) {
-      drawOverlayLine(ctx, computeSMA(closes, 20), toX, toY, getColor(indicators, 'sma20'), true);
+      drawOverlayLine(ctx, computeSMA(closes, 20), toX, toY, getColor(indicators, 'sma20'), true, viewStart, viewEnd);
     }
     if (isEnabled(indicators, 'sma50')) {
-      drawOverlayLine(ctx, computeSMA(closes, 50), toX, toY, getColor(indicators, 'sma50'), true);
+      drawOverlayLine(ctx, computeSMA(closes, 50), toX, toY, getColor(indicators, 'sma50'), true, viewStart, viewEnd);
     }
     if (isEnabled(indicators, 'sma100')) {
-      drawOverlayLine(ctx, computeSMA(closes, 100), toX, toY, getColor(indicators, 'sma100'), true);
+      drawOverlayLine(ctx, computeSMA(closes, 100), toX, toY, getColor(indicators, 'sma100'), true, viewStart, viewEnd);
     }
     if (isEnabled(indicators, 'sma200')) {
-      drawOverlayLine(ctx, computeSMA(closes, 200), toX, toY, getColor(indicators, 'sma200'), true);
+      drawOverlayLine(ctx, computeSMA(closes, 200), toX, toY, getColor(indicators, 'sma200'), true, viewStart, viewEnd);
     }
     if (isEnabled(indicators, 'ema12')) {
-      drawOverlayLine(ctx, computeEMA(closes, 12), toX, toY, getColor(indicators, 'ema12'), false);
+      drawOverlayLine(ctx, computeEMA(closes, 12), toX, toY, getColor(indicators, 'ema12'), false, viewStart, viewEnd);
     }
     if (isEnabled(indicators, 'ema26')) {
-      drawOverlayLine(ctx, computeEMA(closes, 26), toX, toY, getColor(indicators, 'ema26'), false);
+      drawOverlayLine(ctx, computeEMA(closes, 26), toX, toY, getColor(indicators, 'ema26'), false, viewStart, viewEnd);
     }
     if (isEnabled(indicators, 'vwap')) {
-      drawOverlayLine(ctx, computeVWAP(closes, highs, lows, volumes), toX, toY, getColor(indicators, 'vwap'), false);
+      drawOverlayLine(ctx, computeVWAP(closes, highs, lows, volumes), toX, toY, getColor(indicators, 'vwap'), false, viewStart, viewEnd);
     }
 
-    const isUp = closes[closes.length - 1] >= closes[0];
+    const isUp = visCloses[visCloses.length - 1] >= visCloses[0];
     const lineColor = isUp ? '#00c853' : '#ff1744';
 
     if (chartType === 'area' || chartType === 'line') {
       ctx.strokeStyle = lineColor;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      for (let i = 0; i < slicedData.length; i++) {
+      for (let i = viewStart; i <= viewEnd; i++) {
         const x = toX(i);
         const y = toY(closes[i]);
-        if (i === 0) ctx.moveTo(x, y);
+        if (i === viewStart) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
       ctx.stroke();
@@ -256,16 +335,16 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
         grad.addColorStop(1, 'rgba(18,18,18,0)');
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.moveTo(toX(0), toY(closes[0]));
-        for (let i = 1; i < slicedData.length; i++) ctx.lineTo(toX(i), toY(closes[i]));
-        ctx.lineTo(toX(slicedData.length - 1), PAD_T + CHART_H - VOL_H);
-        ctx.lineTo(toX(0), PAD_T + CHART_H - VOL_H);
+        ctx.moveTo(toX(viewStart), toY(closes[viewStart]));
+        for (let i = viewStart + 1; i <= viewEnd; i++) ctx.lineTo(toX(i), toY(closes[i]));
+        ctx.lineTo(toX(viewEnd), PAD_T + CHART_H - VOL_H);
+        ctx.lineTo(toX(viewStart), PAD_T + CHART_H - VOL_H);
         ctx.closePath();
         ctx.fill();
       }
     } else if (chartType === 'bar') {
-      const barW = Math.max(3, (CHART_W / slicedData.length) * 0.6);
-      for (let i = 0; i < slicedData.length; i++) {
+      const barW = Math.max(3, (CHART_W / viewLen) * 0.6);
+      for (let i = viewStart; i <= viewEnd; i++) {
         const d = slicedData[i];
         const x = toX(i);
         const bullish = d.close >= d.open;
@@ -285,8 +364,8 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
         ctx.stroke();
       }
     } else if (chartType === 'candlestick') {
-      const candleW = Math.max(3, (CHART_W / slicedData.length) * 0.7);
-      for (let i = 0; i < slicedData.length; i++) {
+      const candleW = Math.max(3, (CHART_W / viewLen) * 0.7);
+      for (let i = viewStart; i <= viewEnd; i++) {
         const d = slicedData[i];
         const x = toX(i);
         const bullish = d.close >= d.open;
@@ -313,15 +392,15 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#555';
-    const labelCount = Math.min(6, slicedData.length);
+    const labelCount = Math.min(6, viewLen);
     for (let i = 0; i < labelCount; i++) {
-      const idx = Math.floor((i / (labelCount - 1)) * (slicedData.length - 1));
+      const idx = viewStart + Math.floor((i / (labelCount - 1)) * (viewLen - 1));
       const d = slicedData[idx];
       const label = d.date.length > 10 ? d.date.slice(5, 16) : d.date.slice(5, 10);
       ctx.fillText(label, toX(idx), PAD_T + CHART_H + 16);
     }
 
-    if (hover && hover.idx >= 0 && hover.idx < slicedData.length) {
+    if (hover && hover.idx >= viewStart && hover.idx <= viewEnd) {
       const hx = toX(hover.idx);
       const hy = toY(closes[hover.idx]);
 
@@ -414,7 +493,7 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       ctx.lineWidth = 1;
       ctx.beginPath();
       let rsiStarted = false;
-      for (let i = 0; i < rsiData.length; i++) {
+      for (let i = viewStart; i <= viewEnd; i++) {
         const v = rsiData[i];
         if (v === null) continue;
         if (!rsiStarted) { ctx.moveTo(toX(i), rsiToY(v)); rsiStarted = true; }
@@ -449,9 +528,14 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       ctx.fillText('MACD (12,26,9)', PAD_L + 4, oscTop + 10);
 
       const allVals: number[] = [];
-      macdData.macd.forEach(v => { if (v !== null) allVals.push(v); });
-      macdData.signal.forEach(v => { if (v !== null) allVals.push(v); });
-      macdData.histogram.forEach(v => { if (v !== null) allVals.push(Math.abs(v)); });
+      for (let i = viewStart; i <= viewEnd; i++) {
+        const mv = macdData.macd[i];
+        if (mv !== null) allVals.push(mv);
+        const sv = macdData.signal[i];
+        if (sv !== null) allVals.push(sv);
+        const hv = macdData.histogram[i];
+        if (hv !== null) allVals.push(Math.abs(hv));
+      }
       const macdMax = Math.max(...allVals.map(Math.abs), 0.01);
 
       const macdToY = (v: number) => oscTop + 4 + oscH / 2 - (v / macdMax) * (oscH / 2 - 4);
@@ -465,8 +549,8 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       ctx.stroke();
       ctx.setLineDash([]);
 
-      const histBarW = Math.max(1, CHART_W / slicedData.length - 1);
-      for (let i = 0; i < macdData.histogram.length; i++) {
+      const histBarW = Math.max(1, CHART_W / viewLen - 1);
+      for (let i = viewStart; i <= viewEnd; i++) {
         const v = macdData.histogram[i];
         if (v === null) continue;
         const x = toX(i);
@@ -480,7 +564,7 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       ctx.lineWidth = 1;
       ctx.beginPath();
       let macdStarted = false;
-      for (let i = 0; i < macdData.macd.length; i++) {
+      for (let i = viewStart; i <= viewEnd; i++) {
         const v = macdData.macd[i];
         if (v === null) continue;
         if (!macdStarted) { ctx.moveTo(toX(i), macdToY(v)); macdStarted = true; }
@@ -492,7 +576,7 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
       ctx.lineWidth = 1;
       ctx.beginPath();
       let sigStarted = false;
-      for (let i = 0; i < macdData.signal.length; i++) {
+      for (let i = viewStart; i <= viewEnd; i++) {
         const v = macdData.signal[i];
         if (v === null) continue;
         if (!sigStarted) { ctx.moveTo(toX(i), macdToY(v)); sigStarted = true; }
@@ -519,24 +603,33 @@ export default function PriceChart({ data, symbol, timeframe, onTimeframeChange,
         legendX += 20;
       }
     }
-  }, [slicedData, dims, hover, chartType, indicators, oscillatorPanels, hasRSI, hasMACD]);
+
+    const isZoomed = viewLen < slicedData.length;
+    if (isZoomed) {
+      const pct = Math.round((viewLen / slicedData.length) * 100);
+      ctx.fillStyle = '#444';
+      ctx.font = '9px JetBrains Mono, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${pct}%`, W - PAD_R - 2, H - 6);
+    }
+  }, [slicedData, dims, hover, chartType, indicators, oscillatorPanels, hasRSI, hasMACD, viewStart, viewEnd, viewLen]);
 
   useEffect(() => { draw(); }, [draw]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas || slicedData.length < 2) return;
+    if (!canvas || viewLen < 2) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const PAD_L = 60;
     const PAD_R = 16;
     const CHART_W = dims.w - PAD_L - PAD_R;
     const ratio = (x - PAD_L) / CHART_W;
-    const idx = Math.round(ratio * (slicedData.length - 1));
-    if (idx >= 0 && idx < slicedData.length) {
+    const idx = viewStart + Math.round(ratio * (viewLen - 1));
+    if (idx >= viewStart && idx <= viewEnd) {
       setHover({ x: e.clientX - rect.left, y: e.clientY - rect.top, idx });
     }
-  }, [slicedData, dims]);
+  }, [viewStart, viewEnd, viewLen, dims]);
 
   return (
     <div
