@@ -15,7 +15,7 @@ const pageStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateRows: 'auto auto 1fr',
   height: '100vh',
-  background: '#121212',
+  background: '#ffffff',
   overflow: 'hidden',
   padding: 4,
   gap: 0,
