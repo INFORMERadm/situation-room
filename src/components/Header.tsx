@@ -7,10 +7,10 @@ export default function Header() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderBottom: '1px solid #c47400',
+        borderBottom: '1px solid #e0e0e0',
         padding: '6px 16px',
         minHeight: 34,
-        background: '#e88a00',
+        background: '#ffffff',
       }}
     >
       <div
