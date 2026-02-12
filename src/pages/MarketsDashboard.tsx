@@ -17,7 +17,6 @@ const pageStyle: React.CSSProperties = {
   height: '100vh',
   background: '#121212',
   overflow: 'hidden',
-  padding: 4,
   gap: 0,
 };
 
