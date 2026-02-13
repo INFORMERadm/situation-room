@@ -100,7 +100,7 @@ export function executeToolCall(tc: ToolCall, actions: PlatformActions): string 
 }
 
 export function isClientToolCall(tc: ToolCall): boolean {
-  return tc.tool !== 'fetch_fmp_data';
+  return tc.tool !== 'fetch_fmp_data' && tc.tool !== 'tavily_search';
 }
 
 export function buildContextPayload(state: {

@@ -970,6 +970,16 @@ You have access to the following tools:
 9. switch_left_tab - Switch left sidebar tab
    Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
 
+10. tavily_search - Search the web for real-time information using Tavily
+    Parameters: { "query": string }
+    Use this tool PROACTIVELY when:
+    - The user asks about current events, recent news, or anything requiring up-to-date information
+    - The user asks about topics outside of financial data (politics, technology, science, sports, etc.)
+    - The user asks "what is" or "who is" questions about people, companies, or concepts you're unsure about
+    - The user asks about recent earnings results, IPOs, mergers, or breaking financial news
+    - You need to verify or supplement your knowledge with current data
+    Do NOT use this tool when the user is only asking you to change chart settings, navigate symbols, or perform platform actions.
+
 RESPONSE FORMAT:
 - For tool calls, include JSON blocks wrapped in <tool_call> tags: <tool_call>{"tool":"tool_name","params":{...}}</tool_call>
 - You may combine multiple tool calls with text explanation
@@ -1167,6 +1177,26 @@ async function handleAIChat(req: Request): Promise<Response> {
                         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: inject } }] })}\n\n`));
                       } catch (e) {
                         const errMsg = `\n\n_Error fetching ${tc.params.endpoint}: ${e instanceof Error ? e.message : "unknown"}_\n`;
+                        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: errMsg } }] })}\n\n`));
+                      }
+                    } else if (tc.tool === "tavily_search" && TAVILY_API_KEY) {
+                      try {
+                        const query = (tc.params.query as string) || "";
+                        if (query) {
+                          const tavilyResult = await callTavilySearch(query);
+                          if (tavilyResult.results && tavilyResult.results.length > 0) {
+                            const sourcesMarkdown = formatTavilySources(tavilyResult);
+                            if (tavilyResult.answer) {
+                              const answerInject = `\n\n${tavilyResult.answer}`;
+                              controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: answerInject } }] })}\n\n`));
+                            }
+                            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: sourcesMarkdown } }] })}\n\n`));
+                          } else {
+                            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "\n\n_No web results found._\n" } }] })}\n\n`));
+                          }
+                        }
+                      } catch (e) {
+                        const errMsg = `\n\n_Web search error: ${e instanceof Error ? e.message : "unknown"}_\n`;
                         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: errMsg } }] })}\n\n`));
                       }
                     }
