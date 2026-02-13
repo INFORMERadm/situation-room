@@ -584,7 +584,9 @@ export default function AIChatBox({
           alignItems: 'center',
           gap: 8,
           padding: '8px 12px',
-          borderTop: '1px solid #292929',
+          border: '2px solid #fb8c00',
+          borderRadius: 6,
+          margin: '0 8px 8px 8px',
           background: '#0a0a0a',
           flexShrink: 0,
         }}>
