@@ -1259,7 +1259,7 @@ async function streamOneLLMRound(
       messages: chatMessages,
       tools: tools,
       stream: true,
-      max_tokens: 4096,
+      max_tokens: 16000,
       temperature: 0.7,
     }),
   });
@@ -1471,7 +1471,7 @@ async function handleAIChat(req: Request): Promise<Response> {
           }
 
           const systemMsg = { role: "system", content: systemContent };
-          let chatMessages: Record<string, unknown>[] = [systemMsg, ...messages.slice(-20)];
+          let chatMessages: Record<string, unknown>[] = [systemMsg, ...messages];
 
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
             console.log(`[AI Chat] Starting round ${depth + 1}/${MAX_CHAIN_DEPTH}`);
