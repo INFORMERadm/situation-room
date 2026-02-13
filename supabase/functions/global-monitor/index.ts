@@ -1075,7 +1075,7 @@ function formatFmpAsMarkdown(endpoint: string, data: unknown): string {
   return table;
 }
 
-const AI_TOOLS = [
+const ALL_AI_TOOLS = [
   {
     type: "function",
     function: {
@@ -1095,11 +1095,11 @@ const AI_TOOLS = [
     type: "function",
     function: {
       name: "tavily_search",
-      description: "Search the web for real-time information using Tavily.",
+      description: "Search the web for current, real-time information. REQUIRED for queries about recent events, breaking news, today's happenings, or anything after your training cutoff. Use when user asks about latest/current/recent/today/breaking information.",
       parameters: {
         type: "object",
         properties: {
-          query: { type: "string", description: "The search query" },
+          query: { type: "string", description: "Specific search terms (e.g., 'Tesla stock news today')" },
         },
         required: ["query"],
       },
@@ -1223,6 +1223,15 @@ const AI_TOOLS = [
 
 const SERVER_TOOLS = new Set(["fetch_fmp_data", "tavily_search"]);
 
+function getToolsForRequest(webSearchEnabled: boolean): typeof ALL_AI_TOOLS {
+  if (webSearchEnabled) {
+    console.log("[Tools] Including ALL tools (webSearch ON): fetch_fmp_data, tavily_search, change_symbol, etc.");
+    return ALL_AI_TOOLS;
+  }
+  console.log("[Tools] Filtering OUT tavily_search (webSearch OFF)");
+  return ALL_AI_TOOLS.filter(tool => tool.function.name !== "tavily_search");
+}
+
 const MODEL_CONFIGS: Record<string, { url: string; model: string }> = {
   "hypermind-6.5": {
     url: "https://router.huggingface.co/v1/chat/completions",
@@ -1246,6 +1255,7 @@ async function streamOneLLMRound(
   modelConfig: { url: string; model: string },
   hfToken: string,
   chatMessages: Record<string, unknown>[],
+  tools: typeof ALL_AI_TOOLS,
 ): Promise<{
   fullContent: string;
   nativeToolCalls: NativeToolCall[];
@@ -1260,7 +1270,7 @@ async function streamOneLLMRound(
     body: JSON.stringify({
       model: modelConfig.model,
       messages: chatMessages,
-      tools: AI_TOOLS,
+      tools: tools,
       stream: true,
       max_tokens: 4096,
       temperature: 0.7,
@@ -1356,9 +1366,14 @@ async function executeServerTool(
   }
   if (tc.tool === "tavily_search" && TAVILY_API_KEY) {
     const query = (tc.params.query as string) || "";
-    if (!query) return "No query provided";
+    console.log(`[Tavily] Calling tavily_search with query: "${query}"`);
+    if (!query) {
+      console.log("[Tavily] ERROR: No query provided");
+      return "No query provided";
+    }
     try {
       const tavilyResult = await callTavilySearch(query);
+      console.log(`[Tavily] Results received: ${tavilyResult.results?.length || 0} results, has answer: ${!!tavilyResult.answer}`);
       if (tavilyResult.results && tavilyResult.results.length > 0) {
         let result = "";
         if (tavilyResult.answer) {
@@ -1367,12 +1382,15 @@ async function executeServerTool(
         }
         const sourcesMarkdown = formatTavilySources(tavilyResult);
         sendChunk(sourcesMarkdown);
+        console.log(`[Tavily] Successfully formatted and returned ${tavilyResult.results.length} results`);
         return result + sourcesMarkdown;
       }
+      console.log("[Tavily] No results found");
       sendChunk("\n\n_No web results found._\n");
       return "No web results found.";
     } catch (e) {
       const errMsg = `Web search error: ${e instanceof Error ? e.message : "unknown"}`;
+      console.error(`[Tavily] ERROR: ${errMsg}`);
       sendChunk(`\n\n_${errMsg}_\n`);
       return errMsg;
     }
@@ -1396,19 +1414,30 @@ async function handleAIChat(req: Request): Promise<Response> {
     const modelKey = typeof model === "string" && MODEL_CONFIGS[model] ? model : "hypermind-6.5";
     const modelConfig = MODEL_CONFIGS[modelKey];
 
+    const aiTools = getToolsForRequest(webSearch);
+    console.log(`[AI Chat] webSearch=${webSearch}, tools count=${aiTools.length}`);
+    console.log(`[AI Chat] Available tools: ${aiTools.map(t => t.function.name).join(", ")}`);
+
     const contextStr = platformContext ? JSON.stringify(platformContext) : "{}";
     let systemContent = AI_SYSTEM_PROMPT + contextStr;
 
-    let tavilySourcesMarkdown = "";
     if (webSearch && TAVILY_API_KEY) {
-      const lastUserMsg = [...messages].reverse().find((m: { role: string; content: string }) => m.role === "user");
-      if (lastUserMsg?.content) {
-        const tavilyData = await callTavilySearch(lastUserMsg.content);
-        if (tavilyData.results && tavilyData.results.length > 0) {
-          systemContent += formatTavilyContext(tavilyData);
-          tavilySourcesMarkdown = formatTavilySources(tavilyData);
-        }
-      }
+      systemContent += `
+
+WEB SEARCH CAPABILITY:
+You have access to the tavily_search tool for real-time web information. USE IT when users ask about:
+- Recent events, breaking news, today's happenings
+- Latest stock news, current market events, recent company announcements
+- Anything requiring information after your training cutoff
+
+Temporal trigger keywords: today, now, current, latest, recent, breaking, just announced, this week, this month
+
+Examples:
+1. "What happened with Tesla today?" → Use tavily_search
+2. "Latest NVDA earnings news" → Use tavily_search
+3. "Show me AAPL historical data" → Use fetch_fmp_data (no web search needed)
+`;
+      console.log("[AI Chat] Web search guidance added to system prompt");
     }
 
     const systemMsg = { role: "system", content: systemContent };
@@ -1427,9 +1456,18 @@ async function handleAIChat(req: Request): Promise<Response> {
           let chatMessages: Record<string, unknown>[] = [systemMsg, ...messages.slice(-20)];
 
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
+            console.log(`[AI Chat] Starting round ${depth + 1}/${MAX_CHAIN_DEPTH}`);
             const { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
-              controller, encoder, modelConfig, HF_TOKEN, chatMessages,
+              controller, encoder, modelConfig, HF_TOKEN, chatMessages, aiTools,
             );
+
+            console.log(`[AI Chat] Round ${depth + 1} complete: nativeToolCalls=${nativeToolCalls.length}, textToolCalls=${textToolCalls.length}`);
+            if (nativeToolCalls.length > 0) {
+              console.log(`[AI Chat] Native tool calls: ${nativeToolCalls.map(tc => tc.name).join(", ")}`);
+            }
+            if (textToolCalls.length > 0) {
+              console.log(`[AI Chat] Text tool calls: ${textToolCalls.map(tc => tc.tool).join(", ")}`);
+            }
 
             const usedNative = nativeToolCalls.length > 0;
 
@@ -1451,24 +1489,36 @@ async function handleAIChat(req: Request): Promise<Response> {
               }
             }
 
-            if (allCalls.length === 0) break;
+            if (allCalls.length === 0) {
+              console.log(`[AI Chat] No tool calls in round ${depth + 1}, ending loop`);
+              break;
+            }
+
+            console.log(`[AI Chat] Processing ${allCalls.length} tool calls: ${allCalls.map(tc => tc.tool).join(", ")}`);
+
 
             for (const tc of allCalls) {
               sendChunk(`<tool_call>${JSON.stringify({ tool: tc.tool, params: tc.params })}</tool_call>`);
             }
 
             const serverCalls = allCalls.filter(tc => SERVER_TOOLS.has(tc.tool));
+            console.log(`[AI Chat] Server-side tools to execute: ${serverCalls.length} (${serverCalls.map(tc => tc.tool).join(", ") || "none"})`);
 
             const resultMap = new Map<string, string>();
             for (const tc of allCalls) {
               if (SERVER_TOOLS.has(tc.tool)) {
+                console.log(`[AI Chat] Executing server tool: ${tc.tool} with params:`, JSON.stringify(tc.params));
                 const result = await executeServerTool(tc, sendChunk);
+                console.log(`[AI Chat] Server tool ${tc.tool} completed, result length: ${result.length}`);
                 if (tc.nativeId) resultMap.set(tc.nativeId, result);
                 else resultMap.set(`${tc.tool}:${JSON.stringify(tc.params)}`, result);
               }
             }
 
-            if (serverCalls.length === 0) break;
+            if (serverCalls.length === 0) {
+              console.log(`[AI Chat] No server tools called in round ${depth + 1}, ending loop`);
+              break;
+            }
 
             if (usedNative) {
               const assistantMsg: Record<string, unknown> = {
