@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { ChatMessage, ChatSession } from '../../hooks/useAIChat';
 import AIMessageRenderer from './AIMessageRenderer';
+import ToolCallIndicator, { extractToolCalls } from './ToolCallIndicator';
 
 const MODEL_OPTIONS = [
   { id: 'hypermind-6.5', label: 'Hypermind 6.5' },
@@ -64,6 +65,11 @@ export default function AIChatBox({
     .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '')
     .replace(/<tool_call>[\s\S]*$/g, '')
     .trim();
+
+  const activeToolCalls = useMemo(
+    () => isStreaming ? extractToolCalls(streamingContent) : [],
+    [streamingContent, isStreaming]
+  );
 
   const lastMsgIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
 
@@ -584,7 +590,11 @@ export default function AIChatBox({
             </div>
           )}
 
-          {isStreaming && !cleanStreaming && (
+          {isStreaming && activeToolCalls.length > 0 && (
+            <ToolCallIndicator toolCalls={activeToolCalls} />
+          )}
+
+          {isStreaming && !cleanStreaming && activeToolCalls.length === 0 && (
             <div style={{ padding: '8px 16px' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <div style={{
