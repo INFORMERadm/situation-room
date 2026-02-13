@@ -76,6 +76,11 @@ export default function ModeSidebar() {
         const isActive = activeMode === m.key;
         const isHovered = hoveredMode === m.key;
         return (
+          <>{m.key === 'chat' && (
+            <div style={{ width: '100%', padding: '0 4px', boxSizing: 'border-box' }}>
+              <div style={{ height: 1, background: '#333' }} />
+            </div>
+          )}
           <button
             key={m.key}
             onClick={() => setActiveMode(m.key)}
@@ -111,6 +116,7 @@ export default function ModeSidebar() {
               {m.label}
             </span>
           </button>
+          </>
         );
       })}
     </div>
