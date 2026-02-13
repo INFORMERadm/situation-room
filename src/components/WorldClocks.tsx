@@ -189,7 +189,7 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
           <span style={{ color: '#1a1a1a', fontWeight: 600 }}>
             {times[c.zone] || '--:--:--'}
           </span>
-          <span style={{ color: '#777', fontSize: 9, marginLeft: 2 }}>
+          <span style={{ color: '#333', fontSize: 9, marginLeft: 2 }}>
             {getAbbreviation(c.zone)}
           </span>
           <button
