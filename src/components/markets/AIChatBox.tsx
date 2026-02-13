@@ -45,6 +45,13 @@ export default function AIChatBox({
     }
   }, [handleSend]);
 
+  const cleanStreaming = streamingContent
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<think>[\s\S]*$/g, '')
+    .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '')
+    .replace(/<tool_call>[\s\S]*$/g, '')
+    .trim();
+
   if (!isExpanded) {
     return (
       <div style={{
@@ -390,7 +397,7 @@ export default function AIChatBox({
           </div>
         ))}
 
-        {isStreaming && streamingContent && (
+        {isStreaming && cleanStreaming && (
           <div style={{ padding: '8px 16px', animation: 'aiFadeIn 0.3s ease-out' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <div style={{
@@ -415,14 +422,14 @@ export default function AIChatBox({
                 padding: '10px 14px',
                 borderLeft: '2px solid #00c853',
               }}>
-                <AIMessageRenderer content={streamingContent} />
+                <AIMessageRenderer content={cleanStreaming} />
                 <span style={{ animation: 'aiBlink 1s step-end infinite', color: '#00c853' }}>|</span>
               </div>
             </div>
           </div>
         )}
 
-        {isStreaming && !streamingContent && (
+        {isStreaming && !cleanStreaming && (
           <div style={{ padding: '8px 16px' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <div style={{

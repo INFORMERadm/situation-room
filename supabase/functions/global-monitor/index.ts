@@ -892,6 +892,85 @@ RESPONSE FORMAT:
 CURRENT PLATFORM STATE:
 `;
 
+function fmtKey(key: string): string {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (s) => s.toUpperCase())
+    .trim();
+}
+
+function fmtVal(val: unknown): string {
+  if (val === null || val === undefined) return "-";
+  if (typeof val === "number") {
+    if (val === 0) return "0";
+    const abs = Math.abs(val);
+    if (abs >= 1e12) return `${(val / 1e12).toFixed(2)}T`;
+    if (abs >= 1e9) return `${(val / 1e9).toFixed(2)}B`;
+    if (abs >= 1e6) return `${(val / 1e6).toFixed(2)}M`;
+    if (Number.isInteger(val)) return val.toLocaleString("en-US");
+    return val.toFixed(2);
+  }
+  const str = String(val);
+  return str.length > 40 ? str.slice(0, 37) + "..." : str;
+}
+
+function formatFmpAsMarkdown(endpoint: string, data: unknown): string {
+  if (!data) return "\n\n_No data returned._\n";
+
+  let arr: Record<string, unknown>[];
+  if (Array.isArray(data)) {
+    arr = data;
+  } else if (typeof data === "object" && data !== null) {
+    const obj = data as Record<string, unknown>;
+    const nested = obj.historical ?? obj.data ?? obj.results;
+    if (Array.isArray(nested)) arr = nested as Record<string, unknown>[];
+    else arr = [obj];
+  } else {
+    return `\n\n${String(data)}\n`;
+  }
+
+  if (arr.length === 0) return "\n\n_No data returned._\n";
+
+  const first = arr[0];
+  if (typeof first !== "object" || first === null) {
+    return `\n\n${JSON.stringify(arr.slice(0, 5))}\n`;
+  }
+
+  const keys = Object.keys(first).filter((k) => {
+    const v = (first as Record<string, unknown>)[k];
+    return v !== null && v !== undefined && typeof v !== "object";
+  });
+
+  if (keys.length === 0) return "\n\n_Complex nested data._\n";
+
+  if (arr.length === 1) {
+    const displayKeys = keys.slice(0, 25);
+    let result = `\n\n**${fmtKey(endpoint)}**\n\n`;
+    result += "| Metric | Value |\n| --- | --- |\n";
+    for (const k of displayKeys) {
+      result += `| **${fmtKey(k)}** | ${fmtVal((first as Record<string, unknown>)[k])} |\n`;
+    }
+    return result;
+  }
+
+  const displayKeys = keys.slice(0, 10);
+  let table = `\n\n**${fmtKey(endpoint)}** (${arr.length} records)\n\n`;
+  table += "| " + displayKeys.map(fmtKey).join(" | ") + " |\n";
+  table += "| " + displayKeys.map(() => "---").join(" | ") + " |\n";
+
+  const showCount = Math.min(arr.length, 12);
+  for (let i = 0; i < showCount; i++) {
+    const row = arr[i] as Record<string, unknown>;
+    table += "| " + displayKeys.map((k) => fmtVal(row[k])).join(" | ") + " |\n";
+  }
+
+  if (arr.length > showCount) {
+    table += `\n_Showing ${showCount} of ${arr.length} records._\n`;
+  }
+
+  return table;
+}
+
 async function handleAIChat(req: Request): Promise<Response> {
   try {
     const body = await req.json();
@@ -962,8 +1041,7 @@ async function handleAIChat(req: Request): Promise<Response> {
                         const ep = (tc.params.endpoint as string) || "";
                         const fp = (tc.params.params as Record<string, string>) || {};
                         const fmpResult = await fmpFetch(ep, fp);
-                        const resultStr = JSON.stringify(fmpResult).slice(0, 8000);
-                        const inject = `\n\n**Data from ${ep}:**\n\`\`\`json\n${resultStr}\n\`\`\`\n`;
+                        const inject = formatFmpAsMarkdown(ep, fmpResult);
                         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: inject } }] })}\n\n`));
                       } catch (e) {
                         const errMsg = `\n\n_Error fetching ${tc.params.endpoint}: ${e instanceof Error ? e.message : "unknown"}_\n`;
