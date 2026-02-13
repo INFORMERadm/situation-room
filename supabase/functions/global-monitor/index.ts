@@ -1555,9 +1555,6 @@ Examples:
             }
           }
 
-          if (tavilySourcesMarkdown) {
-            sendChunk(tavilySourcesMarkdown);
-          }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : "Stream error";
