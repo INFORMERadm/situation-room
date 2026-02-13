@@ -114,6 +114,7 @@ export default function MarketsDashboard() {
           flexDirection: 'column',
           minHeight: 0,
           overflow: 'hidden',
+          background: '#0a0a0a',
         }}>
           {!ai.isExpanded && (
             <>
