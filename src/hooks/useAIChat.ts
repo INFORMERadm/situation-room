@@ -107,6 +107,7 @@ export function useAIChat(
       timestamp: Date.now(),
     };
     setMessages(prev => [...prev, userMsg]);
+    setIsExpanded(true);
     setIsStreaming(true);
     setStreamingContent('');
 
