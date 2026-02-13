@@ -4,7 +4,6 @@ import MarketSearch from '../components/markets/MarketSearch';
 import CompanyProfile from '../components/markets/CompanyProfile';
 import PriceChart from '../components/markets/PriceChart';
 import MarketMovers from '../components/markets/MarketMovers';
-import SectorPerformance from '../components/markets/SectorPerformance';
 import MarketNews from '../components/markets/MarketNews';
 import EarningsCalendar from '../components/markets/EarningsCalendar';
 import EconomicCalendar from '../components/markets/EconomicCalendar';
@@ -134,9 +133,6 @@ export default function MarketsDashboard() {
                   externalIndicators={platform.indicators}
                   onToggleIndicator={handleToggleIndicator}
                 />
-              </div>
-              <div style={{ borderTop: '1px solid #292929' }}>
-                <SectorPerformance sectors={data.sectors} />
               </div>
             </>
           )}
