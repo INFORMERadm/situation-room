@@ -883,6 +883,8 @@ RESPONSE FORMAT:
 - For tool calls, include JSON blocks wrapped in <tool_call> tags: <tool_call>{"tool":"tool_name","params":{...}}</tool_call>
 - You may combine multiple tool calls with text explanation
 - When asked about a price or financial data for a specific company, ALWAYS also call change_symbol to navigate to that stock
+- When the user asks to ADD a symbol/stock to their watchlist, you MUST call add_to_watchlist with both the symbol and the company name. Example: <tool_call>{"tool":"add_to_watchlist","params":{"symbol":"BABA","name":"Alibaba Group"}}</tool_call>
+- When the user asks to REMOVE a symbol/stock from their watchlist, you MUST call remove_from_watchlist. Example: <tool_call>{"tool":"remove_from_watchlist","params":{"symbol":"BABA"}}</tool_call>
 - Format financial data in markdown tables for readability
 - Use ** for bold key figures
 - Keep responses concise and data-focused

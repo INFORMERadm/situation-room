@@ -68,7 +68,17 @@ export function useAIChat(
   const abortRef = useRef<AbortController | null>(null);
   const inlineTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const platformActions: PlatformActions = {
+  const platformActionsRef = useRef<PlatformActions>({
+    selectSymbol: () => {},
+    setChartTimeframe: () => {},
+    setChartType: () => {},
+    toggleIndicator: () => {},
+    addToWatchlist: () => {},
+    removeFromWatchlist: () => {},
+    setRightPanelView: () => {},
+    setLeftTab: () => {},
+  });
+  platformActionsRef.current = {
     selectSymbol: (s: string) => {
       selectSymbol(s);
       platform.setChartType(platform.chartType);
@@ -153,7 +163,7 @@ export function useAIChat(
         const statuses: string[] = [];
 
         for (const tc of clientCalls) {
-          const result = executeToolCall(tc, platformActions);
+          const result = executeToolCall(tc, platformActionsRef.current);
           if (result) statuses.push(result);
         }
 
@@ -201,7 +211,7 @@ export function useAIChat(
       },
       selectedModel,
     );
-  }, [messages, isStreaming, sessionId, platform, platformActions, selectedModel]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel]);
 
   const stopGenerating = useCallback(() => {
     if (abortRef.current) {
@@ -265,7 +275,7 @@ export function useAIChat(
         const parsed = parseAIResponse(finalText);
         const clientCalls = parsed.toolCalls.filter(isClientToolCall);
         for (const tc of clientCalls) {
-          executeToolCall(tc, platformActions);
+          executeToolCall(tc, platformActionsRef.current);
         }
         const assistantMsg: ChatMessage = {
           id: generateId(),
@@ -290,7 +300,7 @@ export function useAIChat(
       },
       selectedModel,
     );
-  }, [messages, isStreaming, sessionId, platform, platformActions, selectedModel]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel]);
 
   const toggleExpand = useCallback(() => {
     setIsExpanded(prev => !prev);
