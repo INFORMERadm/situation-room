@@ -146,7 +146,11 @@ export default function MarketsDashboard() {
               sessions={ai.sessions}
               inlineStatus={ai.inlineStatus}
               selectedModel={ai.selectedModel}
-              webSearchEnabled={ai.webSearchEnabled}
+              searchMode={ai.searchMode}
+              searchSources={ai.searchSources}
+              searchImages={ai.searchImages}
+              searchProgress={ai.searchProgress}
+              isSourcesPanelOpen={ai.isSourcesPanelOpen}
               onSend={ai.sendMessage}
               onStop={ai.stopGenerating}
               onRegenerate={ai.regenerate}
@@ -156,7 +160,8 @@ export default function MarketsDashboard() {
               onNewSession={ai.newSession}
               onModelChange={ai.setModel}
               onShowChart={ai.collapse}
-              onToggleWebSearch={ai.toggleWebSearch}
+              onSetSearchMode={ai.setSearchMode}
+              onToggleSourcesPanel={ai.toggleSourcesPanel}
               onRefreshSessions={ai.refreshSessions}
             />
           </div>

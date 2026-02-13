@@ -1,10 +1,68 @@
+import type { SearchSource } from '../../types/index';
+
 interface Props {
   content: string;
+  searchSources?: SearchSource[];
+  onOpenSourcesPanel?: () => void;
 }
 
-function renderInline(text: string): (string | JSX.Element)[] {
+function CitationBadge({ num, source, onOpenPanel }: {
+  num: string;
+  source?: SearchSource;
+  onOpenPanel?: () => void;
+}) {
+  const handleClick = () => {
+    if (source) {
+      window.open(source.url, '_blank', 'noopener,noreferrer');
+    } else if (onOpenPanel) {
+      onOpenPanel();
+    }
+  };
+
+  return (
+    <span
+      onClick={handleClick}
+      title={source ? `${source.title} - ${source.domain}` : `Source ${num}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,188,212,0.12)',
+        color: '#00bcd4',
+        fontSize: 9,
+        fontWeight: 700,
+        padding: '0 5px',
+        borderRadius: 4,
+        marginLeft: 1,
+        marginRight: 1,
+        cursor: 'pointer',
+        verticalAlign: 'super',
+        lineHeight: '14px',
+        height: 14,
+        transition: 'all 0.15s',
+        border: '1px solid rgba(0,188,212,0.2)',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = 'rgba(0,188,212,0.25)';
+        e.currentTarget.style.borderColor = 'rgba(0,188,212,0.4)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = 'rgba(0,188,212,0.12)';
+        e.currentTarget.style.borderColor = 'rgba(0,188,212,0.2)';
+      }}
+    >
+      {num}
+    </span>
+  );
+}
+
+function renderInline(
+  text: string,
+  sources?: SearchSource[],
+  onOpenPanel?: () => void,
+): (string | JSX.Element)[] {
   const parts: (string | JSX.Element)[] = [];
-  const regex = /(\*\*(.+?)\*\*)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))/g;
+  const regex = /(\*\*(.+?)\*\*)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))|(\[(\d+(?:,\s*\d+)*)\](?!\())/g;
   let lastIdx = 0;
   let match;
   let key = 0;
@@ -37,6 +95,13 @@ function renderInline(text: string): (string | JSX.Element)[] {
         onMouseLeave={e => { (e.target as HTMLElement).style.borderBottomColor = 'transparent'; }}
         >{match[6]}</a>
       );
+    } else if (match[9]) {
+      const nums = match[9].split(',').map(n => n.trim());
+      for (const num of nums) {
+        const idx = parseInt(num, 10) - 1;
+        const source = sources && idx >= 0 && idx < sources.length ? sources[idx] : undefined;
+        parts.push(<CitationBadge key={key++} num={num} source={source} onOpenPanel={onOpenPanel} />);
+      }
     }
     lastIdx = match.index + match[0].length;
   }
@@ -46,7 +111,7 @@ function renderInline(text: string): (string | JSX.Element)[] {
   return parts.length > 0 ? parts : [text];
 }
 
-function renderTable(lines: string[]): JSX.Element {
+function renderTable(lines: string[], sources?: SearchSource[], onOpenPanel?: () => void): JSX.Element {
   const rows = lines.filter(l => !l.match(/^\s*\|?\s*[-:]+/));
   const parsed = rows.map(row =>
     row.split('|').map(c => c.trim()).filter(Boolean)
@@ -94,7 +159,7 @@ function renderTable(lines: string[]): JSX.Element {
                   wordBreak: 'break-word',
                   overflowWrap: 'break-word',
                 }}>
-                  {renderInline(cell)}
+                  {renderInline(cell, sources, onOpenPanel)}
                 </td>
               ))}
             </tr>
@@ -105,7 +170,7 @@ function renderTable(lines: string[]): JSX.Element {
   );
 }
 
-export default function AIMessageRenderer({ content }: Props) {
+export default function AIMessageRenderer({ content, searchSources, onOpenSourcesPanel }: Props) {
   if (!content) return null;
 
   const lines = content.split('\n');
@@ -193,14 +258,14 @@ export default function AIMessageRenderer({ content }: Props) {
         tableLines.push(lines[i]);
         i++;
       }
-      elements.push(<div key={key++}>{renderTable(tableLines)}</div>);
+      elements.push(<div key={key++}>{renderTable(tableLines, searchSources, onOpenSourcesPanel)}</div>);
       continue;
     }
 
     if (line.startsWith('### ')) {
       elements.push(
         <h4 key={key++} style={{ color: '#e0e0e0', fontSize: 13, fontWeight: 700, margin: '12px 0 4px' }}>
-          {renderInline(line.slice(4))}
+          {renderInline(line.slice(4), searchSources, onOpenSourcesPanel)}
         </h4>
       );
       i++;
@@ -210,7 +275,7 @@ export default function AIMessageRenderer({ content }: Props) {
     if (line.startsWith('## ')) {
       elements.push(
         <h3 key={key++} style={{ color: '#e0e0e0', fontSize: 14, fontWeight: 700, margin: '12px 0 4px' }}>
-          {renderInline(line.slice(3))}
+          {renderInline(line.slice(3), searchSources, onOpenSourcesPanel)}
         </h3>
       );
       i++;
@@ -220,7 +285,7 @@ export default function AIMessageRenderer({ content }: Props) {
     if (line.startsWith('# ')) {
       elements.push(
         <h2 key={key++} style={{ color: '#e0e0e0', fontSize: 15, fontWeight: 700, margin: '12px 0 6px' }}>
-          {renderInline(line.slice(2))}
+          {renderInline(line.slice(2), searchSources, onOpenSourcesPanel)}
         </h2>
       );
       i++;
@@ -238,7 +303,7 @@ export default function AIMessageRenderer({ content }: Props) {
           lineHeight: 1.5,
         }}>
           <span style={{ color: '#fb8c00', flexShrink: 0 }}>-</span>
-          <span>{renderInline(line.slice(2))}</span>
+          <span>{renderInline(line.slice(2), searchSources, onOpenSourcesPanel)}</span>
         </div>
       );
       i++;
@@ -258,7 +323,7 @@ export default function AIMessageRenderer({ content }: Props) {
           lineHeight: 1.5,
         }}>
           <span style={{ color: '#fb8c00', flexShrink: 0, minWidth: 16 }}>{num}.</span>
-          <span>{renderInline(text)}</span>
+          <span>{renderInline(text, searchSources, onOpenSourcesPanel)}</span>
         </div>
       );
       i++;
@@ -278,7 +343,7 @@ export default function AIMessageRenderer({ content }: Props) {
         lineHeight: 1.6,
         margin: '2px 0',
       }}>
-        {renderInline(line)}
+        {renderInline(line, searchSources, onOpenSourcesPanel)}
       </p>
     );
     i++;

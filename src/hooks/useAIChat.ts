@@ -1,9 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { streamAIChat, saveAIMessage, loadAIHistory, loadAISessions } from '../lib/api';
+import { streamAIChat, saveAIMessage, loadAIHistory, loadAISessions, fetchWebSearchSources } from '../lib/api';
 import type { AIMessage } from '../lib/api';
 import { parseAIResponse, executeToolCall, isClientToolCall, buildContextPayload } from '../lib/aiTools';
 import type { PlatformActions } from '../lib/aiTools';
 import { usePlatform } from '../context/PlatformContext';
+import type { SearchSource, SearchImage, SearchProgress } from '../types/index';
+
+export type SearchMode = 'off' | 'tavily' | 'advanced';
 
 export interface ChatMessage {
   id: string;
@@ -11,6 +14,8 @@ export interface ChatMessage {
   content: string;
   toolCalls?: unknown;
   timestamp: number;
+  searchSources?: SearchSource[];
+  searchImages?: SearchImage[];
 }
 
 export interface ChatSession {
@@ -28,7 +33,11 @@ export interface UseAIChatReturn {
   sessions: ChatSession[];
   inlineStatus: string | null;
   selectedModel: string;
-  webSearchEnabled: boolean;
+  searchMode: SearchMode;
+  searchSources: SearchSource[];
+  searchImages: SearchImage[];
+  searchProgress: SearchProgress | null;
+  isSourcesPanelOpen: boolean;
   sendMessage: (text: string) => void;
   stopGenerating: () => void;
   regenerate: () => void;
@@ -37,7 +46,8 @@ export interface UseAIChatReturn {
   loadSession: (id: string) => void;
   newSession: () => void;
   setModel: (model: string) => void;
-  toggleWebSearch: () => void;
+  setSearchMode: (mode: SearchMode) => void;
+  toggleSourcesPanel: () => void;
   refreshSessions: () => void;
 }
 
@@ -46,6 +56,35 @@ function generateId(): string {
 }
 
 const SESSION_KEY = 'global-monitor-ai-session';
+
+function parseSearchTags(fullText: string): {
+  sources: SearchSource[];
+  images: SearchImage[];
+  progress: SearchProgress | null;
+} {
+  let sources: SearchSource[] = [];
+  let images: SearchImage[] = [];
+  let progress: SearchProgress | null = null;
+
+  const statusRegex = /<search_status>([\s\S]*?)<\/search_status>/g;
+  let match;
+  while ((match = statusRegex.exec(fullText)) !== null) {
+    try {
+      progress = JSON.parse(match[1]);
+    } catch { /* skip */ }
+  }
+
+  const sourcesRegex = /<search_sources>([\s\S]*?)<\/search_sources>/g;
+  while ((match = sourcesRegex.exec(fullText)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (parsed.sources) sources = parsed.sources;
+      if (parsed.images) images = parsed.images;
+    } catch { /* skip */ }
+  }
+
+  return { sources, images, progress };
+}
 
 export function useAIChat(
   selectSymbol: (s: string) => void,
@@ -58,7 +97,11 @@ export function useAIChat(
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [selectedModel, setSelectedModel] = useState('hypermind-6.5');
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [searchMode, setSearchModeState] = useState<SearchMode>('off');
+  const [searchSources, setSearchSources] = useState<SearchSource[]>([]);
+  const [searchImages, setSearchImages] = useState<SearchImage[]>([]);
+  const [searchProgress, setSearchProgress] = useState<SearchProgress | null>(null);
+  const [isSourcesPanelOpen, setIsSourcesPanelOpen] = useState(false);
   const [sessionId, setSessionId] = useState(() => {
     const stored = localStorage.getItem(SESSION_KEY);
     if (stored) return stored;
@@ -71,6 +114,7 @@ export function useAIChat(
 
   const abortRef = useRef<AbortController | null>(null);
   const inlineTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const fullTextRef = useRef('');
 
   const platformActionsRef = useRef<PlatformActions>({
     selectSymbol: () => {},
@@ -117,6 +161,14 @@ export function useAIChat(
           })));
         }
       }).catch(() => {});
+
+      fetchWebSearchSources(sessionId).then((result) => {
+        if (result?.sources) {
+          const payload = result.sources;
+          setSearchSources(payload.sources ?? []);
+          setSearchImages(payload.images ?? []);
+        }
+      }).catch(() => {});
     }
   }, [sessionId]);
 
@@ -133,6 +185,12 @@ export function useAIChat(
     setIsExpanded(true);
     setIsStreaming(true);
     setStreamingContent('');
+    setSearchProgress(null);
+    if (searchMode === 'advanced') {
+      setSearchSources([]);
+      setSearchImages([]);
+    }
+    fullTextRef.current = '';
 
     const title = messages.length === 0 ? text.trim().slice(0, 80) : undefined;
     saveAIMessage(sessionId, 'user', text.trim(), undefined, title).catch(() => {});
@@ -153,19 +211,33 @@ export function useAIChat(
       leftTab: platform.leftTab,
     });
 
-    let fullText = '';
+    const webSearch = searchMode !== 'off';
 
     abortRef.current = streamAIChat(
       aiMessages,
       contextPayload,
       (token) => {
-        fullText += token;
-        setStreamingContent(fullText);
+        fullTextRef.current += token;
+        setStreamingContent(fullTextRef.current);
+
+        const { sources, images, progress } = parseSearchTags(fullTextRef.current);
+        if (sources.length > 0) {
+          setSearchSources(sources);
+          setSearchImages(images);
+          if (!isSourcesPanelOpen && sources.length > 0) {
+            setIsSourcesPanelOpen(true);
+          }
+        }
+        if (progress) {
+          setSearchProgress(progress);
+        }
       },
       (finalText) => {
         setIsStreaming(false);
         setStreamingContent('');
+        setSearchProgress(null);
 
+        const { sources, images } = parseSearchTags(finalText);
         const parsed = parseAIResponse(finalText);
         const clientCalls = parsed.toolCalls.filter(isClientToolCall);
         const statuses: string[] = [];
@@ -196,6 +268,8 @@ export function useAIChat(
           content: parsed.text,
           toolCalls: parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined,
           timestamp: Date.now(),
+          searchSources: sources.length > 0 ? sources : undefined,
+          searchImages: images.length > 0 ? images : undefined,
         };
         setMessages(prev => [...prev, assistantMsg]);
 
@@ -209,6 +283,7 @@ export function useAIChat(
       (err) => {
         setIsStreaming(false);
         setStreamingContent('');
+        setSearchProgress(null);
         const errorMsg: ChatMessage = {
           id: generateId(),
           role: 'assistant',
@@ -218,9 +293,10 @@ export function useAIChat(
         setMessages(prev => [...prev, errorMsg]);
       },
       selectedModel,
-      webSearchEnabled,
+      webSearch,
+      searchMode !== 'off' ? searchMode : undefined,
     );
-  }, [messages, isStreaming, sessionId, platform, selectedModel, webSearchEnabled, refreshSessions]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel, searchMode, refreshSessions, isSourcesPanelOpen]);
 
   const stopGenerating = useCallback(() => {
     if (abortRef.current) {
@@ -228,10 +304,14 @@ export function useAIChat(
       abortRef.current = null;
     }
     setIsStreaming(false);
-    const partial = streamingContent.replace(/<think>[\s\S]*?<\/think>/g, '')
+    setSearchProgress(null);
+    const partial = streamingContent
+      .replace(/<think>[\s\S]*?<\/think>/g, '')
       .replace(/<think>[\s\S]*$/g, '')
       .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '')
       .replace(/<tool_call>[\s\S]*$/g, '')
+      .replace(/<search_status>[\s\S]*?<\/search_status>/g, '')
+      .replace(/<search_sources>[\s\S]*?<\/search_sources>/g, '')
       .trim();
     setStreamingContent('');
     if (partial) {
@@ -257,6 +337,8 @@ export function useAIChat(
     setMessages(withoutLast);
     setIsStreaming(true);
     setStreamingContent('');
+    setSearchProgress(null);
+    fullTextRef.current = '';
 
     const aiMessages: AIMessage[] = withoutLast.map(m => ({ role: m.role, content: m.content }));
     const contextPayload = buildContextPayload({
@@ -270,17 +352,26 @@ export function useAIChat(
       leftTab: platform.leftTab,
     });
 
-    let fullText = '';
+    const webSearch = searchMode !== 'off';
+
     abortRef.current = streamAIChat(
       aiMessages,
       contextPayload,
       (token) => {
-        fullText += token;
-        setStreamingContent(fullText);
+        fullTextRef.current += token;
+        setStreamingContent(fullTextRef.current);
+        const { sources, images, progress } = parseSearchTags(fullTextRef.current);
+        if (sources.length > 0) {
+          setSearchSources(sources);
+          setSearchImages(images);
+        }
+        if (progress) setSearchProgress(progress);
       },
       (finalText) => {
         setIsStreaming(false);
         setStreamingContent('');
+        setSearchProgress(null);
+        const { sources, images } = parseSearchTags(finalText);
         const parsed = parseAIResponse(finalText);
         const clientCalls = parsed.toolCalls.filter(isClientToolCall);
         for (const tc of clientCalls) {
@@ -292,6 +383,8 @@ export function useAIChat(
           content: parsed.text,
           toolCalls: parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined,
           timestamp: Date.now(),
+          searchSources: sources.length > 0 ? sources : undefined,
+          searchImages: images.length > 0 ? images : undefined,
         };
         setMessages(prev => [...prev, assistantMsg]);
         saveAIMessage(sessionId, 'assistant', parsed.text, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined).then(() => refreshSessions()).catch(() => {});
@@ -299,6 +392,7 @@ export function useAIChat(
       (err) => {
         setIsStreaming(false);
         setStreamingContent('');
+        setSearchProgress(null);
         const errorMsg: ChatMessage = {
           id: generateId(),
           role: 'assistant',
@@ -308,9 +402,10 @@ export function useAIChat(
         setMessages(prev => [...prev, errorMsg]);
       },
       selectedModel,
-      webSearchEnabled,
+      webSearch,
+      searchMode !== 'off' ? searchMode : undefined,
     );
-  }, [messages, isStreaming, sessionId, platform, selectedModel, webSearchEnabled, refreshSessions]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel, searchMode, refreshSessions]);
 
   const toggleExpand = useCallback(() => {
     setIsExpanded(prev => !prev);
@@ -324,6 +419,8 @@ export function useAIChat(
     setSessionId(id);
     localStorage.setItem(SESSION_KEY, id);
     setMessages([]);
+    setSearchSources([]);
+    setSearchImages([]);
     setIsExpanded(true);
   }, []);
 
@@ -333,14 +430,21 @@ export function useAIChat(
     localStorage.setItem(SESSION_KEY, id);
     setMessages([]);
     setStreamingContent('');
+    setSearchSources([]);
+    setSearchImages([]);
+    setSearchProgress(null);
   }, []);
 
   const setModel = useCallback((m: string) => {
     setSelectedModel(m);
   }, []);
 
-  const toggleWebSearch = useCallback(() => {
-    setWebSearchEnabled(prev => !prev);
+  const setSearchMode = useCallback((mode: SearchMode) => {
+    setSearchModeState(mode);
+  }, []);
+
+  const toggleSourcesPanel = useCallback(() => {
+    setIsSourcesPanelOpen(prev => !prev);
   }, []);
 
   return {
@@ -352,7 +456,11 @@ export function useAIChat(
     sessions,
     inlineStatus,
     selectedModel,
-    webSearchEnabled,
+    searchMode,
+    searchSources,
+    searchImages,
+    searchProgress,
+    isSourcesPanelOpen,
     sendMessage,
     stopGenerating,
     regenerate,
@@ -361,7 +469,8 @@ export function useAIChat(
     loadSession,
     newSession,
     setModel,
-    toggleWebSearch,
+    setSearchMode,
+    toggleSourcesPanel,
     refreshSessions,
   };
 }

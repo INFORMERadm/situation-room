@@ -827,6 +827,9 @@ async function fetchPizza() {
 }
 
 const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY") ?? "";
+const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY") ?? "";
+const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY") ?? "";
+const JINA_API_KEY = Deno.env.get("JINA_API_KEY") ?? "";
 
 interface TavilyResult {
   title: string;
@@ -888,6 +891,230 @@ function formatTavilySources(data: TavilyResponse): string {
       parts.push(`![${alt}](${img.url})`);
     });
   }
+  return parts.join("\n");
+}
+
+interface SearchSource {
+  index: number;
+  title: string;
+  url: string;
+  domain: string;
+  favicon: string;
+  snippet: string;
+  fullContent: string;
+  relevanceScore: number;
+}
+
+interface SerperOrganicResult {
+  title: string;
+  link: string;
+  snippet: string;
+  position: number;
+}
+
+interface SerperImageResult {
+  title: string;
+  imageUrl: string;
+  link: string;
+}
+
+interface SerperResponse {
+  organic?: SerperOrganicResult[];
+  images?: SerperImageResult[];
+}
+
+async function callSerperSearch(query: string): Promise<SerperResponse> {
+  if (!SERPER_API_KEY) return {};
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: {
+        "X-API-KEY": SERPER_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ q: query, num: 10 }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`Serper: ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    clearTimeout(timeout);
+    console.error("Serper error:", e);
+    return {};
+  }
+}
+
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function faviconUrl(domain: string): string {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+}
+
+async function callFirecrawlScrape(url: string): Promise<string> {
+  if (!FIRECRAWL_API_KEY) return "";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url, formats: ["markdown"] }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return "";
+    const json = await res.json();
+    const md = json?.data?.markdown ?? "";
+    return md.slice(0, 3000);
+  } catch {
+    clearTimeout(timeout);
+    return "";
+  }
+}
+
+async function scrapeTopResults(
+  results: SerperOrganicResult[],
+  limit = 5,
+): Promise<SearchSource[]> {
+  const top = results.slice(0, limit);
+  const promises = top.map(async (r, i) => {
+    const domain = extractDomain(r.link);
+    let fullContent = "";
+    try {
+      fullContent = await callFirecrawlScrape(r.link);
+    } catch { /* use snippet as fallback */ }
+    return {
+      index: i + 1,
+      title: r.title,
+      url: r.link,
+      domain,
+      favicon: faviconUrl(domain),
+      snippet: r.snippet,
+      fullContent: fullContent || r.snippet,
+      relevanceScore: 0,
+    } as SearchSource;
+  });
+  const settled = await Promise.allSettled(promises);
+  return settled
+    .filter((r): r is PromiseFulfilledResult<SearchSource> => r.status === "fulfilled")
+    .map((r) => r.value);
+}
+
+async function callJinaRerank(
+  query: string,
+  sources: SearchSource[],
+): Promise<SearchSource[]> {
+  if (!JINA_API_KEY || sources.length === 0) return sources;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const documents = sources.map((s) => ({
+      text: `${s.title}\n${s.fullContent.slice(0, 500)}`,
+    }));
+    const res = await fetch("https://api.jina.ai/v1/rerank", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${JINA_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "jina-reranker-v2-base-multilingual",
+        query,
+        documents,
+        top_n: sources.length,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return sources;
+    const json = await res.json();
+    const ranked = json?.results as { index: number; relevance_score: number }[] | undefined;
+    if (!ranked) return sources;
+    return ranked.map((r) => ({
+      ...sources[r.index],
+      relevanceScore: r.relevance_score,
+    }));
+  } catch {
+    clearTimeout(timeout);
+    return sources;
+  }
+}
+
+interface AdvancedSearchResult {
+  sources: SearchSource[];
+  images: SerperImageResult[];
+  query: string;
+}
+
+async function performAdvancedWebSearch(
+  query: string,
+  sendStatus: (stage: string, count?: number) => void,
+): Promise<AdvancedSearchResult> {
+  sendStatus("searching");
+  const serperData = await callSerperSearch(query);
+  const organic = serperData.organic ?? [];
+  const images = serperData.images ?? [];
+
+  if (organic.length === 0) {
+    return { sources: [], images, query };
+  }
+
+  const allSources: SearchSource[] = organic.map((r, i) => {
+    const domain = extractDomain(r.link);
+    return {
+      index: i + 1,
+      title: r.title,
+      url: r.link,
+      domain,
+      favicon: faviconUrl(domain),
+      snippet: r.snippet,
+      fullContent: r.snippet,
+      relevanceScore: 0,
+    };
+  });
+
+  if (FIRECRAWL_API_KEY) {
+    sendStatus("reading", Math.min(organic.length, 5));
+    const scraped = await scrapeTopResults(organic, 5);
+    for (const s of scraped) {
+      const idx = allSources.findIndex((a) => a.url === s.url);
+      if (idx !== -1) {
+        allSources[idx].fullContent = s.fullContent;
+      }
+    }
+  }
+
+  if (JINA_API_KEY) {
+    sendStatus("analyzing");
+    const reranked = await callJinaRerank(query, allSources);
+    reranked.forEach((r, i) => (r.index = i + 1));
+    return { sources: reranked, images, query };
+  }
+
+  return { sources: allSources, images, query };
+}
+
+function formatAdvancedSearchContext(result: AdvancedSearchResult): string {
+  const parts: string[] = ["\n\nWEB SEARCH RESULTS (Deep Search):"];
+  for (const s of result.sources.slice(0, 8)) {
+    parts.push(`\n[Source ${s.index}] ${s.title} (${s.url})`);
+    parts.push(s.fullContent.slice(0, 800));
+  }
+  parts.push(
+    "\nIMPORTANT: Use numbered inline citations like [1], [2] when referencing source information. Synthesize from these results. Do NOT fabricate information not present in these results.",
+  );
   return parts.join("\n");
 }
 
@@ -1415,7 +1642,7 @@ async function executeServerTool(
 async function handleAIChat(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const { messages, platformContext, model, webSearch } = body;
+    const { messages, platformContext, model, webSearch, searchMode } = body;
     if (!messages || !Array.isArray(messages)) {
       return jsonResponse({ error: "Missing messages array" }, 400);
     }
@@ -1448,8 +1675,49 @@ async function handleAIChat(req: Request): Promise<Response> {
         try {
           let systemContent = baseSystemContent;
           let tavilySourcesMd = "";
+          const useAdvanced = searchMode === "advanced" && SERPER_API_KEY;
 
-          if (webSearch && TAVILY_API_KEY) {
+          if (webSearch && useAdvanced) {
+            const lastUserMsg = messages[messages.length - 1];
+            const searchQuery = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
+            if (searchQuery) {
+              console.log(`[AI Chat] Advanced deep search for: "${searchQuery}"`);
+              const sendStatus = (stage: string, count?: number) => {
+                sendChunk(`<search_status>${JSON.stringify({ stage, count })}</search_status>`);
+              };
+              const advResult = await performAdvancedWebSearch(searchQuery, sendStatus);
+              if (advResult.sources.length > 0) {
+                systemContent += formatAdvancedSearchContext(advResult);
+                const sourcesPayload = {
+                  sources: advResult.sources.map((s) => ({
+                    index: s.index,
+                    title: s.title,
+                    url: s.url,
+                    domain: s.domain,
+                    favicon: s.favicon,
+                    snippet: s.snippet,
+                    relevanceScore: s.relevanceScore,
+                  })),
+                  images: advResult.images.slice(0, 6),
+                };
+                sendChunk(`<search_sources>${JSON.stringify(sourcesPayload)}</search_sources>`);
+                console.log(`[AI Chat] Advanced search found ${advResult.sources.length} sources`);
+
+                const lastSessionMsg = messages[messages.length - 1];
+                const sid = body.sessionId || "";
+                if (sid) {
+                  supabase.from("web_search_results").insert({
+                    session_id: sid,
+                    query: searchQuery,
+                    sources: sourcesPayload,
+                    search_mode: "advanced",
+                  }).then(() => {}).catch(() => {});
+                }
+              } else {
+                systemContent += "\n\nWEB SEARCH RESULTS: No results found for this query.";
+              }
+            }
+          } else if (webSearch && TAVILY_API_KEY) {
             const lastUserMsg = messages[messages.length - 1];
             const searchQuery = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
             if (searchQuery) {
@@ -1465,8 +1733,8 @@ async function handleAIChat(req: Request): Promise<Response> {
                 systemContent += "\n\nWEB SEARCH RESULTS: No results found for this query. Answer based on your knowledge and suggest the user try a more specific search query if needed.";
               }
             }
-          } else if (webSearch && !TAVILY_API_KEY) {
-            console.error("[AI Chat] Web search enabled but TAVILY_API_KEY is not set");
+          } else if (webSearch && !TAVILY_API_KEY && !useAdvanced) {
+            console.error("[AI Chat] Web search enabled but no search service configured");
             systemContent += "\n\nNote: Web search was requested but the search service is not configured. Answer based on your knowledge.";
           }
 
@@ -1740,6 +2008,18 @@ Deno.serve(async (req: Request) => {
         });
         if (msgErr) return jsonResponse({ error: msgErr.message }, 500);
         return jsonResponse({ ok: true });
+      }
+      case "web-search-sources": {
+        const sessionId = url.searchParams.get("sessionId") ?? "";
+        if (!sessionId) return jsonResponse({ error: "Missing sessionId" }, 400);
+        const { data: rows } = await supabase
+          .from("web_search_results")
+          .select("id, session_id, query, sources, search_mode, created_at")
+          .eq("session_id", sessionId)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const latest = rows?.[0] ?? null;
+        return jsonResponse({ searchResult: latest });
       }
       case "ai-chat": {
         if (req.method !== "POST") return jsonResponse({ error: "POST required" }, 405);

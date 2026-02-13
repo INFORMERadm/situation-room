@@ -21,6 +21,8 @@ export function parseAIResponse(raw: string): ParsedAIResponse {
 
   let text = raw.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').trim();
   text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  text = text.replace(/<search_status>[\s\S]*?<\/search_status>/g, '').trim();
+  text = text.replace(/<search_sources>[\s\S]*?<\/search_sources>/g, '').trim();
 
   return { text, toolCalls };
 }
@@ -100,7 +102,7 @@ export function executeToolCall(tc: ToolCall, actions: PlatformActions): string 
 }
 
 export function isClientToolCall(tc: ToolCall): boolean {
-  return tc.tool !== 'fetch_fmp_data' && tc.tool !== 'tavily_search';
+  return tc.tool !== 'fetch_fmp_data' && tc.tool !== 'tavily_search' && tc.tool !== 'web_search';
 }
 
 export function buildContextPayload(state: {

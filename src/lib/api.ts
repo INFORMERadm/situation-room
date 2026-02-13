@@ -128,6 +128,7 @@ export function streamAIChat(
   onError: (err: string) => void,
   model?: string,
   webSearch?: boolean,
+  searchMode?: string,
 ): AbortController {
   const controller = new AbortController();
 
@@ -136,7 +137,7 @@ export function streamAIChat(
       const res = await fetch(`${API_BASE}/global-monitor?feed=ai-chat`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ messages, platformContext, model, webSearch }),
+        body: JSON.stringify({ messages, platformContext, model, webSearch, searchMode }),
         signal: controller.signal,
       });
 
@@ -220,4 +221,14 @@ export async function loadAISessions() {
   if (!res.ok) return [];
   const json = await res.json();
   return json.sessions ?? [];
+}
+
+export async function fetchWebSearchSources(sessionId: string) {
+  const res = await fetch(
+    `${API_BASE}/global-monitor?feed=web-search-sources&sessionId=${encodeURIComponent(sessionId)}`,
+    { headers },
+  );
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.searchResult ?? null;
 }

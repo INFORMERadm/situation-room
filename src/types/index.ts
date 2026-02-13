@@ -150,3 +150,29 @@ export interface MarketNewsItem {
   symbol: string;
   image: string;
 }
+
+export interface SearchSource {
+  index: number;
+  title: string;
+  url: string;
+  domain: string;
+  favicon: string;
+  snippet: string;
+  relevanceScore: number;
+}
+
+export interface SearchImage {
+  title: string;
+  imageUrl: string;
+  link: string;
+}
+
+export interface SearchSourcesPayload {
+  sources: SearchSource[];
+  images: SearchImage[];
+}
+
+export interface SearchProgress {
+  stage: string;
+  count?: number;
+}
