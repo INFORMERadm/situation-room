@@ -10,7 +10,7 @@ export default function Header() {
         borderBottom: '1px solid #e0e0e0',
         padding: '6px 16px',
         minHeight: 34,
-        background: '#ffffff',
+        background: '#ffe0b2',
       }}
     >
       <div
