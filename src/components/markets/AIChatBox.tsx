@@ -471,12 +471,8 @@ export default function AIChatBox({
               color: '#888',
               gap: 12,
             }}>
-              <div style={{ fontSize: 32, opacity: 0.3 }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M2 12h20" />
-                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                </svg>
+              <div style={{ opacity: 0.3 }}>
+                <img src="/white_transparent.png" alt="N3" width={48} height={48} style={{ display: 'block' }} />
               </div>
               <span style={{ fontSize: 12 }}>Ask about any stock, market data, or financial information</span>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 400 }}>
