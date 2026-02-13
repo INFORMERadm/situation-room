@@ -8,6 +8,7 @@ import MarketNews from '../components/markets/MarketNews';
 import EarningsCalendar from '../components/markets/EarningsCalendar';
 import EconomicCalendar from '../components/markets/EconomicCalendar';
 import AIChatBox from '../components/markets/AIChatBox';
+import ModeSidebar from '../components/ModeSidebar';
 import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
 import { useAIChat } from '../hooks/useAIChat';
 import { usePlatform } from '../context/PlatformContext';
@@ -23,7 +24,7 @@ const pageStyle: React.CSSProperties = {
 
 const mainStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '300px 1fr 320px',
+  gridTemplateColumns: '300px 1fr 320px 48px',
   gap: 0,
   minHeight: 0,
   overflow: 'hidden',
@@ -189,6 +190,7 @@ export default function MarketsDashboard() {
             </div>
           </div>
         </div>
+        <ModeSidebar />
       </div>
     </div>
   );
