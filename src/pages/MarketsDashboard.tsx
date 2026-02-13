@@ -36,7 +36,7 @@ const sidebarStyle: React.CSSProperties = {
   borderRight: '1px solid #292929',
   minHeight: 0,
   overflow: 'hidden',
-  background: '#000000',
+  background: '#0a0a0a',
 };
 
 const rightStyle: React.CSSProperties = {
