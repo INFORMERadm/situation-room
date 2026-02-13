@@ -179,8 +179,8 @@ export default function PriceChart({
 
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
-      const PAD_L = 60;
-      const PAD_R = 16;
+      const PAD_L = 16;
+      const PAD_R = 60;
       const chartW = dims.w - PAD_L - PAD_R;
       const ratio = Math.max(0, Math.min(1, (mouseX - PAD_L) / chartW));
 
@@ -232,8 +232,8 @@ export default function PriceChart({
 
     const W = dims.w;
     const H = dims.h;
-    const PAD_L = 60;
-    const PAD_R = 16;
+    const PAD_L = 16;
+    const PAD_R = 60;
     const PAD_T = 16;
     const PAD_B = 50;
     const OSC_PANEL_H = 70;
@@ -275,7 +275,7 @@ export default function PriceChart({
     ctx.lineWidth = 0.5;
     ctx.fillStyle = '#888';
     ctx.font = '10px JetBrains Mono, monospace';
-    ctx.textAlign = 'right';
+    ctx.textAlign = 'left';
     for (let i = 0; i <= gridLines; i++) {
       const price = minP + (priceRange * i) / gridLines;
       const y = toY(price);
@@ -283,7 +283,7 @@ export default function PriceChart({
       ctx.moveTo(PAD_L, y);
       ctx.lineTo(W - PAD_R, y);
       ctx.stroke();
-      ctx.fillText(isForexSymbol(symbol) ? price.toFixed(4) : price.toFixed(2), PAD_L - 6, y + 3);
+      ctx.fillText(isForexSymbol(symbol) ? price.toFixed(4) : price.toFixed(2), W - PAD_R + 6, y + 3);
     }
 
     if (isEnabled(indicators, 'volume')) {
@@ -533,9 +533,9 @@ export default function PriceChart({
 
       ctx.fillStyle = '#777';
       ctx.font = '8px JetBrains Mono, monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText('70', PAD_L - 4, rsiToY(70) + 3);
-      ctx.fillText('30', PAD_L - 4, rsiToY(30) + 3);
+      ctx.textAlign = 'left';
+      ctx.fillText('70', W - PAD_R + 6, rsiToY(70) + 3);
+      ctx.fillText('30', W - PAD_R + 6, rsiToY(30) + 3);
 
       panelY += OSC_PANEL_H;
     }
@@ -651,8 +651,8 @@ export default function PriceChart({
     if (!canvas || viewLen < 2) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const PAD_L = 60;
-    const PAD_R = 16;
+    const PAD_L = 16;
+    const PAD_R = 60;
     const CHART_W = dims.w - PAD_L - PAD_R;
     const ratio = (x - PAD_L) / CHART_W;
     const idx = viewStart + Math.round(ratio * (viewLen - 1));
