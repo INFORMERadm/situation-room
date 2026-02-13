@@ -1414,33 +1414,12 @@ async function handleAIChat(req: Request): Promise<Response> {
     const modelKey = typeof model === "string" && MODEL_CONFIGS[model] ? model : "hypermind-6.5";
     const modelConfig = MODEL_CONFIGS[modelKey];
 
-    const aiTools = getToolsForRequest(webSearch);
+    const aiTools = getToolsForRequest(false);
     console.log(`[AI Chat] webSearch=${webSearch}, tools count=${aiTools.length}`);
     console.log(`[AI Chat] Available tools: ${aiTools.map(t => t.function.name).join(", ")}`);
 
     const contextStr = platformContext ? JSON.stringify(platformContext) : "{}";
-    let systemContent = AI_SYSTEM_PROMPT + contextStr;
-
-    if (webSearch && TAVILY_API_KEY) {
-      systemContent += `
-
-WEB SEARCH CAPABILITY:
-You have access to the tavily_search tool for real-time web information. USE IT when users ask about:
-- Recent events, breaking news, today's happenings
-- Latest stock news, current market events, recent company announcements
-- Anything requiring information after your training cutoff
-
-Temporal trigger keywords: today, now, current, latest, recent, breaking, just announced, this week, this month
-
-Examples:
-1. "What happened with Tesla today?" → Use tavily_search
-2. "Latest NVDA earnings news" → Use tavily_search
-3. "Show me AAPL historical data" → Use fetch_fmp_data (no web search needed)
-`;
-      console.log("[AI Chat] Web search guidance added to system prompt");
-    }
-
-    const systemMsg = { role: "system", content: systemContent };
+    const baseSystemContent = AI_SYSTEM_PROMPT + contextStr;
     const MAX_CHAIN_DEPTH = 5;
 
     const stream = new ReadableStream({
@@ -1453,6 +1432,27 @@ Examples:
         };
 
         try {
+          let systemContent = baseSystemContent;
+          let tavilySourcesMd = "";
+
+          if (webSearch && TAVILY_API_KEY) {
+            const lastUserMsg = messages[messages.length - 1];
+            const searchQuery = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
+            if (searchQuery) {
+              console.log(`[AI Chat] Pre-searching web for: "${searchQuery}"`);
+              sendChunk(`<tool_call>${JSON.stringify({ tool: "tavily_search", params: { query: searchQuery } })}</tool_call>`);
+              const tavilyResult = await callTavilySearch(searchQuery);
+              if (tavilyResult.results && tavilyResult.results.length > 0) {
+                systemContent += formatTavilyContext(tavilyResult);
+                tavilySourcesMd = formatTavilySources(tavilyResult);
+                console.log(`[AI Chat] Pre-search found ${tavilyResult.results.length} results`);
+              } else {
+                console.log("[AI Chat] Pre-search returned no results");
+              }
+            }
+          }
+
+          const systemMsg = { role: "system", content: systemContent };
           let chatMessages: Record<string, unknown>[] = [systemMsg, ...messages.slice(-20)];
 
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
@@ -1555,6 +1555,9 @@ Examples:
             }
           }
 
+          if (tavilySourcesMd) {
+            sendChunk(tavilySourcesMd);
+          }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : "Stream error";
