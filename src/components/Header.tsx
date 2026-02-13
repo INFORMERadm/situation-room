@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock }: Pr
         <img
           src="/Black_Transparent.png"
           alt="N3 Logo"
-          style={{ width: 20, height: 20, objectFit: 'contain' }}
+          style={{ width: 28, height: 28, objectFit: 'contain' }}
         />
         <span style={{ position: 'relative', top: 1 }}>GLOBAL MONITOR</span>
       </div>
