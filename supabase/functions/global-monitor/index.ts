@@ -913,7 +913,7 @@ function formatTavilyContext(data: TavilyResponse): string {
       parts.push(`${i + 1}. ${r.title} (${r.url})\n   ${r.content?.slice(0, 300) ?? ""}`);
     });
   }
-  parts.push("\nIMPORTANT: Synthesize your answer from these web search results. Reference sources by number when citing information.");
+  parts.push("\nIMPORTANT: Synthesize your answer from these web search results. Reference sources by number when citing information. Do NOT call tavily_search - the search has already been performed for you. Do NOT fabricate or hallucinate any information not present in these results.");
   return parts.join("\n");
 }
 
@@ -970,18 +970,9 @@ You have access to the following tools:
 9. switch_left_tab - Switch left sidebar tab
    Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
 
-10. tavily_search - Search the web for real-time information using Tavily
-    Parameters: { "query": string }
-    Use this tool PROACTIVELY when:
-    - The user asks about current events, recent news, or anything requiring up-to-date information
-    - The user asks about topics outside of financial data (politics, technology, science, sports, etc.)
-    - The user asks "what is" or "who is" questions about people, companies, or concepts you're unsure about
-    - The user asks about recent earnings results, IPOs, mergers, or breaking financial news
-    - You need to verify or supplement your knowledge with current data
-    Do NOT use this tool when the user is only asking you to change chart settings, navigate symbols, or perform platform actions.
-
 RESPONSE FORMAT:
 - For tool calls, include JSON blocks wrapped in <tool_call> tags: <tool_call>{"tool":"tool_name","params":{...}}</tool_call>
+- CRITICAL: After emitting a <tool_call> tag for fetch_fmp_data, STOP generating immediately. Do NOT predict, guess, or fabricate the tool's response. The system will execute the tool and provide real results. Any text you generate after a fetch_fmp_data tool call will be discarded.
 - You may combine multiple tool calls with text explanation
 - When asked about a price or financial data for a specific company, ALWAYS also call change_symbol to navigate to that stock
 - When the user asks to ADD a symbol/stock to their watchlist, you MUST call add_to_watchlist with both the symbol and the company name. Example: <tool_call>{"tool":"add_to_watchlist","params":{"symbol":"BABA","name":"Alibaba Group"}}</tool_call>
@@ -1292,6 +1283,7 @@ async function streamOneLLMRound(
   let fullContent = "";
   const nativeMap = new Map<number, NativeToolCall>();
   const textToolCalls: { tool: string; params: Record<string, unknown> }[] = [];
+  let streamCutoff = -1;
 
   readLoop: while (true) {
     const { done, value } = await reader.read();
@@ -1312,7 +1304,16 @@ async function streamOneLLMRound(
         const delta = parsed.choices?.[0]?.delta;
 
         if (delta?.content) {
+          const prevLen = fullContent.length;
           fullContent += delta.content;
+
+          if (streamCutoff === -1) {
+            const tagIdx = fullContent.indexOf("<tool_call>");
+            if (tagIdx !== -1) {
+              streamCutoff = tagIdx;
+            }
+          }
+
           const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
           let match;
           while ((match = toolCallRegex.exec(fullContent)) !== null) {
@@ -1323,7 +1324,17 @@ async function streamOneLLMRound(
               }
             } catch { /* skip malformed */ }
           }
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(parsed)}\n\n`));
+
+          if (streamCutoff === -1) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(parsed)}\n\n`));
+          } else if (prevLen < streamCutoff) {
+            const beforeTag = fullContent.substring(prevLen, streamCutoff);
+            if (beforeTag) {
+              controller.enqueue(encoder.encode(
+                `data: ${JSON.stringify({ choices: [{ delta: { content: beforeTag } }] })}\n\n`
+              ));
+            }
+          }
         }
 
         if (delta?.tool_calls && Array.isArray(delta.tool_calls)) {
@@ -1339,6 +1350,13 @@ async function streamOneLLMRound(
           }
         }
       } catch { /* skip malformed SSE */ }
+    }
+  }
+
+  if (textToolCalls.length > 0) {
+    const lastIdx = fullContent.lastIndexOf("</tool_call>");
+    if (lastIdx !== -1) {
+      fullContent = fullContent.substring(0, lastIdx + "</tool_call>".length);
     }
   }
 
