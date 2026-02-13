@@ -17,7 +17,7 @@ const pageStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateRows: 'auto auto 1fr',
   height: '100vh',
-  background: '#121212',
+  background: '#000000',
   overflow: 'hidden',
   gap: 0,
 };
@@ -36,6 +36,7 @@ const sidebarStyle: React.CSSProperties = {
   borderRight: '1px solid #292929',
   minHeight: 0,
   overflow: 'hidden',
+  background: '#000000',
 };
 
 const rightStyle: React.CSSProperties = {
@@ -44,6 +45,7 @@ const rightStyle: React.CSSProperties = {
   borderLeft: '1px solid #292929',
   minHeight: 0,
   overflow: 'hidden',
+  background: '#090909',
 };
 
 const toggleBarStyle: React.CSSProperties = {

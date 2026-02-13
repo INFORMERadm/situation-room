@@ -192,7 +192,7 @@ export default function SourcesPanel({ sources, images, isOpen, onClose }: Props
       width: 320,
       flexShrink: 0,
       borderLeft: '1px solid #292929',
-      background: '#0d0d0d',
+      background: '#090909',
       display: 'flex',
       flexDirection: 'column',
       height: '100%',

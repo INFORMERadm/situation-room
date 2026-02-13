@@ -327,7 +327,7 @@ export default function AIChatBox({
       display: 'flex',
       height: '100%',
       minHeight: 0,
-      background: '#121212',
+      background: '#000000',
       position: 'relative',
     }}>
       <div style={{
@@ -335,7 +335,7 @@ export default function AIChatBox({
         overflow: 'hidden',
         transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
         borderRight: sidebarOpen ? '1px solid #292929' : 'none',
-        background: '#0a0a0a',
+        background: '#090909',
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
