@@ -157,7 +157,7 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
           marginRight: 8,
         }}
       >
-        <span style={{ color: '#777', marginRight: 2 }}>UTC</span>
+        <span style={{ color: '#333', marginRight: 2 }}>UTC</span>
         <span>{times['UTC'] || '--:--:--'}</span>
       </div>
 
