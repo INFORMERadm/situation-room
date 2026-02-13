@@ -3,7 +3,7 @@ import type { ChatMessage, ChatSession } from '../../hooks/useAIChat';
 import AIMessageRenderer from './AIMessageRenderer';
 
 const MODEL_OPTIONS = [
-  { id: 'deepseek-r1', label: 'DeepSeek R1' },
+  { id: 'hypermind-6.5', label: 'Hypermind 6.5' },
   { id: 'glm-5', label: 'GLM-5' },
 ];
 
