@@ -45,12 +45,13 @@ function renderTable(lines: string[]): JSX.Element {
   const body = parsed.slice(1);
 
   return (
-    <div style={{ overflowX: 'auto', margin: '8px 0' }}>
+    <div style={{ overflowX: 'auto', margin: '8px 0', maxWidth: '100%' }}>
       <table style={{
         width: '100%',
         borderCollapse: 'collapse',
         fontSize: 11,
         fontFamily: 'JetBrains Mono, monospace',
+        tableLayout: 'fixed',
       }}>
         <thead>
           <tr>
@@ -64,7 +65,6 @@ function renderTable(lines: string[]): JSX.Element {
                 textTransform: 'uppercase',
                 letterSpacing: 0.5,
                 borderBottom: '1px solid #292929',
-                whiteSpace: 'nowrap',
               }}>
                 {cell}
               </th>
@@ -79,7 +79,8 @@ function renderTable(lines: string[]): JSX.Element {
                   padding: '5px 8px',
                   color: '#ccc',
                   borderBottom: '1px solid #1e1e1e',
-                  whiteSpace: 'nowrap',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
                 }}>
                   {renderInline(cell)}
                 </td>
@@ -243,5 +244,5 @@ export default function AIMessageRenderer({ content }: Props) {
     i++;
   }
 
-  return <div>{elements}</div>;
+  return <div style={{ overflow: 'hidden', maxWidth: '100%' }}>{elements}</div>;
 }

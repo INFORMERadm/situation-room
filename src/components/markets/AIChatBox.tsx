@@ -502,6 +502,8 @@ export default function AIChatBox({
                 </div>
                 <div style={{
                   maxWidth: '85%',
+                  minWidth: 0,
+                  overflow: 'hidden',
                   background: msg.role === 'user' ? '#1a1a1a' : '#0d0d0d',
                   borderRadius: 8,
                   padding: '10px 14px',
@@ -541,6 +543,8 @@ export default function AIChatBox({
                 </div>
                 <div style={{
                   maxWidth: '85%',
+                  minWidth: 0,
+                  overflow: 'hidden',
                   background: '#0d0d0d',
                   borderRadius: 8,
                   padding: '10px 14px',
