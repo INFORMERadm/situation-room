@@ -55,7 +55,7 @@ export default function MarketSearch({ onSelect, currentSymbol }: Props) {
         padding: '8px 12px',
         borderBottom: '1px solid #292929',
       }}>
-        <span style={{ color: '#888', fontSize: 13 }}>&#x1F50D;</span>
+        <span style={{ color: '#fff', fontSize: 13 }}>&#x1F50D;</span>
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
