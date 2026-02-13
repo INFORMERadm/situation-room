@@ -27,13 +27,14 @@ interface Props {
   onModelChange: (model: string) => void;
   onShowChart: () => void;
   onToggleWebSearch: () => void;
+  onRefreshSessions: () => void;
 }
 
 export default function AIChatBox({
   messages, isExpanded, isStreaming, streamingContent,
   sessions, inlineStatus, selectedModel, webSearchEnabled,
   onSend, onStop, onRegenerate, onToggleExpand, onCollapse, onLoadSession, onNewSession,
-  onModelChange, onShowChart, onToggleWebSearch,
+  onModelChange, onShowChart, onToggleWebSearch, onRefreshSessions,
 }: Props) {
   const [input, setInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -317,7 +318,12 @@ export default function AIChatBox({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
-              onClick={() => setSidebarOpen(prev => !prev)}
+              onClick={() => {
+                setSidebarOpen(prev => {
+                  if (!prev) onRefreshSessions();
+                  return !prev;
+                });
+              }}
               style={{
                 background: sidebarOpen ? '#1a1a1a' : 'transparent',
                 border: '1px solid #292929',

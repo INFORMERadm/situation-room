@@ -157,6 +157,7 @@ export default function MarketsDashboard() {
               onModelChange={ai.setModel}
               onShowChart={ai.collapse}
               onToggleWebSearch={ai.toggleWebSearch}
+              onRefreshSessions={ai.refreshSessions}
             />
           </div>
         </div>

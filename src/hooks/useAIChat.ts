@@ -38,6 +38,7 @@ export interface UseAIChatReturn {
   newSession: () => void;
   setModel: (model: string) => void;
   toggleWebSearch: () => void;
+  refreshSessions: () => void;
 }
 
 function generateId(): string {
@@ -95,9 +96,13 @@ export function useAIChat(
     setLeftTab: platform.setLeftTab,
   };
 
-  useEffect(() => {
+  const refreshSessions = useCallback(() => {
     loadAISessions().then(setSessions).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    refreshSessions();
+  }, [refreshSessions]);
 
   useEffect(() => {
     if (sessionId) {
@@ -199,7 +204,7 @@ export function useAIChat(
           'assistant',
           parsed.text,
           parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined,
-        ).catch(() => {});
+        ).then(() => refreshSessions()).catch(() => {});
       },
       (err) => {
         setIsStreaming(false);
@@ -215,7 +220,7 @@ export function useAIChat(
       selectedModel,
       webSearchEnabled,
     );
-  }, [messages, isStreaming, sessionId, platform, selectedModel, webSearchEnabled]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel, webSearchEnabled, refreshSessions]);
 
   const stopGenerating = useCallback(() => {
     if (abortRef.current) {
@@ -289,7 +294,7 @@ export function useAIChat(
           timestamp: Date.now(),
         };
         setMessages(prev => [...prev, assistantMsg]);
-        saveAIMessage(sessionId, 'assistant', parsed.text, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined).catch(() => {});
+        saveAIMessage(sessionId, 'assistant', parsed.text, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined).then(() => refreshSessions()).catch(() => {});
       },
       (err) => {
         setIsStreaming(false);
@@ -305,7 +310,7 @@ export function useAIChat(
       selectedModel,
       webSearchEnabled,
     );
-  }, [messages, isStreaming, sessionId, platform, selectedModel, webSearchEnabled]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel, webSearchEnabled, refreshSessions]);
 
   const toggleExpand = useCallback(() => {
     setIsExpanded(prev => !prev);
@@ -357,5 +362,6 @@ export function useAIChat(
     newSession,
     setModel,
     toggleWebSearch,
+    refreshSessions,
   };
 }

@@ -1723,11 +1723,15 @@ Deno.serve(async (req: Request) => {
         const body = await req.json();
         const { sessionId, role, content, toolCalls, title } = body;
         if (!sessionId || !role) return jsonResponse({ error: "Missing fields" }, 400);
-        await supabase.from("chat_sessions").upsert({
+        const sessionRow: Record<string, unknown> = {
           id: sessionId,
-          title: title || null,
           updated_at: new Date().toISOString(),
-        }, { onConflict: "id" });
+        };
+        if (title !== undefined) sessionRow.title = title;
+        await supabase.from("chat_sessions").upsert(sessionRow, {
+          onConflict: "id",
+          ignoreDuplicates: false,
+        });
         const { error: msgErr } = await supabase.from("chat_messages").insert({
           session_id: sessionId,
           role,
