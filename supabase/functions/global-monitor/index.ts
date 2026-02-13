@@ -826,6 +826,97 @@ async function fetchPizza() {
   }
 }
 
+const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY") ?? "";
+
+interface TavilyResult {
+  title: string;
+  url: string;
+  content: string;
+}
+
+interface TavilyResponse {
+  answer?: string;
+  results?: TavilyResult[];
+  images?: { url: string; description?: string }[];
+}
+
+async function callTavilySearch(query: string): Promise<TavilyResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(
+      `https://mcp.tavily.com/mcp?tavilyApiKey=${TAVILY_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "tavily-search",
+            arguments: {
+              query,
+              search_depth: "advanced",
+              max_results: 10,
+              include_answer: "advanced",
+              include_images: true,
+              include_image_descriptions: true,
+              chunks_per_source: 3,
+            },
+          },
+        }),
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`Tavily MCP: ${res.status}`);
+    const json = await res.json();
+    const content = json?.result?.content;
+    if (Array.isArray(content) && content.length > 0 && content[0]?.text) {
+      return JSON.parse(content[0].text) as TavilyResponse;
+    }
+    return {};
+  } catch (e) {
+    clearTimeout(timeout);
+    console.error("Tavily search error:", e);
+    return {};
+  }
+}
+
+function formatTavilySources(data: TavilyResponse): string {
+  const parts: string[] = [];
+  if (data.results && data.results.length > 0) {
+    parts.push("\n\n---\n### Sources");
+    data.results.slice(0, 8).forEach((r, i) => {
+      parts.push(`${i + 1}. [${r.title}](${r.url})`);
+    });
+  }
+  if (data.images && data.images.length > 0) {
+    parts.push("");
+    data.images.slice(0, 3).forEach((img) => {
+      const alt = img.description || "Search result image";
+      parts.push(`![${alt}](${img.url})`);
+    });
+  }
+  return parts.join("\n");
+}
+
+function formatTavilyContext(data: TavilyResponse): string {
+  const parts: string[] = ["\n\nWEB SEARCH RESULTS (from Tavily):"];
+  if (data.answer) {
+    parts.push(`\nSynthesized Answer:\n${data.answer}`);
+  }
+  if (data.results && data.results.length > 0) {
+    parts.push("\nSources:");
+    data.results.slice(0, 8).forEach((r, i) => {
+      parts.push(`${i + 1}. ${r.title} (${r.url})\n   ${r.content?.slice(0, 300) ?? ""}`);
+    });
+  }
+  parts.push("\nIMPORTANT: Synthesize your answer from these web search results. Reference sources by number when citing information.");
+  return parts.join("\n");
+}
+
 const AI_SYSTEM_PROMPT = `You are N3 Assistant, the AI command center for the Global Monitor financial markets platform.
 
 You have access to the following tools:
@@ -988,7 +1079,7 @@ const MODEL_CONFIGS: Record<string, { url: string; model: string }> = {
 async function handleAIChat(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const { messages, platformContext, model } = body;
+    const { messages, platformContext, model, webSearch } = body;
     if (!messages || !Array.isArray(messages)) {
       return jsonResponse({ error: "Missing messages array" }, 400);
     }
@@ -1002,9 +1093,23 @@ async function handleAIChat(req: Request): Promise<Response> {
     const modelConfig = MODEL_CONFIGS[modelKey];
 
     const contextStr = platformContext ? JSON.stringify(platformContext) : "{}";
+    let systemContent = AI_SYSTEM_PROMPT + contextStr;
+
+    let tavilySourcesMarkdown = "";
+    if (webSearch && TAVILY_API_KEY) {
+      const lastUserMsg = [...messages].reverse().find((m: { role: string; content: string }) => m.role === "user");
+      if (lastUserMsg?.content) {
+        const tavilyData = await callTavilySearch(lastUserMsg.content);
+        if (tavilyData.results && tavilyData.results.length > 0) {
+          systemContent += formatTavilyContext(tavilyData);
+          tavilySourcesMarkdown = formatTavilySources(tavilyData);
+        }
+      }
+    }
+
     const systemMsg = {
       role: "system",
-      content: AI_SYSTEM_PROMPT + contextStr,
+      content: systemContent,
     };
 
     const chatMessages = [systemMsg, ...messages.slice(-20)];
@@ -1066,6 +1171,9 @@ async function handleAIChat(req: Request): Promise<Response> {
                       }
                     }
                   }
+                }
+                if (tavilySourcesMarkdown) {
+                  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: tavilySourcesMarkdown } }] })}\n\n`));
                 }
                 controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
                 break;

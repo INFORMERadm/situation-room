@@ -28,6 +28,7 @@ export interface UseAIChatReturn {
   sessions: ChatSession[];
   inlineStatus: string | null;
   selectedModel: string;
+  webSearchEnabled: boolean;
   sendMessage: (text: string) => void;
   stopGenerating: () => void;
   regenerate: () => void;
@@ -36,6 +37,7 @@ export interface UseAIChatReturn {
   loadSession: (id: string) => void;
   newSession: () => void;
   setModel: (model: string) => void;
+  toggleWebSearch: () => void;
 }
 
 function generateId(): string {
@@ -55,6 +57,7 @@ export function useAIChat(
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [selectedModel, setSelectedModel] = useState('hypermind-6.5');
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [sessionId, setSessionId] = useState(() => {
     const stored = localStorage.getItem(SESSION_KEY);
     if (stored) return stored;
@@ -210,8 +213,9 @@ export function useAIChat(
         setMessages(prev => [...prev, errorMsg]);
       },
       selectedModel,
+      webSearchEnabled,
     );
-  }, [messages, isStreaming, sessionId, platform, selectedModel]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel, webSearchEnabled]);
 
   const stopGenerating = useCallback(() => {
     if (abortRef.current) {
@@ -299,8 +303,9 @@ export function useAIChat(
         setMessages(prev => [...prev, errorMsg]);
       },
       selectedModel,
+      webSearchEnabled,
     );
-  }, [messages, isStreaming, sessionId, platform, selectedModel]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel, webSearchEnabled]);
 
   const toggleExpand = useCallback(() => {
     setIsExpanded(prev => !prev);
@@ -329,6 +334,10 @@ export function useAIChat(
     setSelectedModel(m);
   }, []);
 
+  const toggleWebSearch = useCallback(() => {
+    setWebSearchEnabled(prev => !prev);
+  }, []);
+
   return {
     messages,
     isExpanded,
@@ -338,6 +347,7 @@ export function useAIChat(
     sessions,
     inlineStatus,
     selectedModel,
+    webSearchEnabled,
     sendMessage,
     stopGenerating,
     regenerate,
@@ -346,5 +356,6 @@ export function useAIChat(
     loadSession,
     newSession,
     setModel,
+    toggleWebSearch,
   };
 }

@@ -15,6 +15,7 @@ interface Props {
   sessions: ChatSession[];
   inlineStatus: string | null;
   selectedModel: string;
+  webSearchEnabled: boolean;
   onSend: (text: string) => void;
   onStop: () => void;
   onRegenerate: () => void;
@@ -24,13 +25,14 @@ interface Props {
   onNewSession: () => void;
   onModelChange: (model: string) => void;
   onShowChart: () => void;
+  onToggleWebSearch: () => void;
 }
 
 export default function AIChatBox({
   messages, isExpanded, isStreaming, streamingContent,
-  sessions, inlineStatus, selectedModel,
+  sessions, inlineStatus, selectedModel, webSearchEnabled,
   onSend, onStop, onRegenerate, onToggleExpand, onCollapse, onLoadSession, onNewSession,
-  onModelChange, onShowChart,
+  onModelChange, onShowChart, onToggleWebSearch,
 }: Props) {
   const [input, setInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -85,6 +87,31 @@ export default function AIChatBox({
           flexShrink: 0,
           animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
         }} />
+        <button
+          onClick={onToggleWebSearch}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            background: webSearchEnabled ? 'rgba(0,188,212,0.1)' : 'transparent',
+            border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#333'}`,
+            borderRadius: 3,
+            color: webSearchEnabled ? '#00bcd4' : '#555',
+            padding: '3px 8px',
+            fontSize: 9,
+            fontWeight: 500,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            flexShrink: 0,
+            transition: 'all 0.15s',
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+            <circle cx="11" cy="11" r="3" />
+          </svg>
+          Web
+        </button>
         <input
           ref={inputRef}
           value={input}
@@ -678,6 +705,31 @@ export default function AIChatBox({
             flexShrink: 0,
             animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
           }} />
+          <button
+            onClick={onToggleWebSearch}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              background: webSearchEnabled ? 'rgba(0,188,212,0.1)' : 'transparent',
+              border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#333'}`,
+              borderRadius: 4,
+              color: webSearchEnabled ? '#00bcd4' : '#555',
+              padding: '4px 10px',
+              fontSize: 10,
+              fontWeight: 500,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              flexShrink: 0,
+              transition: 'all 0.15s',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+              <circle cx="11" cy="11" r="3" />
+            </svg>
+            Web Search
+          </button>
           <textarea
             ref={textareaRef}
             value={input}

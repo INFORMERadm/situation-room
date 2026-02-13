@@ -4,7 +4,7 @@ interface Props {
 
 function renderInline(text: string): (string | JSX.Element)[] {
   const parts: (string | JSX.Element)[] = [];
-  const regex = /(\*\*(.+?)\*\*)|(`([^`]+)`)/g;
+  const regex = /(\*\*(.+?)\*\*)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))/g;
   let lastIdx = 0;
   let match;
   let key = 0;
@@ -24,6 +24,18 @@ function renderInline(text: string): (string | JSX.Element)[] {
           fontSize: '0.9em',
           color: '#fb8c00',
         }}>{match[4]}</code>
+      );
+    } else if (match[6] && match[7]) {
+      parts.push(
+        <a key={key++} href={match[7]} target="_blank" rel="noopener noreferrer" style={{
+          color: '#00bcd4',
+          textDecoration: 'none',
+          borderBottom: '1px solid transparent',
+          transition: 'border-color 0.15s',
+        }}
+        onMouseEnter={e => { (e.target as HTMLElement).style.borderBottomColor = '#00bcd4'; }}
+        onMouseLeave={e => { (e.target as HTMLElement).style.borderBottomColor = 'transparent'; }}
+        >{match[6]}</a>
       );
     }
     lastIdx = match.index + match[0].length;
@@ -143,6 +155,34 @@ export default function AIMessageRenderer({ content }: Props) {
           </pre>
         </div>
       );
+      continue;
+    }
+
+    const imgMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (imgMatch) {
+      elements.push(
+        <div key={key++} style={{ margin: '8px 0' }}>
+          <img
+            src={imgMatch[2]}
+            alt={imgMatch[1]}
+            style={{
+              maxWidth: '100%',
+              borderRadius: 6,
+              border: '1px solid #292929',
+            }}
+          />
+          {imgMatch[1] && (
+            <div style={{ color: '#888', fontSize: 10, marginTop: 4 }}>{imgMatch[1]}</div>
+          )}
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    if (line.match(/^---+$/)) {
+      elements.push(<hr key={key++} style={{ border: 'none', borderTop: '1px solid #292929', margin: '10px 0' }} />);
+      i++;
       continue;
     }
 
