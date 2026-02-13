@@ -327,7 +327,7 @@ export default function AIChatBox({
       display: 'flex',
       height: '100%',
       minHeight: 0,
-      background: '#000000',
+      background: '#0a0a0a',
       position: 'relative',
     }}>
       <div style={{
