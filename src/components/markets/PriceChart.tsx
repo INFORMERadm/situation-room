@@ -25,13 +25,37 @@ interface Props {
   onToggleIndicator?: (id: string) => void;
 }
 
-const TIMEFRAMES = [
-  { label: '1D', value: '5min' },
-  { label: '1W', value: '1hour' },
-  { label: '1M', value: 'daily', days: 30 },
-  { label: '3M', value: 'daily', days: 90 },
-  { label: '1Y', value: 'daily', days: 365 },
+const INTERVALS = [
+  { label: '1m', value: '1min' },
+  { label: '5m', value: '5min' },
+  { label: '15m', value: '15min' },
+  { label: '30m', value: '30min' },
+  { label: '1h', value: '1hour' },
+  { label: 'D', value: 'daily' },
 ];
+
+const RANGES = ['1D', '1W', '1M', '3M', '1Y'];
+
+const DEFAULT_RANGE: Record<string, string> = {
+  '1min': '1D',
+  '5min': '1W',
+  '15min': '1W',
+  '30min': '1M',
+  '1hour': '1M',
+  'daily': '3M',
+};
+
+const BARS_PER_DAY: Record<string, number> = {
+  '1min': 390, '5min': 78, '15min': 26, '30min': 13, '1hour': 7, 'daily': 1,
+};
+
+const RANGE_DAYS: Record<string, number> = {
+  '1D': 1, '1W': 5, '1M': 22, '3M': 65, '1Y': 252,
+};
+
+const CAL_DAYS: Record<string, number> = {
+  '1D': 1, '1W': 7, '1M': 30, '3M': 90, '1Y': 365,
+};
 
 type ChartType = 'area' | 'line' | 'bar' | 'candlestick';
 
@@ -89,6 +113,7 @@ export default function PriceChart({
   const [localChartType, setLocalChartType] = useState<ChartType>('area');
   const [localIndicators, setLocalIndicators] = useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
   const [viewRange, setViewRange] = useState({ start: 0, end: 0 });
+  const [selectedRange, setSelectedRange] = useState(() => DEFAULT_RANGE['daily'] || '3M');
 
   const chartType = (externalChartType as ChartType) || localChartType;
   const setChartType = onChartTypeChange || ((t: string) => setLocalChartType(t as ChartType));
@@ -121,23 +146,26 @@ export default function PriceChart({
     return () => obs.disconnect();
   }, []);
 
-  const activeLabel = TIMEFRAMES.find(t => {
-    if (t.value === timeframe) return true;
-    if (t.value === 'daily' && timeframe === 'daily') return true;
-    return false;
-  })?.label;
+  const handleIntervalChange = useCallback((interval: string) => {
+    onTimeframeChange(interval);
+    setSelectedRange(DEFAULT_RANGE[interval] ?? '3M');
+  }, [onTimeframeChange]);
 
   const slicedData = (() => {
-    const tf = TIMEFRAMES.find(t => t.label === activeLabel);
-    if (!tf) return data;
     const reversed = [...data].reverse();
-    if (tf.days) return reversed.slice(-tf.days);
-    return reversed;
+    if (timeframe === 'daily') {
+      const days = CAL_DAYS[selectedRange] ?? 90;
+      return reversed.slice(-days);
+    }
+    const bpd = BARS_PER_DAY[timeframe] ?? 78;
+    const days = RANGE_DAYS[selectedRange] ?? 5;
+    const maxBars = bpd * days;
+    return reversed.slice(-maxBars);
   })();
 
   useEffect(() => {
     setViewRange({ start: 0, end: Math.max(0, slicedData.length - 1) });
-  }, [slicedData.length, timeframe]);
+  }, [slicedData.length, timeframe, selectedRange]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -677,13 +705,36 @@ export default function PriceChart({
           <div style={{ width: 1, height: 16, background: '#292929', margin: '0 6px' }} />
           <IndicatorMenu indicators={indicators} onToggle={toggleIndicator} />
           <div style={{ width: 1, height: 16, background: '#292929', margin: '0 6px' }} />
-          {TIMEFRAMES.map(tf => {
-            const isActive = tf.label === activeLabel ||
-              (tf.value === timeframe && !activeLabel);
+          {INTERVALS.map(iv => {
+            const isActive = iv.value === timeframe;
             return (
               <button
-                key={tf.label}
-                onClick={() => onTimeframeChange(tf.value)}
+                key={iv.value}
+                onClick={() => handleIntervalChange(iv.value)}
+                style={{
+                  background: isActive ? '#292929' : 'transparent',
+                  border: '1px solid',
+                  borderColor: isActive ? '#ff9800' : '#292929',
+                  color: isActive ? '#ff9800' : '#999',
+                  padding: '3px 8px',
+                  fontSize: 10,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  borderRadius: 2,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {iv.label}
+              </button>
+            );
+          })}
+          <div style={{ width: 1, height: 16, background: '#292929', margin: '0 6px' }} />
+          {RANGES.map(r => {
+            const isActive = r === selectedRange;
+            return (
+              <button
+                key={r}
+                onClick={() => setSelectedRange(r)}
                 style={{
                   background: isActive ? '#292929' : 'transparent',
                   border: '1px solid',
@@ -697,7 +748,7 @@ export default function PriceChart({
                   transition: 'all 0.15s',
                 }}
               >
-                {tf.label}
+                {r}
               </button>
             );
           })}

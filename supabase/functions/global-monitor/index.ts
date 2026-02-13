@@ -857,8 +857,8 @@ You have access to the following tools:
 2. change_symbol - Navigate chart to a symbol
    Parameters: { "symbol": string }
 
-3. change_timeframe - Change chart timeframe
-   Parameters: { "timeframe": "5min"|"1hour"|"daily" }
+3. change_timeframe - Change chart interval/timeframe
+   Parameters: { "timeframe": "1min"|"5min"|"15min"|"30min"|"1hour"|"daily" }
 
 4. change_chart_type - Change chart visualization
    Parameters: { "type": "area"|"line"|"bar"|"candlestick" }
