@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { HistoricalPrice } from '../../types';
 import type { IndicatorConfig, IndicatorId } from '../../lib/indicators';
+import { isForexSymbol } from '../../lib/format';
 import {
   DEFAULT_INDICATORS,
   computeSMA,
@@ -254,7 +255,7 @@ export default function PriceChart({
       ctx.moveTo(PAD_L, y);
       ctx.lineTo(W - PAD_R, y);
       ctx.stroke();
-      ctx.fillText(price.toFixed(2), PAD_L - 6, y + 3);
+      ctx.fillText(isForexSymbol(symbol) ? price.toFixed(4) : price.toFixed(2), PAD_L - 6, y + 3);
     }
 
     if (isEnabled(indicators, 'volume')) {
@@ -426,8 +427,8 @@ export default function PriceChart({
       const dp = slicedData[hover.idx];
       const tooltipLines = [
         dp.date.slice(0, 16),
-        `O: ${dp.open.toFixed(2)}  H: ${dp.high.toFixed(2)}`,
-        `L: ${dp.low.toFixed(2)}  C: ${dp.close.toFixed(2)}`,
+        `O: ${isForexSymbol(symbol) ? dp.open.toFixed(4) : dp.open.toFixed(2)}  H: ${isForexSymbol(symbol) ? dp.high.toFixed(4) : dp.high.toFixed(2)}`,
+        `L: ${isForexSymbol(symbol) ? dp.low.toFixed(4) : dp.low.toFixed(2)}  C: ${isForexSymbol(symbol) ? dp.close.toFixed(4) : dp.close.toFixed(2)}`,
         `Vol: ${dp.volume.toLocaleString()}`,
       ];
 

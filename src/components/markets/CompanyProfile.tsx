@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CompanyProfile as ProfileType, QuoteDetail } from '../../types';
+import { formatPriceWithCurrency, isForexSymbol } from '../../lib/format';
 
 interface Props {
   profile: ProfileType | null;
@@ -41,6 +42,7 @@ export default function CompanyProfile({ profile, quote, loading }: Props) {
     );
   }
 
+  const sym = profile?.symbol ?? quote?.symbol ?? '';
   const isUp = (quote?.change ?? profile?.changes ?? 0) >= 0;
   const changeColor = isUp ? '#00c853' : '#ff1744';
   const price = quote?.price ?? profile?.price ?? 0;
@@ -87,10 +89,10 @@ export default function CompanyProfile({ profile, quote, loading }: Props) {
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ color: '#e0e0e0', fontSize: 22, fontWeight: 700 }}>
-            ${price.toFixed(2)}
+            {formatPriceWithCurrency(price, profile?.symbol ?? quote?.symbol)}
           </div>
           <div style={{ color: changeColor, fontSize: 13, fontWeight: 600 }}>
-            {isUp ? '+' : ''}{change.toFixed(2)} ({isUp ? '+' : ''}{pctChange.toFixed(2)}%)
+            {isUp ? '+' : ''}{isForexSymbol(sym) ? change.toFixed(4) : change.toFixed(2)} ({isUp ? '+' : ''}{pctChange.toFixed(2)}%)
           </div>
         </div>
       </div>
@@ -102,10 +104,10 @@ export default function CompanyProfile({ profile, quote, loading }: Props) {
         marginBottom: 12,
       }}>
         {[
-          { label: 'Open', value: quote?.open?.toFixed(2) ?? '-' },
-          { label: 'High', value: quote?.dayHigh?.toFixed(2) ?? '-' },
-          { label: 'Low', value: quote?.dayLow?.toFixed(2) ?? '-' },
-          { label: 'Prev Close', value: quote?.previousClose?.toFixed(2) ?? '-' },
+          { label: 'Open', value: quote?.open != null ? formatPriceWithCurrency(quote.open, sym) : '-' },
+          { label: 'High', value: quote?.dayHigh != null ? formatPriceWithCurrency(quote.dayHigh, sym) : '-' },
+          { label: 'Low', value: quote?.dayLow != null ? formatPriceWithCurrency(quote.dayLow, sym) : '-' },
+          { label: 'Prev Close', value: quote?.previousClose != null ? formatPriceWithCurrency(quote.previousClose, sym) : '-' },
           { label: 'Volume', value: quote?.volume ? fmtVol(quote.volume) : '-' },
           { label: 'Avg Volume', value: profile?.volAvg ? fmtVol(profile.volAvg) : '-' },
           { label: 'Market Cap', value: (quote?.marketCap || profile?.mktCap) ? fmtNum(quote?.marketCap || profile?.mktCap || 0) : '-' },

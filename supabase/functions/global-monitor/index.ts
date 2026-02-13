@@ -908,6 +908,7 @@ function fmtVal(val: unknown): string {
     if (abs >= 1e9) return `${(val / 1e9).toFixed(2)}B`;
     if (abs >= 1e6) return `${(val / 1e6).toFixed(2)}M`;
     if (Number.isInteger(val)) return val.toLocaleString("en-US");
+    if (abs < 10 && !Number.isInteger(val)) return val.toFixed(4);
     return val.toFixed(2);
   }
   const str = String(val);

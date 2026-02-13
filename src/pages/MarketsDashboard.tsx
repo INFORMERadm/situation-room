@@ -108,26 +108,12 @@ export default function MarketsDashboard() {
         </div>
 
         <div style={{
-          display: 'grid',
-          gridTemplateRows: ai.isExpanded ? '1fr' : 'auto 1fr auto',
+          display: 'flex',
+          flexDirection: 'column',
           minHeight: 0,
           overflow: 'hidden',
         }}>
-          {ai.isExpanded ? (
-            <AIChatBox
-              messages={ai.messages}
-              isExpanded={ai.isExpanded}
-              isStreaming={ai.isStreaming}
-              streamingContent={ai.streamingContent}
-              sessions={ai.sessions}
-              inlineStatus={ai.inlineStatus}
-              onSend={ai.sendMessage}
-              onToggleExpand={ai.toggleExpand}
-              onCollapse={ai.collapse}
-              onLoadSession={ai.loadSession}
-              onNewSession={ai.newSession}
-            />
-          ) : (
+          {!ai.isExpanded && (
             <>
               <div style={panelDivider}>
                 <CompanyProfile
@@ -136,7 +122,7 @@ export default function MarketsDashboard() {
                   loading={!!data.loading['profile']}
                 />
               </div>
-              <div style={{ display: 'grid', gridTemplateRows: '1fr', minHeight: 0 }}>
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 <PriceChart
                   data={data.chart}
                   symbol={data.selectedSymbol}
@@ -152,21 +138,23 @@ export default function MarketsDashboard() {
               <div style={{ borderTop: '1px solid #292929' }}>
                 <SectorPerformance sectors={data.sectors} />
               </div>
-              <AIChatBox
-                messages={ai.messages}
-                isExpanded={ai.isExpanded}
-                isStreaming={ai.isStreaming}
-                streamingContent={ai.streamingContent}
-                sessions={ai.sessions}
-                inlineStatus={ai.inlineStatus}
-                onSend={ai.sendMessage}
-                onToggleExpand={ai.toggleExpand}
-                onCollapse={ai.collapse}
-                onLoadSession={ai.loadSession}
-                onNewSession={ai.newSession}
-              />
             </>
           )}
+          <div style={{ flex: ai.isExpanded ? 1 : undefined, minHeight: ai.isExpanded ? 0 : undefined }}>
+            <AIChatBox
+              messages={ai.messages}
+              isExpanded={ai.isExpanded}
+              isStreaming={ai.isStreaming}
+              streamingContent={ai.streamingContent}
+              sessions={ai.sessions}
+              inlineStatus={ai.inlineStatus}
+              onSend={ai.sendMessage}
+              onToggleExpand={ai.toggleExpand}
+              onCollapse={ai.collapse}
+              onLoadSession={ai.loadSession}
+              onNewSession={ai.newSession}
+            />
+          </div>
         </div>
 
         <div style={rightStyle}>

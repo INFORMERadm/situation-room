@@ -44,7 +44,7 @@ interface WatchlistEntry {
 const WATCHLIST_VERSION_KEY = 'global-monitor-watchlist-v';
 const CURRENT_VERSION = '3';
 
-const FOREX_SYMBOLS = new Set(['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD']);
+import { isForexSymbol } from '../../lib/format';
 
 function loadWatchlist(): WatchlistEntry[] {
   try {
@@ -442,7 +442,7 @@ export default function MarketOverview({ onSelect, externalWatchlist, onAddInstr
                 }}
               >
                 {q
-                  ? FOREX_SYMBOLS.has(item.symbol)
+                  ? isForexSymbol(item.symbol)
                     ? q.price.toFixed(4)
                     : `$${q.price.toFixed(2)}`
                   : '--'}
