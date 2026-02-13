@@ -974,8 +974,8 @@ function formatFmpAsMarkdown(endpoint: string, data: unknown): string {
 
 const MODEL_CONFIGS: Record<string, { url: string; model: string }> = {
   "hypermind-6.5": {
-    url: "https://router.huggingface.co/cerebras/v1/chat/completions",
-    model: "openai/gpt-oss-120b",
+    url: "https://router.huggingface.co/v1/chat/completions",
+    model: "openai/gpt-oss-120b:cerebras",
   },
   "glm-5": {
     url: "https://router.huggingface.co/novita/v3/openai/chat/completions",
