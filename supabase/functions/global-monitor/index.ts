@@ -996,7 +996,7 @@ async function handleAIChat(req: Request): Promise<Response> {
       return jsonResponse({ error: "AI service not configured" }, 500);
     }
 
-    const modelKey = typeof model === "string" && MODEL_CONFIGS[model] ? model : "deepseek-r1";
+    const modelKey = typeof model === "string" && MODEL_CONFIGS[model] ? model : "hypermind-6.5";
     const modelConfig = MODEL_CONFIGS[modelKey];
 
     const contextStr = platformContext ? JSON.stringify(platformContext) : "{}";
