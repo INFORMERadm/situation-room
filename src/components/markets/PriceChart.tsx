@@ -245,7 +245,7 @@ export default function PriceChart({
     const gridLines = 5;
     ctx.strokeStyle = '#292929';
     ctx.lineWidth = 0.5;
-    ctx.fillStyle = '#555';
+    ctx.fillStyle = '#888';
     ctx.font = '10px JetBrains Mono, monospace';
     ctx.textAlign = 'right';
     for (let i = 0; i <= gridLines; i++) {
@@ -393,7 +393,7 @@ export default function PriceChart({
     }
 
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#555';
+    ctx.fillStyle = '#888';
     const labelCount = Math.min(6, viewLen);
     for (let i = 0; i < labelCount; i++) {
       const idx = viewStart + Math.floor((i / (labelCount - 1)) * (viewLen - 1));
@@ -469,7 +469,7 @@ export default function PriceChart({
       ctx.lineTo(W - PAD_R, oscTop);
       ctx.stroke();
 
-      ctx.fillStyle = '#555';
+      ctx.fillStyle = '#888';
       ctx.font = '9px JetBrains Mono, monospace';
       ctx.textAlign = 'left';
       ctx.fillText('RSI (14)', PAD_L + 4, oscTop + 10);
@@ -503,7 +503,7 @@ export default function PriceChart({
       }
       ctx.stroke();
 
-      ctx.fillStyle = '#444';
+      ctx.fillStyle = '#777';
       ctx.font = '8px JetBrains Mono, monospace';
       ctx.textAlign = 'right';
       ctx.fillText('70', PAD_L - 4, rsiToY(70) + 3);
@@ -524,7 +524,7 @@ export default function PriceChart({
       ctx.lineTo(W - PAD_R, oscTop);
       ctx.stroke();
 
-      ctx.fillStyle = '#555';
+      ctx.fillStyle = '#888';
       ctx.font = '9px JetBrains Mono, monospace';
       ctx.textAlign = 'left';
       ctx.fillText('MACD (12,26,9)', PAD_L + 4, oscTop + 10);
@@ -596,7 +596,7 @@ export default function PriceChart({
       let legendX = PAD_L + 4;
       const legendY = H - 6;
       for (const ind of activeOverlays) {
-        ctx.fillStyle = '#555';
+        ctx.fillStyle = '#888';
         ctx.fillText(ind.label, legendX, legendY);
         const textW = ctx.measureText(ind.label).width;
         legendX += textW + 4;
@@ -609,7 +609,7 @@ export default function PriceChart({
     const isZoomed = viewLen < slicedData.length;
     if (isZoomed) {
       const pct = Math.round((viewLen / slicedData.length) * 100);
-      ctx.fillStyle = '#444';
+      ctx.fillStyle = '#777';
       ctx.font = '9px JetBrains Mono, monospace';
       ctx.textAlign = 'right';
       ctx.fillText(`${pct}%`, W - PAD_R - 2, H - 6);
@@ -662,7 +662,7 @@ export default function PriceChart({
                 background: chartType === ct.value ? '#292929' : 'transparent',
                 border: '1px solid',
                 borderColor: chartType === ct.value ? '#00c853' : '#292929',
-                color: chartType === ct.value ? '#00c853' : '#666',
+                color: chartType === ct.value ? '#00c853' : '#999',
                 padding: '3px 8px',
                 fontSize: 10,
                 cursor: 'pointer',
@@ -688,7 +688,7 @@ export default function PriceChart({
                   background: isActive ? '#292929' : 'transparent',
                   border: '1px solid',
                   borderColor: isActive ? '#00c853' : '#292929',
-                  color: isActive ? '#00c853' : '#666',
+                  color: isActive ? '#00c853' : '#999',
                   padding: '3px 8px',
                   fontSize: 10,
                   cursor: 'pointer',
@@ -713,7 +713,7 @@ export default function PriceChart({
             justifyContent: 'center',
             background: 'rgba(18,18,18,0.8)',
             zIndex: 10,
-            color: '#555',
+            color: '#888',
             fontSize: 12,
           }}>
             Loading chart data...
@@ -726,7 +726,7 @@ export default function PriceChart({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#555',
+            color: '#888',
             fontSize: 12,
           }}>
             No chart data available

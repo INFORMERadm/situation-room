@@ -10,7 +10,7 @@ function impactColor(impact: string): string {
     case 'high': return '#ff1744';
     case 'medium': return '#ff9800';
     case 'low': return '#00c853';
-    default: return '#555';
+    default: return '#888';
   }
 }
 
@@ -65,7 +65,7 @@ export default function EconomicCalendar({ events }: Props) {
       <div style={{
         padding: '8px 12px',
         borderBottom: '1px solid #292929',
-        color: '#888',
+        color: '#aaa',
         fontSize: 10,
         letterSpacing: 1,
         textTransform: 'uppercase',
@@ -74,7 +74,7 @@ export default function EconomicCalendar({ events }: Props) {
       </div>
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         {events.length === 0 && (
-          <div style={{ padding: 16, color: '#555', fontSize: 11 }}>Loading...</div>
+          <div style={{ padding: 16, color: '#888', fontSize: 11 }}>Loading...</div>
         )}
         {grouped.map((group) => (
           <div key={group.label}>
@@ -82,7 +82,7 @@ export default function EconomicCalendar({ events }: Props) {
               padding: '6px 12px',
               background: '#1a1a1a',
               borderBottom: '1px solid #292929',
-              color: group.label.startsWith('Today') ? '#ff9800' : '#888',
+              color: group.label.startsWith('Today') ? '#ff9800' : '#aaa',
               fontSize: 10,
               fontWeight: 600,
               letterSpacing: 0.5,
@@ -108,10 +108,10 @@ export default function EconomicCalendar({ events }: Props) {
                     background: impactColor(e.impact),
                     flexShrink: 0,
                   }} />
-                  <span style={{ color: '#888', fontSize: 9 }}>
+                  <span style={{ color: '#aaa', fontSize: 9 }}>
                     {formatTime(e.date)}
                   </span>
-                  <span style={{ color: '#555', fontSize: 9 }}>
+                  <span style={{ color: '#888', fontSize: 9 }}>
                     {e.country}
                   </span>
                 </div>
@@ -127,14 +127,14 @@ export default function EconomicCalendar({ events }: Props) {
                   {e.event}
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
-                  <span style={{ color: '#555', fontSize: 9 }}>
-                    Prev: <span style={{ color: '#888' }}>{fmtVal(e.previous)}</span>
+                  <span style={{ color: '#888', fontSize: 9 }}>
+                    Prev: <span style={{ color: '#aaa' }}>{fmtVal(e.previous)}</span>
                   </span>
-                  <span style={{ color: '#555', fontSize: 9 }}>
-                    Est: <span style={{ color: '#888' }}>{fmtVal(e.estimate)}</span>
+                  <span style={{ color: '#888', fontSize: 9 }}>
+                    Est: <span style={{ color: '#aaa' }}>{fmtVal(e.estimate)}</span>
                   </span>
-                  <span style={{ color: '#555', fontSize: 9 }}>
-                    Act: <span style={{ color: e.actual !== null ? '#e0e0e0' : '#888' }}>
+                  <span style={{ color: '#888', fontSize: 9 }}>
+                    Act: <span style={{ color: e.actual !== null ? '#e0e0e0' : '#aaa' }}>
                       {fmtVal(e.actual)}
                     </span>
                   </span>

@@ -68,7 +68,7 @@ export default function MarketNews({ news, onSelectSymbol, onExplain }: Props) {
       <div style={{
         padding: '8px 12px',
         borderBottom: '1px solid #292929',
-        color: '#888',
+        color: '#aaa',
         fontSize: 10,
         letterSpacing: 1,
         textTransform: 'uppercase',
@@ -77,7 +77,7 @@ export default function MarketNews({ news, onSelectSymbol, onExplain }: Props) {
       </div>
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         {news.length === 0 && (
-          <div style={{ padding: 16, color: '#555', fontSize: 11 }}>Loading news...</div>
+          <div style={{ padding: 16, color: '#888', fontSize: 11 }}>Loading news...</div>
         )}
         {visible.map((item, i) => (
           <div
@@ -93,7 +93,7 @@ export default function MarketNews({ news, onSelectSymbol, onExplain }: Props) {
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <span style={{ color: '#555', fontSize: 9 }}>{timeAgo(item.publishedDate)}</span>
+              <span style={{ color: '#888', fontSize: 9 }}>{timeAgo(item.publishedDate)}</span>
               {item.symbol && (
                 <button
                   onClick={() => onSelectSymbol(item.symbol)}

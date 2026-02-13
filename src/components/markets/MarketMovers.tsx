@@ -57,7 +57,7 @@ export default function MarketMovers({
               background: tab === t.key ? '#1a1a1a' : 'transparent',
               border: 'none',
               borderBottom: tab === t.key ? `2px solid ${t.color}` : '2px solid transparent',
-              color: tab === t.key ? t.color : '#555',
+              color: tab === t.key ? t.color : '#888',
               padding: '8px 4px',
               fontSize: 10,
               cursor: 'pointer',
@@ -82,7 +82,7 @@ export default function MarketMovers({
       ) : (
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
           {items.length === 0 && (
-            <div style={{ padding: 16, color: '#555', fontSize: 11 }}>Loading...</div>
+            <div style={{ padding: 16, color: '#888', fontSize: 11 }}>Loading...</div>
           )}
           {items.map((item, i) => {
             const isUp = item.changesPercentage >= 0;
@@ -108,11 +108,11 @@ export default function MarketMovers({
                 onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
-                <span style={{ color: '#444', fontSize: 10, textAlign: 'right' }}>{i + 1}</span>
+                <span style={{ color: '#777', fontSize: 10, textAlign: 'right' }}>{i + 1}</span>
                 <div style={{ textAlign: 'left', overflow: 'hidden' }}>
                   <div style={{ color: '#ccc', fontSize: 11, fontWeight: 600 }}>{item.symbol}</div>
                   <div style={{
-                    color: '#555',
+                    color: '#888',
                     fontSize: 9,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

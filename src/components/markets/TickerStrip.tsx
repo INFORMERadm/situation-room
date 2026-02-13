@@ -62,7 +62,7 @@ export default function TickerStrip({ items, onSelect }: Props) {
         return (
           <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
             <span style={{
-              color: '#555',
+              color: '#888',
               fontSize: 9,
               letterSpacing: 1,
               textTransform: 'uppercase',
@@ -125,7 +125,7 @@ export default function TickerStrip({ items, onSelect }: Props) {
     >
       {items.length === 0 ? (
         <div style={{ display: 'flex', alignItems: 'center', height: 42, padding: '0 16px' }}>
-          <span style={{ color: '#555', fontSize: 11 }}>Loading market data...</span>
+          <span style={{ color: '#888', fontSize: 11 }}>Loading market data...</span>
         </div>
       ) : (
         <div

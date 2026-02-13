@@ -28,7 +28,7 @@ export default function CompanyProfile({ profile, quote, loading }: Props) {
 
   if (loading) {
     return (
-      <div style={{ padding: 16, color: '#555', fontSize: 11 }}>
+      <div style={{ padding: 16, color: '#888', fontSize: 11 }}>
         Loading profile...
       </div>
     );
@@ -36,7 +36,7 @@ export default function CompanyProfile({ profile, quote, loading }: Props) {
 
   if (!profile && !quote) {
     return (
-      <div style={{ padding: 16, color: '#555', fontSize: 11 }}>
+      <div style={{ padding: 16, color: '#888', fontSize: 11 }}>
         Select a symbol to view details
       </div>
     );
@@ -65,23 +65,23 @@ export default function CompanyProfile({ profile, quote, loading }: Props) {
             <span style={{ color: '#e0e0e0', fontSize: 16, fontWeight: 700 }}>
               {profile?.companyName ?? quote?.name ?? quote?.symbol ?? ''}
             </span>
-            <span style={{ color: '#555', fontSize: 12 }}>
+            <span style={{ color: '#888', fontSize: 12 }}>
               {profile?.symbol ?? quote?.symbol}
             </span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {profile?.exchange && (
-              <span style={{ color: '#666', fontSize: 10, background: '#1a1a1a', padding: '2px 6px', borderRadius: 2 }}>
+              <span style={{ color: '#999', fontSize: 10, background: '#1a1a1a', padding: '2px 6px', borderRadius: 2 }}>
                 {profile.exchange}
               </span>
             )}
             {profile?.sector && (
-              <span style={{ color: '#666', fontSize: 10, background: '#1a1a1a', padding: '2px 6px', borderRadius: 2 }}>
+              <span style={{ color: '#999', fontSize: 10, background: '#1a1a1a', padding: '2px 6px', borderRadius: 2 }}>
                 {profile.sector}
               </span>
             )}
             {profile?.industry && (
-              <span style={{ color: '#666', fontSize: 10, background: '#1a1a1a', padding: '2px 6px', borderRadius: 2 }}>
+              <span style={{ color: '#999', fontSize: 10, background: '#1a1a1a', padding: '2px 6px', borderRadius: 2 }}>
                 {profile.industry}
               </span>
             )}
@@ -118,7 +118,7 @@ export default function CompanyProfile({ profile, quote, loading }: Props) {
             padding: '6px 8px',
             borderRadius: 2,
           }}>
-            <div style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+            <div style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
               {stat.label}
             </div>
             <div style={{ color: '#ccc', fontSize: 12, fontWeight: 500 }}>
@@ -131,7 +131,7 @@ export default function CompanyProfile({ profile, quote, loading }: Props) {
       {profile?.description && (
         <div>
           <p style={{
-            color: '#888',
+            color: '#aaa',
             fontSize: 11,
             lineHeight: 1.5,
             margin: 0,

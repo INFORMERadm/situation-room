@@ -55,7 +55,7 @@ export default function MarketSearch({ onSelect, currentSymbol }: Props) {
         padding: '8px 12px',
         borderBottom: '1px solid #292929',
       }}>
-        <span style={{ color: '#555', fontSize: 13 }}>&#x1F50D;</span>
+        <span style={{ color: '#888', fontSize: 13 }}>&#x1F50D;</span>
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
@@ -71,7 +71,7 @@ export default function MarketSearch({ onSelect, currentSymbol }: Props) {
             fontFamily: 'inherit',
           }}
         />
-        {loading && <span style={{ color: '#555', fontSize: 10 }}>...</span>}
+        {loading && <span style={{ color: '#888', fontSize: 10 }}>...</span>}
       </div>
 
       {open && results.length > 0 && (
@@ -127,7 +127,7 @@ export default function MarketSearch({ onSelect, currentSymbol }: Props) {
                   {r.name}
                 </span>
               </div>
-              <span style={{ color: '#555', fontSize: 10 }}>{r.exchange}</span>
+              <span style={{ color: '#888', fontSize: 10 }}>{r.exchange}</span>
             </button>
           ))}
         </div>

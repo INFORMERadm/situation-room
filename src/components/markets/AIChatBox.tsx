@@ -109,7 +109,7 @@ export default function AIChatBox({
             background: 'transparent',
             border: '1px solid #292929',
             borderRadius: 3,
-            color: input.trim() ? '#fb8c00' : '#555',
+            color: input.trim() ? '#fb8c00' : '#888',
             width: 28,
             height: 24,
             fontSize: 14,
@@ -132,7 +132,7 @@ export default function AIChatBox({
             background: 'transparent',
             border: '1px solid #292929',
             borderRadius: 3,
-            color: '#888',
+            color: '#aaa',
             width: 28,
             height: 24,
             fontSize: 11,
@@ -142,7 +142,7 @@ export default function AIChatBox({
             transition: 'all 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = '#fb8c00'; e.currentTarget.style.color = '#fb8c00'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#888'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
@@ -211,7 +211,7 @@ export default function AIChatBox({
           minWidth: 240,
         }}>
           {sessions.length === 0 ? (
-            <div style={{ padding: '20px 16px', color: '#555', fontSize: 10, textAlign: 'center' }}>
+            <div style={{ padding: '20px 16px', color: '#888', fontSize: 10, textAlign: 'center' }}>
               No conversations yet
             </div>
           ) : (
@@ -246,7 +246,7 @@ export default function AIChatBox({
                 }}>
                   {s.title || 'Untitled'}
                 </div>
-                <div style={{ color: '#555', fontSize: 9 }}>
+                <div style={{ color: '#888', fontSize: 9 }}>
                   {new Date(s.updated_at).toLocaleDateString(undefined, {
                     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                   })}
@@ -280,7 +280,7 @@ export default function AIChatBox({
                 background: sidebarOpen ? '#1a1a1a' : 'transparent',
                 border: '1px solid #292929',
                 borderRadius: 3,
-                color: sidebarOpen ? '#fb8c00' : '#888',
+                color: sidebarOpen ? '#fb8c00' : '#aaa',
                 width: 28,
                 height: 24,
                 fontSize: 11,
@@ -293,7 +293,7 @@ export default function AIChatBox({
                 transition: 'all 0.15s',
               }}
               onMouseEnter={e => { if (!sidebarOpen) { e.currentTarget.style.borderColor = '#fb8c00'; e.currentTarget.style.color = '#fb8c00'; }}}
-              onMouseLeave={e => { if (!sidebarOpen) { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#888'; }}}
+              onMouseLeave={e => { if (!sidebarOpen) { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -318,7 +318,7 @@ export default function AIChatBox({
                 background: 'transparent',
                 border: '1px solid #292929',
                 borderRadius: 3,
-                color: '#888',
+                color: '#aaa',
                 width: 28,
                 height: 24,
                 fontSize: 14,
@@ -331,7 +331,7 @@ export default function AIChatBox({
                 transition: 'all 0.15s',
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = '#ff1744'; e.currentTarget.style.color = '#ff1744'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#888'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -353,7 +353,7 @@ export default function AIChatBox({
               alignItems: 'center',
               justifyContent: 'center',
               height: '100%',
-              color: '#555',
+              color: '#888',
               gap: 12,
             }}>
               <div style={{ fontSize: 32, opacity: 0.3 }}>
@@ -378,7 +378,7 @@ export default function AIChatBox({
                       background: '#1a1a1a',
                       border: '1px solid #292929',
                       borderRadius: 4,
-                      color: '#888',
+                      color: '#aaa',
                       padding: '4px 10px',
                       fontSize: 10,
                       cursor: 'pointer',
@@ -386,7 +386,7 @@ export default function AIChatBox({
                       transition: 'all 0.15s',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = '#fb8c00'; e.currentTarget.style.color = '#fb8c00'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#888'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}
                   >
                     {q}
                   </button>
@@ -437,7 +437,7 @@ export default function AIChatBox({
                   ) : (
                     <AIMessageRenderer content={msg.content} />
                   )}
-                  <div style={{ color: '#444', fontSize: 9, marginTop: 4, textAlign: msg.role === 'user' ? 'right' : 'left' }}>
+                  <div style={{ color: '#777', fontSize: 9, marginTop: 4, textAlign: msg.role === 'user' ? 'right' : 'left' }}>
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -500,7 +500,7 @@ export default function AIChatBox({
                   borderRadius: 8,
                   padding: '10px 14px',
                   borderLeft: '2px solid #00c853',
-                  color: '#555',
+                  color: '#888',
                   fontSize: 11,
                 }}>
                   <span style={{ animation: 'aiPulse 1s ease-in-out infinite' }}>Thinking...</span>
@@ -624,7 +624,7 @@ export default function AIChatBox({
               background: input.trim() ? '#fb8c00' : 'transparent',
               border: input.trim() ? 'none' : '1px solid #292929',
               borderRadius: 4,
-              color: input.trim() ? '#000' : '#555',
+              color: input.trim() ? '#000' : '#888',
               padding: '6px 16px',
               fontSize: 11,
               cursor: input.trim() ? 'pointer' : 'default',

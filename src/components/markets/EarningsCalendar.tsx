@@ -18,7 +18,7 @@ export default function EarningsCalendar({ earnings, onSelect }: Props) {
       <div style={{
         padding: '8px 12px',
         borderBottom: '1px solid #292929',
-        color: '#888',
+        color: '#aaa',
         fontSize: 10,
         letterSpacing: 1,
         textTransform: 'uppercase',
@@ -34,13 +34,13 @@ export default function EarningsCalendar({ earnings, onSelect }: Props) {
           borderBottom: '1px solid #292929',
         }}>
           {['Symbol', 'Date', 'EPS Est', 'Rev Est'].map(h => (
-            <span key={h} style={{ color: '#555', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <span key={h} style={{ color: '#888', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               {h}
             </span>
           ))}
         </div>
         {earnings.length === 0 && (
-          <div style={{ padding: 16, color: '#555', fontSize: 11 }}>Loading...</div>
+          <div style={{ padding: 16, color: '#888', fontSize: 11 }}>Loading...</div>
         )}
         {earnings.map((e, i) => (
           <button
@@ -65,7 +65,7 @@ export default function EarningsCalendar({ earnings, onSelect }: Props) {
             <span style={{ color: '#ff9800', fontSize: 11, fontWeight: 600, textAlign: 'left' }}>
               {e.symbol}
             </span>
-            <span style={{ color: '#888', fontSize: 10, textAlign: 'left' }}>
+            <span style={{ color: '#aaa', fontSize: 10, textAlign: 'left' }}>
               {e.date.slice(5, 10)}
             </span>
             <span style={{ color: '#ccc', fontSize: 10, textAlign: 'left' }}>

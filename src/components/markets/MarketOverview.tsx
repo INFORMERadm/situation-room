@@ -208,7 +208,7 @@ export default function MarketOverview({ onSelect, externalWatchlist, onAddInstr
       >
         <span
           style={{
-            color: '#888',
+            color: '#aaa',
             fontSize: 10,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
@@ -222,7 +222,7 @@ export default function MarketOverview({ onSelect, externalWatchlist, onAddInstr
             background: showSearch ? '#1a1a1a' : 'transparent',
             border: '1px solid #292929',
             borderRadius: 3,
-            color: '#888',
+            color: '#aaa',
             width: 22,
             height: 22,
             fontSize: 14,
@@ -239,7 +239,7 @@ export default function MarketOverview({ onSelect, externalWatchlist, onAddInstr
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = '#292929';
-            e.currentTarget.style.color = '#888';
+            e.currentTarget.style.color = '#aaa';
           }}
         >
           +
@@ -274,7 +274,7 @@ export default function MarketOverview({ onSelect, externalWatchlist, onAddInstr
               }}
             />
             {searchLoading && (
-              <span style={{ color: '#555', fontSize: 10 }}>...</span>
+              <span style={{ color: '#888', fontSize: 10 }}>...</span>
             )}
           </div>
           {filteredResults.length > 0 && (
@@ -348,7 +348,7 @@ export default function MarketOverview({ onSelect, externalWatchlist, onAddInstr
                       {r.name}
                     </span>
                   </div>
-                  <span style={{ color: '#555', fontSize: 9 }}>
+                  <span style={{ color: '#888', fontSize: 9 }}>
                     {r.exchange}
                   </span>
                 </button>
@@ -363,7 +363,7 @@ export default function MarketOverview({ onSelect, externalWatchlist, onAddInstr
           <div
             style={{
               padding: 24,
-              color: '#555',
+              color: '#888',
               fontSize: 11,
               textAlign: 'center',
             }}
@@ -423,7 +423,7 @@ export default function MarketOverview({ onSelect, externalWatchlist, onAddInstr
                 </div>
                 <div
                   style={{
-                    color: '#555',
+                    color: '#888',
                     fontSize: 9,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -449,7 +449,7 @@ export default function MarketOverview({ onSelect, externalWatchlist, onAddInstr
               </span>
               <span
                 style={{
-                  color: q ? color : '#555',
+                  color: q ? color : '#888',
                   fontSize: 11,
                   fontWeight: 600,
                   textAlign: 'right',

@@ -157,7 +157,7 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
           marginRight: 8,
         }}
       >
-        <span style={{ color: '#444', marginRight: 2 }}>UTC</span>
+        <span style={{ color: '#777', marginRight: 2 }}>UTC</span>
         <span>{times['UTC'] || '--:--:--'}</span>
       </div>
 
@@ -183,13 +183,13 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
             if (btn) btn.style.opacity = '0';
           }}
         >
-          <span style={{ color: '#444', marginRight: 2, fontSize: 10 }}>
+          <span style={{ color: '#777', marginRight: 2, fontSize: 10 }}>
             {c.label.toUpperCase()}
           </span>
           <span style={{ color: '#1a1a1a', fontWeight: 600 }}>
             {times[c.zone] || '--:--:--'}
           </span>
-          <span style={{ color: '#444', fontSize: 9, marginLeft: 2 }}>
+          <span style={{ color: '#777', fontSize: 9, marginLeft: 2 }}>
             {getAbbreviation(c.zone)}
           </span>
           <button
@@ -292,7 +292,7 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
             </div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {filtered.length === 0 ? (
-                <div style={{ padding: '12px 8px', color: '#555', fontSize: 11, textAlign: 'center' }}>
+                <div style={{ padding: '12px 8px', color: '#888', fontSize: 11, textAlign: 'center' }}>
                   No timezones available
                 </div>
               ) : (
@@ -320,7 +320,7 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
                     <span>{tz.label}</span>
-                    <span style={{ color: '#555', fontSize: 10 }}>
+                    <span style={{ color: '#888', fontSize: 10 }}>
                       {formatTime(tz.zone)}
                     </span>
                   </button>

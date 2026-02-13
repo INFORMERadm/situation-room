@@ -41,7 +41,7 @@ export default function IndicatorMenu({ indicators, onToggle }: Props) {
           background: open ? '#292929' : 'transparent',
           border: '1px solid',
           borderColor: activeCount > 0 ? '#00c853' : '#292929',
-          color: activeCount > 0 ? '#00c853' : '#666',
+          color: activeCount > 0 ? '#00c853' : '#999',
           padding: '3px 8px',
           fontSize: 10,
           cursor: 'pointer',
@@ -88,7 +88,7 @@ export default function IndicatorMenu({ indicators, onToggle }: Props) {
           <div style={{
             padding: '8px 10px 4px',
             fontSize: 10,
-            color: '#888',
+            color: '#aaa',
             fontWeight: 600,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
@@ -103,7 +103,7 @@ export default function IndicatorMenu({ indicators, onToggle }: Props) {
                 <div style={{
                   padding: '6px 10px 2px',
                   fontSize: 9,
-                  color: '#666',
+                  color: '#999',
                   fontWeight: 600,
                   letterSpacing: 0.4,
                   textTransform: 'uppercase',
@@ -125,7 +125,7 @@ export default function IndicatorMenu({ indicators, onToggle }: Props) {
                       cursor: 'pointer',
                       fontFamily: 'inherit',
                       fontSize: 11,
-                      color: ind.enabled ? '#e0e0e0' : '#666',
+                      color: ind.enabled ? '#e0e0e0' : '#999',
                       transition: 'background 0.1s',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = '#292929')}
@@ -135,7 +135,7 @@ export default function IndicatorMenu({ indicators, onToggle }: Props) {
                       width: 14,
                       height: 14,
                       borderRadius: 3,
-                      border: `1.5px solid ${ind.enabled ? ind.color : '#444'}`,
+                      border: `1.5px solid ${ind.enabled ? ind.color : '#666'}`,
                       background: ind.enabled ? ind.color + '22' : 'transparent',
                       display: 'flex',
                       alignItems: 'center',

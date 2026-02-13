@@ -58,7 +58,7 @@ function renderTable(lines: string[]): JSX.Element {
               <th key={i} style={{
                 padding: '6px 8px',
                 textAlign: 'left',
-                color: '#888',
+                color: '#aaa',
                 fontWeight: 600,
                 fontSize: 10,
                 textTransform: 'uppercase',
@@ -119,7 +119,7 @@ export default function AIMessageRenderer({ content }: Props) {
               background: '#1a1a1a',
               padding: '2px 8px',
               fontSize: 9,
-              color: '#555',
+              color: '#888',
               borderTopLeftRadius: 4,
               borderTopRightRadius: 4,
               borderBottom: '1px solid #292929',
