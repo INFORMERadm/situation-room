@@ -4,7 +4,7 @@ import AIMessageRenderer from './AIMessageRenderer';
 
 const MODEL_OPTIONS = [
   { id: 'deepseek-r1', label: 'DeepSeek R1' },
-  { id: 'gpt-oss-120b', label: 'GPT-OSS 120B' },
+  { id: 'glm-5', label: 'GLM-5' },
 ];
 
 interface Props {
