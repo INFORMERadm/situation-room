@@ -1075,6 +1075,154 @@ function formatFmpAsMarkdown(endpoint: string, data: unknown): string {
   return table;
 }
 
+const AI_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "fetch_fmp_data",
+      description: "Fetch financial data from the FMP API. ALWAYS use this for any financial data request.",
+      parameters: {
+        type: "object",
+        properties: {
+          endpoint: { type: "string", description: "FMP API endpoint (e.g. quote, income-statement, balance-sheet-statement)" },
+          params: { type: "object", description: "Query parameters object (e.g. {\"symbol\": \"AAPL\"})" },
+        },
+        required: ["endpoint"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "tavily_search",
+      description: "Search the web for real-time information using Tavily.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "The search query" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "change_symbol",
+      description: "Navigate the chart to display a specific stock symbol",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string", description: "Stock ticker symbol" },
+        },
+        required: ["symbol"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "change_timeframe",
+      description: "Change the chart time interval",
+      parameters: {
+        type: "object",
+        properties: {
+          timeframe: { type: "string", enum: ["1min", "5min", "15min", "30min", "1hour", "daily"] },
+        },
+        required: ["timeframe"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "change_chart_type",
+      description: "Change chart visualization type",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: ["area", "line", "bar", "candlestick"] },
+        },
+        required: ["type"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "toggle_indicator",
+      description: "Toggle a technical indicator on the chart",
+      parameters: {
+        type: "object",
+        properties: {
+          indicator: { type: "string", enum: ["sma20", "sma50", "sma100", "sma200", "ema12", "ema26", "bollinger", "vwap", "volume", "rsi", "macd"] },
+          enabled: { type: "boolean" },
+        },
+        required: ["indicator", "enabled"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_to_watchlist",
+      description: "Add a symbol to the user's watchlist",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string" },
+          name: { type: "string", description: "Company name" },
+        },
+        required: ["symbol", "name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_from_watchlist",
+      description: "Remove a symbol from the user's watchlist",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string" },
+        },
+        required: ["symbol"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "switch_right_panel",
+      description: "Switch the right panel view",
+      parameters: {
+        type: "object",
+        properties: {
+          view: { type: "string", enum: ["news", "economic"] },
+        },
+        required: ["view"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "switch_left_tab",
+      description: "Switch the left sidebar tab",
+      parameters: {
+        type: "object",
+        properties: {
+          tab: { type: "string", enum: ["overview", "gainers", "losers", "active"] },
+        },
+        required: ["tab"],
+      },
+    },
+  },
+];
+
+const SERVER_TOOLS = new Set(["fetch_fmp_data", "tavily_search"]);
+
 const MODEL_CONFIGS: Record<string, { url: string; model: string }> = {
   "hypermind-6.5": {
     url: "https://router.huggingface.co/v1/chat/completions",
@@ -1086,13 +1234,23 @@ const MODEL_CONFIGS: Record<string, { url: string; model: string }> = {
   },
 };
 
+interface NativeToolCall {
+  id: string;
+  name: string;
+  arguments: string;
+}
+
 async function streamOneLLMRound(
   controller: ReadableStreamDefaultController,
   encoder: TextEncoder,
   modelConfig: { url: string; model: string },
   hfToken: string,
-  chatMessages: { role: string; content: string }[],
-): Promise<{ fullContent: string; toolCalls: { tool: string; params: Record<string, unknown> }[] }> {
+  chatMessages: Record<string, unknown>[],
+): Promise<{
+  fullContent: string;
+  nativeToolCalls: NativeToolCall[];
+  textToolCalls: { tool: string; params: Record<string, unknown> }[];
+}> {
   const hfRes = await fetch(modelConfig.url, {
     method: "POST",
     headers: {
@@ -1102,6 +1260,7 @@ async function streamOneLLMRound(
     body: JSON.stringify({
       model: modelConfig.model,
       messages: chatMessages,
+      tools: AI_TOOLS,
       stream: true,
       max_tokens: 4096,
       temperature: 0.7,
@@ -1114,14 +1273,15 @@ async function streamOneLLMRound(
     controller.enqueue(encoder.encode(
       `data: ${JSON.stringify({ choices: [{ delta: { content: errChunk } }] })}\n\n`
     ));
-    return { fullContent: errChunk, toolCalls: [] };
+    return { fullContent: errChunk, nativeToolCalls: [], textToolCalls: [] };
   }
 
   const reader = hfRes.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let fullContent = "";
-  const pendingToolCalls: { tool: string; params: Record<string, unknown> }[] = [];
+  const nativeMap = new Map<number, NativeToolCall>();
+  const textToolCalls: { tool: string; params: Record<string, unknown> }[] = [];
 
   readLoop: while (true) {
     const { done, value } = await reader.read();
@@ -1135,13 +1295,12 @@ async function streamOneLLMRound(
       const trimmed = line.trim();
       if (!trimmed || !trimmed.startsWith("data: ")) continue;
       const payload = trimmed.slice(6);
-      if (payload === "[DONE]") {
-        break readLoop;
-      }
+      if (payload === "[DONE]") break readLoop;
 
       try {
         const parsed = JSON.parse(payload);
         const delta = parsed.choices?.[0]?.delta;
+
         if (delta?.content) {
           fullContent += delta.content;
           const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
@@ -1149,73 +1308,76 @@ async function streamOneLLMRound(
           while ((match = toolCallRegex.exec(fullContent)) !== null) {
             try {
               const tc = JSON.parse(match[1]);
-              if (tc.tool && !pendingToolCalls.some(p => JSON.stringify(p) === JSON.stringify(tc))) {
-                pendingToolCalls.push(tc);
+              if (tc.tool && !textToolCalls.some(p => JSON.stringify(p) === JSON.stringify(tc))) {
+                textToolCalls.push(tc);
               }
             } catch { /* skip malformed */ }
           }
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(parsed)}\n\n`));
         }
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(parsed)}\n\n`));
+
+        if (delta?.tool_calls && Array.isArray(delta.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const idx = typeof tc.index === "number" ? tc.index : 0;
+            if (!nativeMap.has(idx)) {
+              nativeMap.set(idx, { id: tc.id || `call_${idx}_${Date.now()}`, name: "", arguments: "" });
+            }
+            const entry = nativeMap.get(idx)!;
+            if (tc.id) entry.id = tc.id;
+            if (tc.function?.name) entry.name += tc.function.name;
+            if (tc.function?.arguments) entry.arguments += tc.function.arguments;
+          }
+        }
       } catch { /* skip malformed SSE */ }
     }
   }
 
-  return { fullContent, toolCalls: pendingToolCalls };
+  const nativeToolCalls = Array.from(nativeMap.values()).filter(tc => tc.name);
+  return { fullContent, nativeToolCalls, textToolCalls };
 }
 
-async function executeServerToolCalls(
-  controller: ReadableStreamDefaultController,
-  encoder: TextEncoder,
-  toolCalls: { tool: string; params: Record<string, unknown> }[],
-): Promise<string[]> {
-  const sendChunk = (content: string) => {
-    controller.enqueue(encoder.encode(
-      `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`
-    ));
-  };
-
-  const resultParts: string[] = [];
-
-  for (const tc of toolCalls) {
-    if (tc.tool === "fetch_fmp_data") {
-      try {
-        const ep = (tc.params.endpoint as string) || "";
-        const fp = (tc.params.params as Record<string, string>) || {};
-        const fmpResult = await fmpFetch(ep, fp);
-        const markdown = formatFmpAsMarkdown(ep, fmpResult);
-        sendChunk(markdown);
-        resultParts.push(`[${ep}]: ${markdown}`);
-      } catch (e) {
-        const errMsg = `\n\n_Error fetching ${tc.params.endpoint}: ${e instanceof Error ? e.message : "unknown"}_\n`;
-        sendChunk(errMsg);
-        resultParts.push(errMsg);
-      }
-    } else if (tc.tool === "tavily_search" && TAVILY_API_KEY) {
-      try {
-        const query = (tc.params.query as string) || "";
-        if (query) {
-          const tavilyResult = await callTavilySearch(query);
-          if (tavilyResult.results && tavilyResult.results.length > 0) {
-            if (tavilyResult.answer) {
-              sendChunk(`\n\n${tavilyResult.answer}`);
-            }
-            const sourcesMarkdown = formatTavilySources(tavilyResult);
-            sendChunk(sourcesMarkdown);
-            resultParts.push(`[web search: ${query}]: ${tavilyResult.answer || ""}\n${sourcesMarkdown}`);
-          } else {
-            sendChunk("\n\n_No web results found._\n");
-            resultParts.push("[web search]: No results found");
-          }
-        }
-      } catch (e) {
-        const errMsg = `\n\n_Web search error: ${e instanceof Error ? e.message : "unknown"}_\n`;
-        sendChunk(errMsg);
-        resultParts.push(errMsg);
-      }
+async function executeServerTool(
+  tc: { tool: string; params: Record<string, unknown> },
+  sendChunk: (content: string) => void,
+): Promise<string> {
+  if (tc.tool === "fetch_fmp_data") {
+    try {
+      const ep = (tc.params.endpoint as string) || "";
+      const fp = (tc.params.params as Record<string, string>) || {};
+      const fmpResult = await fmpFetch(ep, fp);
+      const markdown = formatFmpAsMarkdown(ep, fmpResult);
+      sendChunk(markdown);
+      return markdown;
+    } catch (e) {
+      const errMsg = `Error fetching ${tc.params.endpoint}: ${e instanceof Error ? e.message : "unknown"}`;
+      sendChunk(`\n\n_${errMsg}_\n`);
+      return errMsg;
     }
   }
-
-  return resultParts;
+  if (tc.tool === "tavily_search" && TAVILY_API_KEY) {
+    const query = (tc.params.query as string) || "";
+    if (!query) return "No query provided";
+    try {
+      const tavilyResult = await callTavilySearch(query);
+      if (tavilyResult.results && tavilyResult.results.length > 0) {
+        let result = "";
+        if (tavilyResult.answer) {
+          sendChunk(`\n\n${tavilyResult.answer}`);
+          result = tavilyResult.answer;
+        }
+        const sourcesMarkdown = formatTavilySources(tavilyResult);
+        sendChunk(sourcesMarkdown);
+        return result + sourcesMarkdown;
+      }
+      sendChunk("\n\n_No web results found._\n");
+      return "No web results found.";
+    } catch (e) {
+      const errMsg = `Web search error: ${e instanceof Error ? e.message : "unknown"}`;
+      sendChunk(`\n\n_${errMsg}_\n`);
+      return errMsg;
+    }
+  }
+  return "Action executed on client.";
 }
 
 async function handleAIChat(req: Request): Promise<Response> {
@@ -1255,39 +1417,96 @@ async function handleAIChat(req: Request): Promise<Response> {
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
+        const sendChunk = (content: string) => {
+          controller.enqueue(encoder.encode(
+            `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`
+          ));
+        };
 
         try {
-          let chatMessages = [systemMsg, ...messages.slice(-20)];
+          let chatMessages: Record<string, unknown>[] = [systemMsg, ...messages.slice(-20)];
 
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
-            const { fullContent, toolCalls } = await streamOneLLMRound(
+            const { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
               controller, encoder, modelConfig, HF_TOKEN, chatMessages,
             );
 
-            const serverCalls = toolCalls.filter(
-              tc => tc.tool === "fetch_fmp_data" || tc.tool === "tavily_search"
-            );
+            const usedNative = nativeToolCalls.length > 0;
+
+            type UnifiedCall = { tool: string; params: Record<string, unknown>; nativeId?: string };
+            const allCalls: UnifiedCall[] = [];
+
+            for (const ntc of nativeToolCalls) {
+              try {
+                const args = ntc.arguments ? JSON.parse(ntc.arguments) : {};
+                allCalls.push({ tool: ntc.name, params: args, nativeId: ntc.id });
+              } catch {
+                allCalls.push({ tool: ntc.name, params: {}, nativeId: ntc.id });
+              }
+            }
+
+            for (const ttc of textToolCalls) {
+              if (!allCalls.some(a => a.tool === ttc.tool && JSON.stringify(a.params) === JSON.stringify(ttc.params))) {
+                allCalls.push(ttc);
+              }
+            }
+
+            if (allCalls.length === 0) break;
+
+            for (const tc of allCalls) {
+              sendChunk(`<tool_call>${JSON.stringify({ tool: tc.tool, params: tc.params })}</tool_call>`);
+            }
+
+            const serverCalls = allCalls.filter(tc => SERVER_TOOLS.has(tc.tool));
+
+            const resultMap = new Map<string, string>();
+            for (const tc of allCalls) {
+              if (SERVER_TOOLS.has(tc.tool)) {
+                const result = await executeServerTool(tc, sendChunk);
+                if (tc.nativeId) resultMap.set(tc.nativeId, result);
+                else resultMap.set(`${tc.tool}:${JSON.stringify(tc.params)}`, result);
+              }
+            }
 
             if (serverCalls.length === 0) break;
 
-            const resultParts = await executeServerToolCalls(
-              controller, encoder, serverCalls,
-            );
+            if (usedNative) {
+              const assistantMsg: Record<string, unknown> = {
+                role: "assistant",
+                content: fullContent || null,
+                tool_calls: nativeToolCalls.map(ntc => ({
+                  id: ntc.id,
+                  type: "function",
+                  function: { name: ntc.name, arguments: ntc.arguments },
+                })),
+              };
+              chatMessages = [...chatMessages, assistantMsg];
 
-            chatMessages = [
-              ...chatMessages,
-              { role: "assistant", content: fullContent },
-              {
-                role: "user",
-                content: `Here are the results of the tool calls you made:\n${resultParts.join("\n")}\n\nContinue your response based on these results. If you need additional data, you may make more tool calls.`,
-              },
-            ];
+              for (const ntc of nativeToolCalls) {
+                const resultContent = SERVER_TOOLS.has(ntc.name)
+                  ? (resultMap.get(ntc.id) || "No data returned")
+                  : "Action executed on client.";
+                chatMessages.push({
+                  role: "tool",
+                  tool_call_id: ntc.id,
+                  content: resultContent,
+                });
+              }
+            } else {
+              const resultParts = Array.from(resultMap.values());
+              chatMessages = [
+                ...chatMessages,
+                { role: "assistant", content: fullContent },
+                {
+                  role: "user",
+                  content: `Here are the results:\n${resultParts.join("\n")}\n\nContinue your response. You may make more tool calls if needed.`,
+                },
+              ];
+            }
           }
 
           if (tavilySourcesMarkdown) {
-            controller.enqueue(encoder.encode(
-              `data: ${JSON.stringify({ choices: [{ delta: { content: tavilySourcesMarkdown } }] })}\n\n`
-            ));
+            sendChunk(tavilySourcesMarkdown);
           }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (e) {
