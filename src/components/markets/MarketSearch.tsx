@@ -55,7 +55,7 @@ export default function MarketSearch({ onSelect, currentSymbol }: Props) {
         padding: '8px 12px',
         borderBottom: '1px solid #292929',
       }}>
-        <span style={{ color: '#fff', fontSize: 13 }}>&#x1F50D;</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
