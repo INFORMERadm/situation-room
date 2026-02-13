@@ -54,7 +54,7 @@ export function useAIChat(
   const [isExpanded, setIsExpanded] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [selectedModel, setSelectedModel] = useState('deepseek-r1');
+  const [selectedModel, setSelectedModel] = useState('hypermind-6.5');
   const [sessionId, setSessionId] = useState(() => {
     const stored = localStorage.getItem(SESSION_KEY);
     if (stored) return stored;

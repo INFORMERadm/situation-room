@@ -978,8 +978,8 @@ const MODEL_CONFIGS: Record<string, { url: string; model: string }> = {
     model: "openai/gpt-oss-120b:cerebras",
   },
   "glm-5": {
-    url: "https://router.huggingface.co/novita/v3/openai/chat/completions",
-    model: "zai-org/GLM-5",
+    url: "https://router.huggingface.co/v1/chat/completions",
+    model: "zai-org/GLM-5:novita",
   },
 };
 
