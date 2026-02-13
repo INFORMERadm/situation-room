@@ -1086,6 +1086,138 @@ const MODEL_CONFIGS: Record<string, { url: string; model: string }> = {
   },
 };
 
+async function streamOneLLMRound(
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder,
+  modelConfig: { url: string; model: string },
+  hfToken: string,
+  chatMessages: { role: string; content: string }[],
+): Promise<{ fullContent: string; toolCalls: { tool: string; params: Record<string, unknown> }[] }> {
+  const hfRes = await fetch(modelConfig.url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${hfToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: modelConfig.model,
+      messages: chatMessages,
+      stream: true,
+      max_tokens: 4096,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!hfRes.ok) {
+    const errText = await hfRes.text();
+    const errChunk = `\n\n_AI provider error: ${hfRes.status} ${errText}_\n`;
+    controller.enqueue(encoder.encode(
+      `data: ${JSON.stringify({ choices: [{ delta: { content: errChunk } }] })}\n\n`
+    ));
+    return { fullContent: errChunk, toolCalls: [] };
+  }
+
+  const reader = hfRes.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullContent = "";
+  const pendingToolCalls: { tool: string; params: Record<string, unknown> }[] = [];
+
+  readLoop: while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith("data: ")) continue;
+      const payload = trimmed.slice(6);
+      if (payload === "[DONE]") {
+        break readLoop;
+      }
+
+      try {
+        const parsed = JSON.parse(payload);
+        const delta = parsed.choices?.[0]?.delta;
+        if (delta?.content) {
+          fullContent += delta.content;
+          const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
+          let match;
+          while ((match = toolCallRegex.exec(fullContent)) !== null) {
+            try {
+              const tc = JSON.parse(match[1]);
+              if (tc.tool && !pendingToolCalls.some(p => JSON.stringify(p) === JSON.stringify(tc))) {
+                pendingToolCalls.push(tc);
+              }
+            } catch { /* skip malformed */ }
+          }
+        }
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(parsed)}\n\n`));
+      } catch { /* skip malformed SSE */ }
+    }
+  }
+
+  return { fullContent, toolCalls: pendingToolCalls };
+}
+
+async function executeServerToolCalls(
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder,
+  toolCalls: { tool: string; params: Record<string, unknown> }[],
+): Promise<string[]> {
+  const sendChunk = (content: string) => {
+    controller.enqueue(encoder.encode(
+      `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`
+    ));
+  };
+
+  const resultParts: string[] = [];
+
+  for (const tc of toolCalls) {
+    if (tc.tool === "fetch_fmp_data") {
+      try {
+        const ep = (tc.params.endpoint as string) || "";
+        const fp = (tc.params.params as Record<string, string>) || {};
+        const fmpResult = await fmpFetch(ep, fp);
+        const markdown = formatFmpAsMarkdown(ep, fmpResult);
+        sendChunk(markdown);
+        resultParts.push(`[${ep}]: ${markdown}`);
+      } catch (e) {
+        const errMsg = `\n\n_Error fetching ${tc.params.endpoint}: ${e instanceof Error ? e.message : "unknown"}_\n`;
+        sendChunk(errMsg);
+        resultParts.push(errMsg);
+      }
+    } else if (tc.tool === "tavily_search" && TAVILY_API_KEY) {
+      try {
+        const query = (tc.params.query as string) || "";
+        if (query) {
+          const tavilyResult = await callTavilySearch(query);
+          if (tavilyResult.results && tavilyResult.results.length > 0) {
+            if (tavilyResult.answer) {
+              sendChunk(`\n\n${tavilyResult.answer}`);
+            }
+            const sourcesMarkdown = formatTavilySources(tavilyResult);
+            sendChunk(sourcesMarkdown);
+            resultParts.push(`[web search: ${query}]: ${tavilyResult.answer || ""}\n${sourcesMarkdown}`);
+          } else {
+            sendChunk("\n\n_No web results found._\n");
+            resultParts.push("[web search]: No results found");
+          }
+        }
+      } catch (e) {
+        const errMsg = `\n\n_Web search error: ${e instanceof Error ? e.message : "unknown"}_\n`;
+        sendChunk(errMsg);
+        resultParts.push(errMsg);
+      }
+    }
+  }
+
+  return resultParts;
+}
+
 async function handleAIChat(req: Request): Promise<Response> {
   try {
     const body = await req.json();
@@ -1117,121 +1249,50 @@ async function handleAIChat(req: Request): Promise<Response> {
       }
     }
 
-    const systemMsg = {
-      role: "system",
-      content: systemContent,
-    };
-
-    const chatMessages = [systemMsg, ...messages.slice(-20)];
-
-    const hfRes = await fetch(modelConfig.url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${HF_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: modelConfig.model,
-        messages: chatMessages,
-        stream: true,
-        max_tokens: 4096,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!hfRes.ok) {
-      const errText = await hfRes.text();
-      return jsonResponse({ error: `AI provider error: ${hfRes.status} ${errText}` }, 502);
-    }
+    const systemMsg = { role: "system", content: systemContent };
+    const MAX_CHAIN_DEPTH = 5;
 
     const stream = new ReadableStream({
       async start(controller) {
-        const reader = hfRes.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let fullContent = "";
-        let pendingToolCalls: { tool: string; params: Record<string, unknown> }[] = [];
+        const encoder = new TextEncoder();
 
         try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          let chatMessages = [systemMsg, ...messages.slice(-20)];
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
+          for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
+            const { fullContent, toolCalls } = await streamOneLLMRound(
+              controller, encoder, modelConfig, HF_TOKEN, chatMessages,
+            );
 
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || !trimmed.startsWith("data: ")) continue;
-              const payload = trimmed.slice(6);
-              if (payload === "[DONE]") {
-                if (pendingToolCalls.length > 0) {
-                  for (const tc of pendingToolCalls) {
-                    if (tc.tool === "fetch_fmp_data") {
-                      try {
-                        const ep = (tc.params.endpoint as string) || "";
-                        const fp = (tc.params.params as Record<string, string>) || {};
-                        const fmpResult = await fmpFetch(ep, fp);
-                        const inject = formatFmpAsMarkdown(ep, fmpResult);
-                        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: inject } }] })}\n\n`));
-                      } catch (e) {
-                        const errMsg = `\n\n_Error fetching ${tc.params.endpoint}: ${e instanceof Error ? e.message : "unknown"}_\n`;
-                        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: errMsg } }] })}\n\n`));
-                      }
-                    } else if (tc.tool === "tavily_search" && TAVILY_API_KEY) {
-                      try {
-                        const query = (tc.params.query as string) || "";
-                        if (query) {
-                          const tavilyResult = await callTavilySearch(query);
-                          if (tavilyResult.results && tavilyResult.results.length > 0) {
-                            const sourcesMarkdown = formatTavilySources(tavilyResult);
-                            if (tavilyResult.answer) {
-                              const answerInject = `\n\n${tavilyResult.answer}`;
-                              controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: answerInject } }] })}\n\n`));
-                            }
-                            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: sourcesMarkdown } }] })}\n\n`));
-                          } else {
-                            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "\n\n_No web results found._\n" } }] })}\n\n`));
-                          }
-                        }
-                      } catch (e) {
-                        const errMsg = `\n\n_Web search error: ${e instanceof Error ? e.message : "unknown"}_\n`;
-                        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: errMsg } }] })}\n\n`));
-                      }
-                    }
-                  }
-                }
-                if (tavilySourcesMarkdown) {
-                  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: tavilySourcesMarkdown } }] })}\n\n`));
-                }
-                controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
-                break;
-              }
+            const serverCalls = toolCalls.filter(
+              tc => tc.tool === "fetch_fmp_data" || tc.tool === "tavily_search"
+            );
 
-              try {
-                const parsed = JSON.parse(payload);
-                const delta = parsed.choices?.[0]?.delta;
-                if (delta?.content) {
-                  fullContent += delta.content;
-                  const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
-                  let match;
-                  while ((match = toolCallRegex.exec(fullContent)) !== null) {
-                    try {
-                      const tc = JSON.parse(match[1]);
-                      if (tc.tool && !pendingToolCalls.some(p => JSON.stringify(p) === JSON.stringify(tc))) {
-                        pendingToolCalls.push(tc);
-                      }
-                    } catch { /* skip malformed */ }
-                  }
-                }
-                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(parsed)}\n\n`));
-              } catch { /* skip malformed SSE */ }
-            }
+            if (serverCalls.length === 0) break;
+
+            const resultParts = await executeServerToolCalls(
+              controller, encoder, serverCalls,
+            );
+
+            chatMessages = [
+              ...chatMessages,
+              { role: "assistant", content: fullContent },
+              {
+                role: "user",
+                content: `Here are the results of the tool calls you made:\n${resultParts.join("\n")}\n\nContinue your response based on these results. If you need additional data, you may make more tool calls.`,
+              },
+            ];
           }
+
+          if (tavilySourcesMarkdown) {
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ choices: [{ delta: { content: tavilySourcesMarkdown } }] })}\n\n`
+            ));
+          }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : "Stream error";
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ error: errMsg })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errMsg })}\n\n`));
         } finally {
           controller.close();
         }
