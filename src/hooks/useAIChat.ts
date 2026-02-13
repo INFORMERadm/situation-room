@@ -28,6 +28,8 @@ export interface UseAIChatReturn {
   sessions: ChatSession[];
   inlineStatus: string | null;
   sendMessage: (text: string) => void;
+  stopGenerating: () => void;
+  regenerate: () => void;
   toggleExpand: () => void;
   collapse: () => void;
   loadSession: (id: string) => void;
@@ -197,6 +199,94 @@ export function useAIChat(
     );
   }, [messages, isStreaming, sessionId, platform, platformActions]);
 
+  const stopGenerating = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setIsStreaming(false);
+    const partial = streamingContent.replace(/<think>[\s\S]*?<\/think>/g, '')
+      .replace(/<think>[\s\S]*$/g, '')
+      .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '')
+      .replace(/<tool_call>[\s\S]*$/g, '')
+      .trim();
+    setStreamingContent('');
+    if (partial) {
+      const partialMsg: ChatMessage = {
+        id: generateId(),
+        role: 'assistant',
+        content: partial,
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, partialMsg]);
+    }
+  }, [streamingContent]);
+
+  const regenerate = useCallback(() => {
+    if (isStreaming) return;
+    const lastAssistantIdx = messages.length - 1;
+    if (lastAssistantIdx < 0 || messages[lastAssistantIdx].role !== 'assistant') return;
+
+    const withoutLast = messages.slice(0, lastAssistantIdx);
+    const lastUserMsg = [...withoutLast].reverse().find(m => m.role === 'user');
+    if (!lastUserMsg) return;
+
+    setMessages(withoutLast);
+    setIsStreaming(true);
+    setStreamingContent('');
+
+    const aiMessages: AIMessage[] = withoutLast.map(m => ({ role: m.role, content: m.content }));
+    const contextPayload = buildContextPayload({
+      selectedSymbol: '',
+      chartTimeframe: '',
+      chartType: platform.chartType,
+      indicators: platform.indicators.map(i => ({ id: i.id, enabled: i.enabled })),
+      watchlist: platform.watchlist,
+      clocks: platform.clocks,
+      rightPanelView: platform.rightPanelView,
+      leftTab: platform.leftTab,
+    });
+
+    let fullText = '';
+    abortRef.current = streamAIChat(
+      aiMessages,
+      contextPayload,
+      (token) => {
+        fullText += token;
+        setStreamingContent(fullText);
+      },
+      (finalText) => {
+        setIsStreaming(false);
+        setStreamingContent('');
+        const parsed = parseAIResponse(finalText);
+        const clientCalls = parsed.toolCalls.filter(isClientToolCall);
+        for (const tc of clientCalls) {
+          executeToolCall(tc, platformActions);
+        }
+        const assistantMsg: ChatMessage = {
+          id: generateId(),
+          role: 'assistant',
+          content: parsed.text,
+          toolCalls: parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined,
+          timestamp: Date.now(),
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+        saveAIMessage(sessionId, 'assistant', parsed.text, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined).catch(() => {});
+      },
+      (err) => {
+        setIsStreaming(false);
+        setStreamingContent('');
+        const errorMsg: ChatMessage = {
+          id: generateId(),
+          role: 'assistant',
+          content: `_Error: ${err}_`,
+          timestamp: Date.now(),
+        };
+        setMessages(prev => [...prev, errorMsg]);
+      },
+    );
+  }, [messages, isStreaming, sessionId, platform, platformActions]);
+
   const toggleExpand = useCallback(() => {
     setIsExpanded(prev => !prev);
   }, []);
@@ -229,6 +319,8 @@ export function useAIChat(
     sessions,
     inlineStatus,
     sendMessage,
+    stopGenerating,
+    regenerate,
     toggleExpand,
     collapse,
     loadSession,

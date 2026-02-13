@@ -149,6 +149,8 @@ export default function MarketsDashboard() {
               sessions={ai.sessions}
               inlineStatus={ai.inlineStatus}
               onSend={ai.sendMessage}
+              onStop={ai.stopGenerating}
+              onRegenerate={ai.regenerate}
               onToggleExpand={ai.toggleExpand}
               onCollapse={ai.collapse}
               onLoadSession={ai.loadSession}
