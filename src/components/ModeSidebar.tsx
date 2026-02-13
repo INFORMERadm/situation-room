@@ -1,11 +1,12 @@
 import { useState } from 'react';
 
-type Mode = 'markets' | 'news' | 'pa';
+type Mode = 'markets' | 'news' | 'pa' | 'chat';
 
 const MODES: { key: Mode; label: string }[] = [
   { key: 'markets', label: 'Markets' },
   { key: 'news', label: 'News' },
   { key: 'pa', label: 'PA' },
+  { key: 'chat', label: 'Chat' },
 ];
 
 function MarketsIcon({ active }: { active: boolean }) {
@@ -40,10 +41,19 @@ function PAIcon({ active }: { active: boolean }) {
   );
 }
 
+function ChatIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? '#ff9800' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 const ICON_MAP: Record<Mode, (props: { active: boolean }) => JSX.Element> = {
   markets: MarketsIcon,
   news: NewsIcon,
   pa: PAIcon,
+  chat: ChatIcon,
 };
 
 export default function ModeSidebar() {
