@@ -844,39 +844,28 @@ async function callTavilySearch(query: string): Promise<TavilyResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
-    const res = await fetch(
-      `https://mcp.tavily.com/mcp?tavilyApiKey=${TAVILY_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "tools/call",
-          params: {
-            name: "tavily-search",
-            arguments: {
-              query,
-              search_depth: "advanced",
-              max_results: 10,
-              include_answer: "advanced",
-              include_images: true,
-              include_image_descriptions: true,
-              chunks_per_source: 3,
-            },
-          },
-        }),
-        signal: controller.signal,
-      }
-    );
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: TAVILY_API_KEY,
+        query,
+        search_depth: "advanced",
+        max_results: 10,
+        include_answer: true,
+        include_images: true,
+        include_image_descriptions: true,
+      }),
+      signal: controller.signal,
+    });
     clearTimeout(timeout);
-    if (!res.ok) throw new Error(`Tavily MCP: ${res.status}`);
-    const json = await res.json();
-    const content = json?.result?.content;
-    if (Array.isArray(content) && content.length > 0 && content[0]?.text) {
-      return JSON.parse(content[0].text) as TavilyResponse;
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error(`Tavily REST API error: ${res.status} ${errText}`);
+      throw new Error(`Tavily API: ${res.status}`);
     }
-    return {};
+    const json = await res.json();
+    return json as TavilyResponse;
   } catch (e) {
     clearTimeout(timeout);
     console.error("Tavily search error:", e);
@@ -1473,8 +1462,12 @@ async function handleAIChat(req: Request): Promise<Response> {
                 console.log(`[AI Chat] Pre-search found ${tavilyResult.results.length} results`);
               } else {
                 console.log("[AI Chat] Pre-search returned no results");
+                systemContent += "\n\nWEB SEARCH RESULTS: No results found for this query. Answer based on your knowledge and suggest the user try a more specific search query if needed.";
               }
             }
+          } else if (webSearch && !TAVILY_API_KEY) {
+            console.error("[AI Chat] Web search enabled but TAVILY_API_KEY is not set");
+            systemContent += "\n\nNote: Web search was requested but the search service is not configured. Answer based on your knowledge.";
           }
 
           const systemMsg = { role: "system", content: systemContent };
