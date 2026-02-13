@@ -183,7 +183,7 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
             if (btn) btn.style.opacity = '0';
           }}
         >
-          <span style={{ color: '#555', marginRight: 2, fontSize: 10 }}>
+          <span style={{ color: '#333', marginRight: 2, fontSize: 10 }}>
             {c.label.toUpperCase()}
           </span>
           <span style={{ color: '#1a1a1a', fontWeight: 600 }}>
