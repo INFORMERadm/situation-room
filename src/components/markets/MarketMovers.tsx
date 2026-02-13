@@ -2,17 +2,36 @@ import { useState } from 'react';
 import type { MarketMover } from '../../types';
 import MarketOverview from './MarketOverview';
 
+interface WatchlistEntryInput {
+  symbol: string;
+  name: string;
+}
+
 interface Props {
   gainers: MarketMover[];
   losers: MarketMover[];
   active: MarketMover[];
   onSelect: (symbol: string) => void;
+  externalTab?: string;
+  onTabChange?: (tab: string) => void;
+  externalWatchlist?: WatchlistEntryInput[];
+  onAddInstrument?: (symbol: string, name: string) => void;
+  onRemoveInstrument?: (symbol: string) => void;
 }
 
 type Tab = 'gainers' | 'losers' | 'active' | 'overview';
 
-export default function MarketMovers({ gainers, losers, active, onSelect }: Props) {
-  const [tab, setTab] = useState<Tab>('overview');
+export default function MarketMovers({
+  gainers, losers, active, onSelect,
+  externalTab, onTabChange,
+  externalWatchlist, onAddInstrument, onRemoveInstrument,
+}: Props) {
+  const [localTab, setLocalTab] = useState<Tab>('overview');
+  const tab = (externalTab as Tab) || localTab;
+  const setTab = (t: Tab) => {
+    if (onTabChange) onTabChange(t);
+    else setLocalTab(t);
+  };
 
   const tabs: { key: Tab; label: string; color: string }[] = [
     { key: 'overview', label: 'Overview', color: '#ffa726' },
@@ -54,7 +73,12 @@ export default function MarketMovers({ gainers, losers, active, onSelect }: Prop
       </div>
 
       {tab === 'overview' ? (
-        <MarketOverview onSelect={onSelect} />
+        <MarketOverview
+          onSelect={onSelect}
+          externalWatchlist={externalWatchlist}
+          onAddInstrument={onAddInstrument}
+          onRemoveInstrument={onRemoveInstrument}
+        />
       ) : (
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
           {items.length === 0 && (

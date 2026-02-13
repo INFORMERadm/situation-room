@@ -1,6 +1,12 @@
 import WorldClocks from './WorldClocks';
 
-export default function Header() {
+interface Props {
+  externalClocks?: { label: string; zone: string }[];
+  onAddClock?: (label: string, zone: string) => void;
+  onRemoveClock?: (zone: string) => void;
+}
+
+export default function Header({ externalClocks, onAddClock, onRemoveClock }: Props) {
   return (
     <div
       style={{
@@ -42,7 +48,11 @@ export default function Header() {
         </svg>
         <span style={{ position: 'relative', top: 1 }}>GLOBAL MONITOR</span>
       </div>
-      <WorldClocks />
+      <WorldClocks
+        externalClocks={externalClocks}
+        onAddClock={onAddClock}
+        onRemoveClock={onRemoveClock}
+      />
     </div>
   );
 }

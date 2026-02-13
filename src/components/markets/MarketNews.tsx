@@ -4,6 +4,7 @@ import type { MarketNewsItem } from '../../types';
 interface Props {
   news: MarketNewsItem[];
   onSelectSymbol: (symbol: string) => void;
+  onExplain?: (headline: string) => void;
 }
 
 const STREAM_INTERVAL = 80;
@@ -19,7 +20,7 @@ function timeAgo(dateStr: string): string {
   return `${days}d`;
 }
 
-export default function MarketNews({ news, onSelectSymbol }: Props) {
+export default function MarketNews({ news, onSelectSymbol, onExplain }: Props) {
   const [visibleCount, setVisibleCount] = useState(0);
   const prevNewsRef = useRef<MarketNewsItem[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -108,6 +109,27 @@ export default function MarketNews({ news, onSelectSymbol }: Props) {
                   }}
                 >
                   {item.symbol}
+                </button>
+              )}
+              {onExplain && (
+                <button
+                  onClick={() => onExplain(item.title)}
+                  style={{
+                    background: '#fb8c0015',
+                    border: '1px solid #fb8c0033',
+                    color: '#fb8c00',
+                    fontSize: 9,
+                    padding: '1px 5px',
+                    borderRadius: 2,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    marginLeft: 'auto',
+                    opacity: 0,
+                    transition: 'opacity 0.15s',
+                  }}
+                  className="ai-explain-btn"
+                >
+                  AI
                 </button>
               )}
             </div>

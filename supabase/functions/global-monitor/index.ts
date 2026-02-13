@@ -826,6 +826,198 @@ async function fetchPizza() {
   }
 }
 
+const AI_SYSTEM_PROMPT = `You are N3 Assistant, the AI command center for the Global Monitor financial markets platform.
+
+You have access to the following tools:
+
+1. fetch_fmp_data - Fetch any data from the Financial Modeling Prep API
+   Parameters: { "endpoint": string, "params": object }
+
+   Available endpoint categories:
+   - Financial Statements: income-statement, balance-sheet-statement, cash-flow-statement (params: symbol, period=annual|quarter, limit)
+   - TTM Statements: income-statement-ttm, balance-sheet-statement-ttm, cash-flow-statement-ttm (params: symbol)
+   - Metrics & Ratios: key-metrics, ratios, key-metrics-ttm, ratios-ttm, financial-scores, enterprise-values (params: symbol, period, limit)
+   - Growth: income-statement-growth, balance-sheet-statement-growth, cash-flow-statement-growth, financial-growth (params: symbol, period, limit)
+   - Analyst Data: analyst-estimates, ratings-snapshot, price-target-summary, price-target-consensus, grades, grades-consensus (params: symbol)
+   - Dividends & Earnings: dividends, earnings, splits (params: symbol), dividends-calendar, splits-calendar, earning-calendar
+   - Transcripts: earning-call-transcript (params: symbol, year, quarter), earning-call-transcript-latest
+   - Insider Trading: insider-trading/latest, insider-trading/search, insider-trading/statistics (params: symbol)
+   - Institutional: institutional-ownership/symbol-positions-summary (params: symbol, year, quarter)
+   - SEC Filings: sec-filings-search/symbol (params: symbol, from, to)
+   - Company Info: profile, stock-peers, key-executives, employee-count, market-capitalization (params: symbol)
+   - ETF/Funds: etf/holdings, etf/info, etf/sector-weightings, etf/country-weightings (params: symbol)
+   - Technical: technical-indicators/sma, technical-indicators/ema, technical-indicators/rsi (params: symbol, periodLength, timeframe)
+   - Market: biggest-gainers, biggest-losers, most-active-stocks, sector-performance, company-screener
+   - Economics: treasury-rates, economic-indicators (params: name=GDP|CPI etc), market-risk-premium
+   - Quotes: quote, batch-quote (params: symbol or symbols), stock-price-change (params: symbol)
+   - Search: search-symbol, search-name (params: query)
+   - News: stock-news (params: limit), news/stock (params: symbols)
+   - Historical: historical-price-eod/full (params: symbol), historical-chart/1min|5min|1hour (params: symbol)
+
+2. change_symbol - Navigate chart to a symbol
+   Parameters: { "symbol": string }
+
+3. change_timeframe - Change chart timeframe
+   Parameters: { "timeframe": "5min"|"1hour"|"daily" }
+
+4. change_chart_type - Change chart visualization
+   Parameters: { "type": "area"|"line"|"bar"|"candlestick" }
+
+5. toggle_indicator - Toggle a chart indicator
+   Parameters: { "indicator": string, "enabled": boolean }
+   Valid indicators: sma20, sma50, sma100, sma200, ema12, ema26, bollinger, vwap, volume, rsi, macd
+
+6. add_to_watchlist - Add symbol to watchlist
+   Parameters: { "symbol": string, "name": string }
+
+7. remove_from_watchlist - Remove symbol from watchlist
+   Parameters: { "symbol": string }
+
+8. switch_right_panel - Switch right panel view
+   Parameters: { "view": "news"|"economic" }
+
+9. switch_left_tab - Switch left sidebar tab
+   Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
+
+RESPONSE FORMAT:
+- For tool calls, include JSON blocks wrapped in <tool_call> tags: <tool_call>{"tool":"tool_name","params":{...}}</tool_call>
+- You may combine multiple tool calls with text explanation
+- When asked about a price or financial data for a specific company, ALWAYS also call change_symbol to navigate to that stock
+- Format financial data in markdown tables for readability
+- Use ** for bold key figures
+- Keep responses concise and data-focused
+- When presenting financial statements, show key line items in a clean table
+- For price queries, state the price clearly and note the change
+
+CURRENT PLATFORM STATE:
+`;
+
+async function handleAIChat(req: Request): Promise<Response> {
+  try {
+    const body = await req.json();
+    const { messages, platformContext } = body;
+    if (!messages || !Array.isArray(messages)) {
+      return jsonResponse({ error: "Missing messages array" }, 400);
+    }
+
+    const HF_TOKEN = Deno.env.get("HF_TOKEN") ?? "";
+    if (!HF_TOKEN) {
+      return jsonResponse({ error: "AI service not configured" }, 500);
+    }
+
+    const contextStr = platformContext ? JSON.stringify(platformContext) : "{}";
+    const systemMsg = {
+      role: "system",
+      content: AI_SYSTEM_PROMPT + contextStr,
+    };
+
+    const chatMessages = [systemMsg, ...messages.slice(-20)];
+
+    const hfRes = await fetch("https://router.huggingface.co/novita/v3/openai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${HF_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "deepseek/deepseek-r1-0528",
+        messages: chatMessages,
+        stream: true,
+        max_tokens: 4096,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!hfRes.ok) {
+      const errText = await hfRes.text();
+      return jsonResponse({ error: `AI provider error: ${hfRes.status} ${errText}` }, 502);
+    }
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = hfRes.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullContent = "";
+        let pendingToolCalls: { tool: string; params: Record<string, unknown> }[] = [];
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith("data: ")) continue;
+              const payload = trimmed.slice(6);
+              if (payload === "[DONE]") {
+                if (pendingToolCalls.length > 0) {
+                  for (const tc of pendingToolCalls) {
+                    if (tc.tool === "fetch_fmp_data") {
+                      try {
+                        const ep = (tc.params.endpoint as string) || "";
+                        const fp = (tc.params.params as Record<string, string>) || {};
+                        const fmpResult = await fmpFetch(ep, fp);
+                        const resultStr = JSON.stringify(fmpResult).slice(0, 8000);
+                        const inject = `\n\n**Data from ${ep}:**\n\`\`\`json\n${resultStr}\n\`\`\`\n`;
+                        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: inject } }] })}\n\n`));
+                      } catch (e) {
+                        const errMsg = `\n\n_Error fetching ${tc.params.endpoint}: ${e instanceof Error ? e.message : "unknown"}_\n`;
+                        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: errMsg } }] })}\n\n`));
+                      }
+                    }
+                  }
+                }
+                controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+                break;
+              }
+
+              try {
+                const parsed = JSON.parse(payload);
+                const delta = parsed.choices?.[0]?.delta;
+                if (delta?.content) {
+                  fullContent += delta.content;
+                  const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
+                  let match;
+                  while ((match = toolCallRegex.exec(fullContent)) !== null) {
+                    try {
+                      const tc = JSON.parse(match[1]);
+                      if (tc.tool && !pendingToolCalls.some(p => JSON.stringify(p) === JSON.stringify(tc))) {
+                        pendingToolCalls.push(tc);
+                      }
+                    } catch { /* skip malformed */ }
+                  }
+                }
+                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(parsed)}\n\n`));
+              } catch { /* skip malformed SSE */ }
+            }
+          }
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : "Stream error";
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ error: errMsg })}\n\n`));
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
+  } catch (e) {
+    return jsonResponse({ error: e instanceof Error ? e.message : "AI chat error" }, 500);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -905,6 +1097,68 @@ Deno.serve(async (req: Request) => {
       case "market-news": {
         const marketNews = await fetchMarketNews();
         return jsonResponse({ news: marketNews });
+      }
+      case "fmp-proxy": {
+        const endpoint = url.searchParams.get("endpoint") ?? "";
+        if (!endpoint) return jsonResponse({ error: "Missing endpoint param" }, 400);
+        const paramsRaw = url.searchParams.get("params");
+        let fmpParams: Record<string, string> = {};
+        if (paramsRaw) {
+          try { fmpParams = JSON.parse(paramsRaw); } catch { /* ignore */ }
+        }
+        for (const [k, v] of url.searchParams.entries()) {
+          if (k !== "feed" && k !== "endpoint" && k !== "params") {
+            fmpParams[k] = v;
+          }
+        }
+        const cacheKey = `fmp-proxy:${endpoint}:${JSON.stringify(fmpParams)}`;
+        const ttl = endpoint.includes("chart") || endpoint.includes("quote") ? 30_000 : 300_000;
+        const proxyCache = await getCached(cacheKey, ttl);
+        if (proxyCache) return jsonResponse({ data: proxyCache });
+        const proxyData = await fmpFetch(endpoint, fmpParams);
+        await setCache(cacheKey, proxyData);
+        return jsonResponse({ data: proxyData });
+      }
+      case "ai-sessions": {
+        const { data: sessions } = await supabase
+          .from("chat_sessions")
+          .select("id, title, created_at, updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(50);
+        return jsonResponse({ sessions: sessions ?? [] });
+      }
+      case "ai-history": {
+        const sessionId = url.searchParams.get("sessionId") ?? "";
+        if (!sessionId) return jsonResponse({ error: "Missing sessionId" }, 400);
+        const { data: messages } = await supabase
+          .from("chat_messages")
+          .select("id, session_id, role, content, tool_calls, created_at")
+          .eq("session_id", sessionId)
+          .order("created_at", { ascending: true });
+        return jsonResponse({ messages: messages ?? [] });
+      }
+      case "ai-save": {
+        if (req.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
+        const body = await req.json();
+        const { sessionId, role, content, toolCalls, title } = body;
+        if (!sessionId || !role) return jsonResponse({ error: "Missing fields" }, 400);
+        await supabase.from("chat_sessions").upsert({
+          id: sessionId,
+          title: title || null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "id" });
+        const { error: msgErr } = await supabase.from("chat_messages").insert({
+          session_id: sessionId,
+          role,
+          content: content || "",
+          tool_calls: toolCalls || null,
+        });
+        if (msgErr) return jsonResponse({ error: msgErr.message }, 500);
+        return jsonResponse({ ok: true });
+      }
+      case "ai-chat": {
+        if (req.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
+        return handleAIChat(req);
       }
       default:
         return jsonResponse({ error: "Unknown feed" }, 400);

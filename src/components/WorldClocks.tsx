@@ -71,8 +71,15 @@ function getAbbreviation(zone: string): string {
   }
 }
 
-export default function WorldClocks() {
-  const [clocks, setClocks] = useState(loadClocks);
+interface Props {
+  externalClocks?: { label: string; zone: string }[];
+  onAddClock?: (label: string, zone: string) => void;
+  onRemoveClock?: (zone: string) => void;
+}
+
+export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock }: Props) {
+  const [localClocks, setLocalClocks] = useState(loadClocks);
+  const clocks = externalClocks || localClocks;
   const [times, setTimes] = useState<Record<string, string>>({});
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState('');
@@ -110,17 +117,25 @@ export default function WorldClocks() {
   }, [showPicker]);
 
   const addClock = (tz: { label: string; zone: string }) => {
-    const next = [...clocks, tz];
-    setClocks(next);
-    saveClocks(next);
+    if (onAddClock) {
+      onAddClock(tz.label, tz.zone);
+    } else {
+      const next = [...localClocks, tz];
+      setLocalClocks(next);
+      saveClocks(next);
+    }
     setShowPicker(false);
     setSearch('');
   };
 
   const removeClock = (zone: string) => {
-    const next = clocks.filter((c) => c.zone !== zone);
-    setClocks(next);
-    saveClocks(next);
+    if (onRemoveClock) {
+      onRemoveClock(zone);
+    } else {
+      const next = localClocks.filter((c) => c.zone !== zone);
+      setLocalClocks(next);
+      saveClocks(next);
+    }
   };
 
   const activeZones = new Set(clocks.map((c) => c.zone));

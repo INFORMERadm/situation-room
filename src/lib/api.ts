@@ -102,3 +102,120 @@ export async function fetchMarketNews() {
   const json = await res.json();
   return json.news ?? [];
 }
+
+export async function fetchFmpProxy(endpoint: string, params: Record<string, string> = {}) {
+  const qs = new URLSearchParams({
+    feed: 'fmp-proxy',
+    endpoint,
+    params: JSON.stringify(params),
+  });
+  const res = await fetch(`${API_BASE}/global-monitor?${qs.toString()}`, { headers });
+  if (!res.ok) throw new Error(`FMP proxy failed: ${res.status}`);
+  const json = await res.json();
+  return json.data ?? null;
+}
+
+export interface AIMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export function streamAIChat(
+  messages: AIMessage[],
+  platformContext: Record<string, unknown>,
+  onChunk: (token: string) => void,
+  onDone: (fullText: string) => void,
+  onError: (err: string) => void,
+): AbortController {
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/global-monitor?feed=ai-chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ messages, platformContext }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        onError(errJson.error || `HTTP ${res.status}`);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) { onError('No response body'); return; }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          const payload = trimmed.slice(6);
+          if (payload === '[DONE]') {
+            onDone(fullText);
+            return;
+          }
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed.error) { onError(parsed.error); return; }
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              fullText += content;
+              onChunk(content);
+            }
+          } catch { /* skip */ }
+        }
+      }
+      onDone(fullText);
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') {
+        onError((e as Error).message || 'Stream failed');
+      }
+    }
+  })();
+
+  return controller;
+}
+
+export async function saveAIMessage(
+  sessionId: string,
+  role: string,
+  content: string,
+  toolCalls?: unknown,
+  title?: string,
+) {
+  await fetch(`${API_BASE}/global-monitor?feed=ai-save`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ sessionId, role, content, toolCalls, title }),
+  });
+}
+
+export async function loadAIHistory(sessionId: string) {
+  const res = await fetch(
+    `${API_BASE}/global-monitor?feed=ai-history&sessionId=${encodeURIComponent(sessionId)}`,
+    { headers },
+  );
+  if (!res.ok) return [];
+  const json = await res.json();
+  return json.messages ?? [];
+}
+
+export async function loadAISessions() {
+  const res = await fetch(`${API_BASE}/global-monitor?feed=ai-sessions`, { headers });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return json.sessions ?? [];
+}

@@ -2,8 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchSymbolSearch, fetchBatchQuotes } from '../../lib/api';
 import type { SearchResult, QuoteDetail } from '../../types';
 
+interface WatchlistEntryInput {
+  symbol: string;
+  name: string;
+}
+
 interface Props {
   onSelect: (symbol: string) => void;
+  externalWatchlist?: WatchlistEntryInput[];
+  onAddInstrument?: (symbol: string, name: string) => void;
+  onRemoveInstrument?: (symbol: string) => void;
 }
 
 type FlashDirection = 'up' | 'down' | null;
@@ -55,8 +63,9 @@ function saveWatchlist(list: WatchlistEntry[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
-export default function MarketOverview({ onSelect }: Props) {
-  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>(loadWatchlist);
+export default function MarketOverview({ onSelect, externalWatchlist, onAddInstrument, onRemoveInstrument }: Props) {
+  const [localWatchlist, setLocalWatchlist] = useState<WatchlistEntry[]>(loadWatchlist);
+  const watchlist = externalWatchlist || localWatchlist;
   const [quotes, setQuotes] = useState<Record<string, QuoteDetail>>({});
   const [flashes, setFlashes] = useState<Record<string, FlashDirection>>({});
   const prevPricesRef = useRef<Record<string, number>>({});
@@ -151,9 +160,13 @@ export default function MarketOverview({ onSelect }: Props) {
 
   const addInstrument = (result: SearchResult) => {
     if (watchlist.some((w) => w.symbol === result.symbol)) return;
-    const next = [...watchlist, { symbol: result.symbol, name: result.name }];
-    setWatchlist(next);
-    saveWatchlist(next);
+    if (onAddInstrument) {
+      onAddInstrument(result.symbol, result.name);
+    } else {
+      const next = [...localWatchlist, { symbol: result.symbol, name: result.name }];
+      setLocalWatchlist(next);
+      saveWatchlist(next);
+    }
     setShowSearch(false);
     setSearchQuery('');
     setSearchResults([]);
@@ -161,9 +174,13 @@ export default function MarketOverview({ onSelect }: Props) {
   };
 
   const removeInstrument = (symbol: string) => {
-    const next = watchlist.filter((w) => w.symbol !== symbol);
-    setWatchlist(next);
-    saveWatchlist(next);
+    if (onRemoveInstrument) {
+      onRemoveInstrument(symbol);
+    } else {
+      const next = localWatchlist.filter((w) => w.symbol !== symbol);
+      setLocalWatchlist(next);
+      saveWatchlist(next);
+    }
   };
 
   const activeSymbols = new Set(watchlist.map((w) => w.symbol));

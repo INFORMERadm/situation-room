@@ -18,6 +18,10 @@ interface Props {
   timeframe: string;
   onTimeframeChange: (tf: string) => void;
   loading: boolean;
+  externalChartType?: string;
+  onChartTypeChange?: (type: string) => void;
+  externalIndicators?: IndicatorConfig[];
+  onToggleIndicator?: (id: string) => void;
 }
 
 const TIMEFRAMES = [
@@ -73,18 +77,28 @@ function drawOverlayLine(
   ctx.setLineDash([]);
 }
 
-export default function PriceChart({ data, symbol, timeframe, onTimeframeChange, loading }: Props) {
+export default function PriceChart({
+  data, symbol, timeframe, onTimeframeChange, loading,
+  externalChartType, onChartTypeChange, externalIndicators, onToggleIndicator,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ x: number; y: number; idx: number } | null>(null);
   const [dims, setDims] = useState({ w: 800, h: 400 });
-  const [chartType, setChartType] = useState<ChartType>('area');
-  const [indicators, setIndicators] = useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
+  const [localChartType, setLocalChartType] = useState<ChartType>('area');
+  const [localIndicators, setLocalIndicators] = useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
   const [viewRange, setViewRange] = useState({ start: 0, end: 0 });
 
+  const chartType = (externalChartType as ChartType) || localChartType;
+  const setChartType = onChartTypeChange || ((t: string) => setLocalChartType(t as ChartType));
+  const indicators = externalIndicators || localIndicators;
   const toggleIndicator = useCallback((id: string) => {
-    setIndicators(prev => prev.map(i => i.id === id ? { ...i, enabled: !i.enabled } : i));
-  }, []);
+    if (onToggleIndicator) {
+      onToggleIndicator(id);
+    } else {
+      setLocalIndicators(prev => prev.map(i => i.id === id ? { ...i, enabled: !i.enabled } : i));
+    }
+  }, [onToggleIndicator]);
 
   const hasRSI = isEnabled(indicators, 'rsi');
   const hasMACD = isEnabled(indicators, 'macd');

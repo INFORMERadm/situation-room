@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import Header from '../components/Header';
 import TickerStrip from '../components/markets/TickerStrip';
 import MarketSearch from '../components/markets/MarketSearch';
@@ -9,7 +8,10 @@ import SectorPerformance from '../components/markets/SectorPerformance';
 import MarketNews from '../components/markets/MarketNews';
 import EarningsCalendar from '../components/markets/EarningsCalendar';
 import EconomicCalendar from '../components/markets/EconomicCalendar';
+import AIChatBox from '../components/markets/AIChatBox';
 import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
+import { useAIChat } from '../hooks/useAIChat';
+import { usePlatform } from '../context/PlatformContext';
 
 const pageStyle: React.CSSProperties = {
   display: 'grid',
@@ -32,13 +34,6 @@ const sidebarStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   borderRight: '1px solid #292929',
-  minHeight: 0,
-  overflow: 'hidden',
-};
-
-const centerStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateRows: 'auto 1fr',
   minHeight: 0,
   overflow: 'hidden',
 };
@@ -78,11 +73,20 @@ const panelDivider: React.CSSProperties = {
 
 export default function MarketsDashboard() {
   const data = useMarketsDashboard();
-  const [rightPanelView, setRightPanelView] = useState<'news' | 'economic'>('news');
+  const platform = usePlatform();
+  const ai = useAIChat(data.selectSymbol, data.setChartTimeframe);
+
+  const handleToggleIndicator = (id: string) => {
+    platform.toggleIndicator(id);
+  };
 
   return (
     <div style={pageStyle}>
-      <Header />
+      <Header
+        externalClocks={platform.clocks}
+        onAddClock={platform.addClock}
+        onRemoveClock={platform.removeClock}
+      />
       <TickerStrip items={data.overview} onSelect={data.selectSymbol} />
 
       <div style={mainStyle}>
@@ -94,35 +98,75 @@ export default function MarketsDashboard() {
               losers={data.movers.losers}
               active={data.movers.active}
               onSelect={data.selectSymbol}
+              externalTab={platform.leftTab}
+              onTabChange={platform.setLeftTab}
+              externalWatchlist={platform.watchlist}
+              onAddInstrument={platform.addToWatchlist}
+              onRemoveInstrument={platform.removeFromWatchlist}
             />
           </div>
         </div>
 
-        <div style={centerStyle}>
-          <div style={panelDivider}>
-            <CompanyProfile
-              profile={data.profile}
-              quote={data.quote}
-              loading={!!data.loading['profile']}
+        <div style={{
+          display: 'grid',
+          gridTemplateRows: ai.isExpanded ? '1fr' : 'auto 1fr auto',
+          minHeight: 0,
+          overflow: 'hidden',
+        }}>
+          {ai.isExpanded ? (
+            <AIChatBox
+              messages={ai.messages}
+              isExpanded={ai.isExpanded}
+              isStreaming={ai.isStreaming}
+              streamingContent={ai.streamingContent}
+              sessions={ai.sessions}
+              inlineStatus={ai.inlineStatus}
+              onSend={ai.sendMessage}
+              onToggleExpand={ai.toggleExpand}
+              onCollapse={ai.collapse}
+              onLoadSession={ai.loadSession}
+              onNewSession={ai.newSession}
             />
-          </div>
-          <div style={{ display: 'grid', gridTemplateRows: '1fr auto', minHeight: 0 }}>
-            <PriceChart
-              data={data.chart}
-              symbol={data.selectedSymbol}
-              timeframe={data.chartTimeframe}
-              onTimeframeChange={data.setChartTimeframe}
-              loading={!!data.loading['chart']}
-            />
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr',
-              borderTop: '1px solid #292929',
-              minHeight: 0,
-            }}>
-              <SectorPerformance sectors={data.sectors} />
-            </div>
-          </div>
+          ) : (
+            <>
+              <div style={panelDivider}>
+                <CompanyProfile
+                  profile={data.profile}
+                  quote={data.quote}
+                  loading={!!data.loading['profile']}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateRows: '1fr', minHeight: 0 }}>
+                <PriceChart
+                  data={data.chart}
+                  symbol={data.selectedSymbol}
+                  timeframe={data.chartTimeframe}
+                  onTimeframeChange={data.setChartTimeframe}
+                  loading={!!data.loading['chart']}
+                  externalChartType={platform.chartType}
+                  onChartTypeChange={platform.setChartType}
+                  externalIndicators={platform.indicators}
+                  onToggleIndicator={handleToggleIndicator}
+                />
+              </div>
+              <div style={{ borderTop: '1px solid #292929' }}>
+                <SectorPerformance sectors={data.sectors} />
+              </div>
+              <AIChatBox
+                messages={ai.messages}
+                isExpanded={ai.isExpanded}
+                isStreaming={ai.isStreaming}
+                streamingContent={ai.streamingContent}
+                sessions={ai.sessions}
+                inlineStatus={ai.inlineStatus}
+                onSend={ai.sendMessage}
+                onToggleExpand={ai.toggleExpand}
+                onCollapse={ai.collapse}
+                onLoadSession={ai.loadSession}
+                onNewSession={ai.newSession}
+              />
+            </>
+          )}
         </div>
 
         <div style={rightStyle}>
@@ -132,21 +176,27 @@ export default function MarketsDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             <div style={toggleBarStyle}>
               <button
-                style={toggleButtonStyle(rightPanelView === 'news')}
-                onClick={() => setRightPanelView('news')}
+                style={toggleButtonStyle(platform.rightPanelView === 'news')}
+                onClick={() => platform.setRightPanelView('news')}
               >
                 Market News
               </button>
               <button
-                style={toggleButtonStyle(rightPanelView === 'economic')}
-                onClick={() => setRightPanelView('economic')}
+                style={toggleButtonStyle(platform.rightPanelView === 'economic')}
+                onClick={() => platform.setRightPanelView('economic')}
               >
                 Economic Calendar
               </button>
             </div>
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-              {rightPanelView === 'news' ? (
-                <MarketNews news={data.news} onSelectSymbol={data.selectSymbol} />
+              {platform.rightPanelView === 'news' ? (
+                <MarketNews
+                  news={data.news}
+                  onSelectSymbol={data.selectSymbol}
+                  onExplain={(headline) => {
+                    ai.sendMessage(`Explain this news headline and its market impact: "${headline}"`);
+                  }}
+                />
               ) : (
                 <EconomicCalendar events={data.economic} />
               )}
