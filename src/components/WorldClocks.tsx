@@ -150,14 +150,14 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
           display: 'flex',
           alignItems: 'center',
           gap: 2,
-          color: '#1a1a1a',
+          color: '#000',
           fontSize: 11,
           fontWeight: 600,
           letterSpacing: 0.5,
           marginRight: 8,
         }}
       >
-        <span style={{ color: '#333', marginRight: 2 }}>UTC</span>
+        <span style={{ color: '#000', marginRight: 2 }}>UTC</span>
         <span>{times['UTC'] || '--:--:--'}</span>
       </div>
 
@@ -183,13 +183,13 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
             if (btn) btn.style.opacity = '0';
           }}
         >
-          <span style={{ color: '#333', marginRight: 2, fontSize: 10 }}>
+          <span style={{ color: '#000', marginRight: 2, fontSize: 10 }}>
             {c.label.toUpperCase()}
           </span>
-          <span style={{ color: '#1a1a1a', fontWeight: 600 }}>
+          <span style={{ color: '#000', fontWeight: 600 }}>
             {times[c.zone] || '--:--:--'}
           </span>
-          <span style={{ color: '#333', fontSize: 9, marginLeft: 2 }}>
+          <span style={{ color: '#000', fontSize: 9, marginLeft: 2 }}>
             {getAbbreviation(c.zone)}
           </span>
           <button
