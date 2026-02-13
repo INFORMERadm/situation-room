@@ -38,9 +38,22 @@ export default function AIChatBox({
 }: Props) {
   const [input, setInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchMenuOpen, setSearchMenuOpen] = useState(false);
+  const searchMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!searchMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchMenuRef.current && !searchMenuRef.current.contains(e.target as Node)) {
+        setSearchMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [searchMenuOpen]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -94,31 +107,83 @@ export default function AIChatBox({
           flexShrink: 0,
           animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
         }} />
-        <button
-          onClick={onToggleWebSearch}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            background: webSearchEnabled ? 'rgba(0,188,212,0.1)' : 'transparent',
-            border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#333'}`,
-            borderRadius: 3,
-            color: webSearchEnabled ? '#00bcd4' : '#555',
-            padding: '3px 8px',
-            fontSize: 9,
-            fontWeight: 500,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            flexShrink: 0,
-            transition: 'all 0.15s',
-          }}
-        >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-            <circle cx="11" cy="11" r="3" />
-          </svg>
-          Web
-        </button>
+        <div ref={searchMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            onClick={() => setSearchMenuOpen(p => !p)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              background: webSearchEnabled ? 'rgba(0,188,212,0.1)' : 'transparent',
+              border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#333'}`,
+              borderRadius: 3,
+              color: webSearchEnabled ? '#00bcd4' : '#555',
+              padding: '3px 8px',
+              fontSize: 9,
+              fontWeight: 500,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'all 0.15s',
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+            </svg>
+            Search
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 1 }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {searchMenuOpen && (
+            <div style={{
+              position: 'absolute',
+              bottom: '100%',
+              left: 0,
+              marginBottom: 4,
+              background: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: 6,
+              padding: '4px 0',
+              minWidth: 160,
+              zIndex: 100,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+            }}>
+              <button
+                onClick={() => { onToggleWebSearch(); setSearchMenuOpen(false); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  padding: '7px 12px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: webSearchEnabled ? '#00bcd4' : '#ccc',
+                  fontSize: 10,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'background 0.1s',
+                  gap: 8,
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#252525')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+                    <circle cx="11" cy="11" r="3" />
+                  </svg>
+                  Tavily Search
+                </div>
+                {webSearchEnabled && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00bcd4" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
         <input
           ref={inputRef}
           value={input}
@@ -717,31 +782,83 @@ export default function AIChatBox({
             flexShrink: 0,
             animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
           }} />
-          <button
-            onClick={onToggleWebSearch}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              background: webSearchEnabled ? 'rgba(0,188,212,0.1)' : 'transparent',
-              border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#333'}`,
-              borderRadius: 4,
-              color: webSearchEnabled ? '#00bcd4' : '#555',
-              padding: '4px 10px',
-              fontSize: 10,
-              fontWeight: 500,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              flexShrink: 0,
-              transition: 'all 0.15s',
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-              <circle cx="11" cy="11" r="3" />
-            </svg>
-            Web Search
-          </button>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+              onClick={() => setSearchMenuOpen(p => !p)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                background: webSearchEnabled ? 'rgba(0,188,212,0.1)' : 'transparent',
+                border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#333'}`,
+                borderRadius: 4,
+                color: webSearchEnabled ? '#00bcd4' : '#555',
+                padding: '4px 10px',
+                fontSize: 10,
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all 0.15s',
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+              </svg>
+              Search
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {searchMenuOpen && (
+              <div style={{
+                position: 'absolute',
+                bottom: '100%',
+                left: 0,
+                marginBottom: 4,
+                background: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: 6,
+                padding: '4px 0',
+                minWidth: 180,
+                zIndex: 100,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+              }}>
+                <button
+                  onClick={() => { onToggleWebSearch(); setSearchMenuOpen(false); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    padding: '8px 12px',
+                    background: 'transparent',
+                    border: 'none',
+                    color: webSearchEnabled ? '#00bcd4' : '#ccc',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'background 0.1s',
+                    gap: 8,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#252525')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+                      <circle cx="11" cy="11" r="3" />
+                    </svg>
+                    Tavily Search
+                  </div>
+                  {webSearchEnabled && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00bcd4" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
           <textarea
             ref={textareaRef}
             value={input}
