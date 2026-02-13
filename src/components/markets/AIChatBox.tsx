@@ -126,7 +126,7 @@ function SearchMenuDropdown({
 export default function AIChatBox({
   messages, isExpanded, isStreaming, streamingContent,
   sessions, inlineStatus, selectedModel, searchMode,
-  searchSources, searchImages: _searchImages, searchProgress,
+  searchSources, searchImages, searchProgress,
   isSourcesPanelOpen,
   onSend, onStop, onRegenerate, onToggleExpand, onCollapse, onLoadSession, onNewSession,
   onModelChange, onShowChart, onSetSearchMode, onToggleSourcesPanel, onRefreshSessions,
@@ -895,6 +895,7 @@ export default function AIChatBox({
 
           <SourcesPanel
             sources={searchSources}
+            images={searchImages}
             isOpen={isSourcesPanelOpen}
             onClose={onToggleSourcesPanel}
           />

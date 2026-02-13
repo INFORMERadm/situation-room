@@ -934,7 +934,7 @@ async function callSerperSearch(query: string): Promise<SerperResponse> {
         "X-API-KEY": SERPER_API_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ q: query, num: 10 }),
+      body: JSON.stringify({ q: query, num: 28 }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -944,6 +944,31 @@ async function callSerperSearch(query: string): Promise<SerperResponse> {
     clearTimeout(timeout);
     console.error("Serper error:", e);
     return {};
+  }
+}
+
+async function callSerperImageSearch(query: string): Promise<SerperImageResult[]> {
+  if (!SERPER_API_KEY) return [];
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch("https://google.serper.dev/images", {
+      method: "POST",
+      headers: {
+        "X-API-KEY": SERPER_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ q: query, num: 20 }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`Serper images: ${res.status}`);
+    const json = await res.json();
+    return (json.images ?? []) as SerperImageResult[];
+  } catch (e) {
+    clearTimeout(timeout);
+    console.error("Serper image search error:", e);
+    return [];
   }
 }
 
@@ -1063,9 +1088,13 @@ async function performAdvancedWebSearch(
   sendStatus: (stage: string, count?: number) => void,
 ): Promise<AdvancedSearchResult> {
   sendStatus("searching");
-  const serperData = await callSerperSearch(query);
+  const [serperData, dedicatedImages] = await Promise.all([
+    callSerperSearch(query),
+    callSerperImageSearch(query),
+  ]);
   const organic = serperData.organic ?? [];
-  const images = serperData.images ?? [];
+  const inlineImages = serperData.images ?? [];
+  const images = dedicatedImages.length > 0 ? dedicatedImages : inlineImages;
 
   if (organic.length === 0) {
     return { sources: [], images, query };
@@ -1086,8 +1115,8 @@ async function performAdvancedWebSearch(
   });
 
   if (FIRECRAWL_API_KEY) {
-    sendStatus("reading", Math.min(organic.length, 5));
-    const scraped = await scrapeTopResults(organic, 5);
+    sendStatus("reading", Math.min(organic.length, 8));
+    const scraped = await scrapeTopResults(organic, 8);
     for (const s of scraped) {
       const idx = allSources.findIndex((a) => a.url === s.url);
       if (idx !== -1) {
@@ -1108,7 +1137,7 @@ async function performAdvancedWebSearch(
 
 function formatAdvancedSearchContext(result: AdvancedSearchResult): string {
   const parts: string[] = ["\n\nWEB SEARCH RESULTS (Deep Search):"];
-  for (const s of result.sources.slice(0, 8)) {
+  for (const s of result.sources.slice(0, 15)) {
     parts.push(`\n[Source ${s.index}] ${s.title} (${s.url})`);
     parts.push(s.fullContent.slice(0, 800));
   }
@@ -1698,7 +1727,7 @@ async function handleAIChat(req: Request): Promise<Response> {
                     snippet: s.snippet,
                     relevanceScore: s.relevanceScore,
                   })),
-                  images: advResult.images.slice(0, 6),
+                  images: advResult.images.slice(0, 20),
                 };
                 sendChunk(`<search_sources>${JSON.stringify(sourcesPayload)}</search_sources>`);
                 console.log(`[AI Chat] Advanced search found ${advResult.sources.length} sources`);
