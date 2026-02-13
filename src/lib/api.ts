@@ -126,6 +126,7 @@ export function streamAIChat(
   onChunk: (token: string) => void,
   onDone: (fullText: string) => void,
   onError: (err: string) => void,
+  model?: string,
 ): AbortController {
   const controller = new AbortController();
 
@@ -134,7 +135,7 @@ export function streamAIChat(
       const res = await fetch(`${API_BASE}/global-monitor?feed=ai-chat`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ messages, platformContext }),
+        body: JSON.stringify({ messages, platformContext, model }),
         signal: controller.signal,
       });
 

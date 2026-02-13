@@ -27,6 +27,7 @@ export interface UseAIChatReturn {
   sessionId: string;
   sessions: ChatSession[];
   inlineStatus: string | null;
+  selectedModel: string;
   sendMessage: (text: string) => void;
   stopGenerating: () => void;
   regenerate: () => void;
@@ -34,6 +35,7 @@ export interface UseAIChatReturn {
   collapse: () => void;
   loadSession: (id: string) => void;
   newSession: () => void;
+  setModel: (model: string) => void;
 }
 
 function generateId(): string {
@@ -49,9 +51,10 @@ export function useAIChat(
   const platform = usePlatform();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  const [selectedModel, setSelectedModel] = useState('deepseek-r1');
   const [sessionId, setSessionId] = useState(() => {
     const stored = localStorage.getItem(SESSION_KEY);
     if (stored) return stored;
@@ -196,8 +199,9 @@ export function useAIChat(
         };
         setMessages(prev => [...prev, errorMsg]);
       },
+      selectedModel,
     );
-  }, [messages, isStreaming, sessionId, platform, platformActions]);
+  }, [messages, isStreaming, sessionId, platform, platformActions, selectedModel]);
 
   const stopGenerating = useCallback(() => {
     if (abortRef.current) {
@@ -284,8 +288,9 @@ export function useAIChat(
         };
         setMessages(prev => [...prev, errorMsg]);
       },
+      selectedModel,
     );
-  }, [messages, isStreaming, sessionId, platform, platformActions]);
+  }, [messages, isStreaming, sessionId, platform, platformActions, selectedModel]);
 
   const toggleExpand = useCallback(() => {
     setIsExpanded(prev => !prev);
@@ -310,6 +315,10 @@ export function useAIChat(
     setStreamingContent('');
   }, []);
 
+  const setModel = useCallback((m: string) => {
+    setSelectedModel(m);
+  }, []);
+
   return {
     messages,
     isExpanded,
@@ -318,6 +327,7 @@ export function useAIChat(
     sessionId,
     sessions,
     inlineStatus,
+    selectedModel,
     sendMessage,
     stopGenerating,
     regenerate,
@@ -325,5 +335,6 @@ export function useAIChat(
     collapse,
     loadSession,
     newSession,
+    setModel,
   };
 }

@@ -972,10 +972,21 @@ function formatFmpAsMarkdown(endpoint: string, data: unknown): string {
   return table;
 }
 
+const MODEL_CONFIGS: Record<string, { url: string; model: string }> = {
+  "deepseek-r1": {
+    url: "https://router.huggingface.co/novita/v3/openai/chat/completions",
+    model: "deepseek/deepseek-r1-0528",
+  },
+  "gpt-oss-120b": {
+    url: "https://router.huggingface.co/cerebras/v1/chat/completions",
+    model: "openai/gpt-oss-120b",
+  },
+};
+
 async function handleAIChat(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const { messages, platformContext } = body;
+    const { messages, platformContext, model } = body;
     if (!messages || !Array.isArray(messages)) {
       return jsonResponse({ error: "Missing messages array" }, 400);
     }
@@ -985,6 +996,9 @@ async function handleAIChat(req: Request): Promise<Response> {
       return jsonResponse({ error: "AI service not configured" }, 500);
     }
 
+    const modelKey = typeof model === "string" && MODEL_CONFIGS[model] ? model : "deepseek-r1";
+    const modelConfig = MODEL_CONFIGS[modelKey];
+
     const contextStr = platformContext ? JSON.stringify(platformContext) : "{}";
     const systemMsg = {
       role: "system",
@@ -993,14 +1007,14 @@ async function handleAIChat(req: Request): Promise<Response> {
 
     const chatMessages = [systemMsg, ...messages.slice(-20)];
 
-    const hfRes = await fetch("https://router.huggingface.co/novita/v3/openai/chat/completions", {
+    const hfRes = await fetch(modelConfig.url, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${HF_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-r1-0528",
+        model: modelConfig.model,
         messages: chatMessages,
         stream: true,
         max_tokens: 4096,

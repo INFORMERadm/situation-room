@@ -145,6 +145,7 @@ export default function MarketsDashboard() {
               streamingContent={ai.streamingContent}
               sessions={ai.sessions}
               inlineStatus={ai.inlineStatus}
+              selectedModel={ai.selectedModel}
               onSend={ai.sendMessage}
               onStop={ai.stopGenerating}
               onRegenerate={ai.regenerate}
@@ -152,6 +153,8 @@ export default function MarketsDashboard() {
               onCollapse={ai.collapse}
               onLoadSession={ai.loadSession}
               onNewSession={ai.newSession}
+              onModelChange={ai.setModel}
+              onShowChart={ai.collapse}
             />
           </div>
         </div>

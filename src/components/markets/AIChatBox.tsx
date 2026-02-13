@@ -2,6 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ChatMessage, ChatSession } from '../../hooks/useAIChat';
 import AIMessageRenderer from './AIMessageRenderer';
 
+const MODEL_OPTIONS = [
+  { id: 'deepseek-r1', label: 'DeepSeek R1' },
+  { id: 'gpt-oss-120b', label: 'GPT-OSS 120B' },
+];
+
 interface Props {
   messages: ChatMessage[];
   isExpanded: boolean;
@@ -9,6 +14,7 @@ interface Props {
   streamingContent: string;
   sessions: ChatSession[];
   inlineStatus: string | null;
+  selectedModel: string;
   onSend: (text: string) => void;
   onStop: () => void;
   onRegenerate: () => void;
@@ -16,12 +22,15 @@ interface Props {
   onCollapse: () => void;
   onLoadSession: (id: string) => void;
   onNewSession: () => void;
+  onModelChange: (model: string) => void;
+  onShowChart: () => void;
 }
 
 export default function AIChatBox({
   messages, isExpanded, isStreaming, streamingContent,
-  sessions, inlineStatus,
+  sessions, inlineStatus, selectedModel,
   onSend, onStop, onRegenerate, onToggleExpand, onCollapse, onLoadSession, onNewSession,
+  onModelChange, onShowChart,
 }: Props) {
   const [input, setInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -310,8 +319,74 @@ export default function AIChatBox({
             <span style={{ color: '#e0e0e0', fontSize: 12, fontWeight: 600, letterSpacing: 0.5 }}>
               N3 AI
             </span>
+            <div style={{ position: 'relative' }}>
+              <select
+                value={selectedModel}
+                onChange={e => onModelChange(e.target.value)}
+                style={{
+                  appearance: 'none',
+                  background: '#1a1a1a',
+                  border: '1px solid #333',
+                  borderRadius: 4,
+                  color: '#ccc',
+                  fontSize: 10,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  padding: '3px 22px 3px 8px',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  transition: 'all 0.15s',
+                  height: 24,
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = '#fb8c00'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#333'; }}
+              >
+                {MODEL_OPTIONS.map(m => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+              <svg
+                width="10" height="10" viewBox="0 0 24 24"
+                fill="none" stroke="#888" strokeWidth="2"
+                style={{
+                  position: 'absolute',
+                  right: 6,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              onClick={onShowChart}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'transparent',
+                border: '1px solid #292929',
+                borderRadius: 3,
+                color: '#aaa',
+                height: 24,
+                padding: '0 10px',
+                fontSize: 10,
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all 0.15s',
+                letterSpacing: 0.3,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#fb8c00'; e.currentTarget.style.color = '#fb8c00'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              Chart
+            </button>
             <button
               onClick={onCollapse}
               style={{
@@ -334,7 +409,8 @@ export default function AIChatBox({
               onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                <polyline points="4 14 10 14 10 20" /><polyline points="20 10 14 10 14 4" />
+                <line x1="14" y1="10" x2="21" y2="3" /><line x1="3" y1="21" x2="10" y2="14" />
               </svg>
             </button>
           </div>
