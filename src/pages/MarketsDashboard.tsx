@@ -41,7 +41,7 @@ const sidebarStyle: React.CSSProperties = {
 
 const rightStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateRows: '1fr 1.5fr',
+  gridTemplateRows: 'auto 1fr',
   borderLeft: '1px solid #292929',
   minHeight: 0,
   overflow: 'hidden',
@@ -175,20 +175,19 @@ export default function MarketsDashboard() {
         </div>
 
         <div style={rightStyle}>
-          <div style={{ borderBottom: '1px solid #292929', background: '#000', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '8px 12px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' as const, color: '#ffffff', background: '#0a0a0a', borderBottom: '1px solid #292929', flexShrink: 0 }}>
+          <div style={{ borderBottom: '1px solid #292929', background: '#000', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 12px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' as const, color: '#ffffff', background: '#0a0a0a', borderBottom: '1px solid #292929' }}>
               Live TV
             </div>
-            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
               <iframe
                 src="https://www.youtube.com/embed/KQp-e_XQnDE?autoplay=1&mute=1&loop=1&playlist=KQp-e_XQnDE&controls=0&modestbranding=1&showinfo=0&rel=0"
                 style={{
                   position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  width: '180%',
-                  height: '180%',
-                  transform: 'translate(-50%, -50%)',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
                   border: 'none',
                 }}
                 allow="autoplay; encrypted-media"
