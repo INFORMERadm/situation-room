@@ -12,6 +12,7 @@ import ModeSidebar from '../components/ModeSidebar';
 import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
 import { useAIChat } from '../hooks/useAIChat';
 import { usePlatform } from '../context/PlatformContext';
+import { useAuth } from '../context/AuthContext';
 
 const pageStyle: React.CSSProperties = {
   display: 'grid',
@@ -76,7 +77,8 @@ const panelDivider: React.CSSProperties = {
 export default function MarketsDashboard() {
   const data = useMarketsDashboard();
   const platform = usePlatform();
-  const ai = useAIChat(data.selectSymbol, data.setChartTimeframe);
+  const { user } = useAuth();
+  const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id);
 
   const handleToggleIndicator = (id: string) => {
     platform.toggleIndicator(id);

@@ -93,6 +93,7 @@ function parseSearchTags(fullText: string): {
 export function useAIChat(
   selectSymbol: (s: string) => void,
   setChartTimeframe: (tf: string) => void,
+  userId?: string,
 ): UseAIChatReturn {
   const platform = usePlatform();
 
@@ -197,7 +198,7 @@ export function useAIChat(
     fullTextRef.current = '';
 
     const title = messages.length === 0 ? text.trim().slice(0, 80) : undefined;
-    saveAIMessage(sessionId, 'user', text.trim(), undefined, title).catch(() => {});
+    saveAIMessage(sessionId, 'user', text.trim(), undefined, title, userId).catch(() => {});
 
     const aiMessages: AIMessage[] = [
       ...messages.map(m => ({ role: m.role, content: m.content })),

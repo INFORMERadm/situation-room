@@ -1,4 +1,5 @@
 import WorldClocks from './WorldClocks';
+import UserMenu from './UserMenu';
 
 interface Props {
   externalClocks?: { label: string; zone: string }[];
@@ -39,11 +40,14 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock }: Pr
         />
         <span style={{ position: 'relative', top: 1 }}>N3-AI Agentic Information Platform</span>
       </div>
-      <WorldClocks
-        externalClocks={externalClocks}
-        onAddClock={onAddClock}
-        onRemoveClock={onRemoveClock}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <WorldClocks
+          externalClocks={externalClocks}
+          onAddClock={onAddClock}
+          onRemoveClock={onRemoveClock}
+        />
+        <UserMenu />
+      </div>
     </div>
   );
 }

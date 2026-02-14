@@ -1,17 +1,25 @@
+import { supabase } from './supabase';
+
 const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
-const headers = {
-  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-  'Content-Type': 'application/json',
-};
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+  return {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+}
 
 export async function fetchFeed(feed: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=${feed}`, { headers });
   if (!res.ok) throw new Error(`Feed ${feed} failed: ${res.status}`);
   return res.json();
 }
 
 export async function fetchSymbolSearch(query: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(
     `${API_BASE}/global-monitor?feed=search-symbol&query=${encodeURIComponent(query)}`,
     { headers }
@@ -22,6 +30,7 @@ export async function fetchSymbolSearch(query: string) {
 }
 
 export async function fetchQuote(symbol: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(
     `${API_BASE}/global-monitor?feed=quote&symbol=${encodeURIComponent(symbol)}`,
     { headers }
@@ -33,6 +42,7 @@ export async function fetchQuote(symbol: string) {
 
 export async function fetchBatchQuotes(symbols: string[]) {
   if (symbols.length === 0) return {};
+  const headers = await getAuthHeaders();
   const res = await fetch(
     `${API_BASE}/global-monitor?feed=batch-quotes&symbols=${encodeURIComponent(symbols.join(','))}`,
     { headers }
@@ -43,6 +53,7 @@ export async function fetchBatchQuotes(symbols: string[]) {
 }
 
 export async function fetchMarketOverview() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=market-overview`, { headers });
   if (!res.ok) throw new Error(`Market overview failed: ${res.status}`);
   const json = await res.json();
@@ -50,12 +61,14 @@ export async function fetchMarketOverview() {
 }
 
 export async function fetchMarketMovers() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=market-movers`, { headers });
   if (!res.ok) throw new Error(`Market movers failed: ${res.status}`);
   return res.json();
 }
 
 export async function fetchSectorPerformance() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=sector-performance`, { headers });
   if (!res.ok) throw new Error(`Sector performance failed: ${res.status}`);
   const json = await res.json();
@@ -63,6 +76,7 @@ export async function fetchSectorPerformance() {
 }
 
 export async function fetchHistoricalChart(symbol: string, timeframe: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(
     `${API_BASE}/global-monitor?feed=historical-chart&symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`,
     { headers }
@@ -73,6 +87,7 @@ export async function fetchHistoricalChart(symbol: string, timeframe: string) {
 }
 
 export async function fetchCompanyProfile(symbol: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(
     `${API_BASE}/global-monitor?feed=company-profile&symbol=${encodeURIComponent(symbol)}`,
     { headers }
@@ -83,6 +98,7 @@ export async function fetchCompanyProfile(symbol: string) {
 }
 
 export async function fetchEarningsCalendar() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=earnings-calendar`, { headers });
   if (!res.ok) throw new Error(`Earnings calendar failed: ${res.status}`);
   const json = await res.json();
@@ -90,6 +106,7 @@ export async function fetchEarningsCalendar() {
 }
 
 export async function fetchEconomicCalendar() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=economic-calendar`, { headers });
   if (!res.ok) throw new Error(`Economic calendar failed: ${res.status}`);
   const json = await res.json();
@@ -97,6 +114,7 @@ export async function fetchEconomicCalendar() {
 }
 
 export async function fetchMarketNews() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=market-news`, { headers });
   if (!res.ok) throw new Error(`Market news failed: ${res.status}`);
   const json = await res.json();
@@ -104,6 +122,7 @@ export async function fetchMarketNews() {
 }
 
 export async function fetchFmpProxy(endpoint: string, params: Record<string, string> = {}) {
+  const headers = await getAuthHeaders();
   const qs = new URLSearchParams({
     feed: 'fmp-proxy',
     endpoint,
@@ -134,6 +153,7 @@ export function streamAIChat(
 
   (async () => {
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_BASE}/global-monitor?feed=ai-chat`, {
         method: 'POST',
         headers,
@@ -198,15 +218,18 @@ export async function saveAIMessage(
   content: string,
   toolCalls?: unknown,
   title?: string,
+  userId?: string,
 ) {
+  const headers = await getAuthHeaders();
   await fetch(`${API_BASE}/global-monitor?feed=ai-save`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ sessionId, role, content, toolCalls, title }),
+    body: JSON.stringify({ sessionId, role, content, toolCalls, title, userId }),
   });
 }
 
 export async function loadAIHistory(sessionId: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(
     `${API_BASE}/global-monitor?feed=ai-history&sessionId=${encodeURIComponent(sessionId)}`,
     { headers },
@@ -217,6 +240,7 @@ export async function loadAIHistory(sessionId: string) {
 }
 
 export async function loadAISessions() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=ai-sessions`, { headers });
   if (!res.ok) return [];
   const json = await res.json();
@@ -224,6 +248,7 @@ export async function loadAISessions() {
 }
 
 export async function renameAISession(sessionId: string, title: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=ai-rename-session`, {
     method: 'POST',
     headers,
@@ -234,6 +259,7 @@ export async function renameAISession(sessionId: string, title: string) {
 }
 
 export async function deleteAISession(sessionId: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=ai-delete-session`, {
     method: 'POST',
     headers,
@@ -244,6 +270,7 @@ export async function deleteAISession(sessionId: string) {
 }
 
 export async function deleteAISessions(sessionIds: string[]) {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=ai-delete-sessions`, {
     method: 'POST',
     headers,
@@ -254,6 +281,7 @@ export async function deleteAISessions(sessionIds: string[]) {
 }
 
 export async function deleteAllAISessions() {
+  const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/global-monitor?feed=ai-delete-all-sessions`, {
     method: 'POST',
     headers,
@@ -264,6 +292,7 @@ export async function deleteAllAISessions() {
 }
 
 export async function fetchWebSearchSources(sessionId: string) {
+  const headers = await getAuthHeaders();
   const res = await fetch(
     `${API_BASE}/global-monitor?feed=web-search-sources&sessionId=${encodeURIComponent(sessionId)}`,
     { headers },
