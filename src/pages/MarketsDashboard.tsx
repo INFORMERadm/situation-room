@@ -171,8 +171,14 @@ export default function MarketsDashboard() {
         </div>
 
         <div style={rightStyle}>
-          <div style={panelDivider}>
-            <EarningsCalendar earnings={data.earnings} onSelect={data.selectSymbol} />
+          <div style={{ borderBottom: '1px solid #292929', background: '#000', position: 'relative', overflow: 'hidden' }}>
+            <iframe
+              src="https://www.youtube.com/embed/KQp-e_XQnDE?autoplay=1&mute=1&loop=1&playlist=KQp-e_XQnDE"
+              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              title="Live Stream"
+            />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             <div style={toggleBarStyle}>
@@ -180,13 +186,19 @@ export default function MarketsDashboard() {
                 style={toggleButtonStyle(platform.rightPanelView === 'news')}
                 onClick={() => platform.setRightPanelView('news')}
               >
-                Market News
+                News
               </button>
               <button
                 style={toggleButtonStyle(platform.rightPanelView === 'economic')}
                 onClick={() => platform.setRightPanelView('economic')}
               >
-                Economic Calendar
+                Calendar
+              </button>
+              <button
+                style={toggleButtonStyle(platform.rightPanelView === 'earnings')}
+                onClick={() => platform.setRightPanelView('earnings')}
+              >
+                Earnings
               </button>
             </div>
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -198,8 +210,10 @@ export default function MarketsDashboard() {
                     ai.sendMessage(`Explain this news headline and its market impact: "${headline}"`);
                   }}
                 />
-              ) : (
+              ) : platform.rightPanelView === 'economic' ? (
                 <EconomicCalendar events={data.economic} />
+              ) : (
+                <EarningsCalendar earnings={data.earnings} onSelect={data.selectSymbol} />
               )}
             </div>
           </div>

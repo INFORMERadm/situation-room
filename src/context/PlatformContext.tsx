@@ -47,7 +47,7 @@ export interface PlatformState {
   indicators: IndicatorConfig[];
   watchlist: WatchlistEntry[];
   clocks: ClockEntry[];
-  rightPanelView: 'news' | 'economic';
+  rightPanelView: 'news' | 'economic' | 'earnings';
   leftTab: string;
   setChartType: (type: string) => void;
   toggleIndicator: (id: string, enabled?: boolean) => void;
@@ -58,7 +58,7 @@ export interface PlatformState {
   addClock: (label: string, zone: string) => void;
   removeClock: (zone: string) => void;
   setClocks: (list: ClockEntry[]) => void;
-  setRightPanelView: (view: 'news' | 'economic') => void;
+  setRightPanelView: (view: 'news' | 'economic' | 'earnings') => void;
   setLeftTab: (tab: string) => void;
 }
 
@@ -90,7 +90,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [indicators, setIndicatorsState] = useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
   const [watchlist, setWatchlistState] = useState<WatchlistEntry[]>(loadWatchlist);
   const [clocks, setClocksState] = useState<ClockEntry[]>(loadClocks);
-  const [rightPanelView, setRightPanelView] = useState<'news' | 'economic'>('news');
+  const [rightPanelView, setRightPanelView] = useState<'news' | 'economic' | 'earnings'>('news');
   const [leftTab, setLeftTab] = useState('overview');
 
   const watchlistRef = useRef(watchlist);
