@@ -142,10 +142,7 @@ export default function MarketNews({ news, onSelectSymbol, onExplain }: Props) {
                 fontSize: 11,
                 lineHeight: 1.4,
                 textDecoration: 'none',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
+                display: 'block',
               }}
               onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
               onMouseLeave={e => (e.currentTarget.style.color = '#ccc')}
