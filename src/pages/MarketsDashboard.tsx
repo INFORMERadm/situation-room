@@ -166,6 +166,10 @@ export default function MarketsDashboard() {
               onSetSearchMode={ai.setSearchMode}
               onToggleSourcesPanel={ai.toggleSourcesPanel}
               onRefreshSessions={ai.refreshSessions}
+              onRenameSession={ai.renameSession}
+              onDeleteSession={ai.deleteSession}
+              onDeleteSessions={ai.deleteSessions}
+              onDeleteAllSessions={ai.deleteAllSessions}
             />
           </div>
         </div>

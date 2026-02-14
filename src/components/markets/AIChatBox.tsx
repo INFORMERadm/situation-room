@@ -37,6 +37,10 @@ interface Props {
   onSetSearchMode: (mode: SearchMode) => void;
   onToggleSourcesPanel: () => void;
   onRefreshSessions: () => void;
+  onRenameSession: (id: string, title: string) => Promise<void>;
+  onDeleteSession: (id: string) => Promise<void>;
+  onDeleteSessions: (ids: string[]) => Promise<void>;
+  onDeleteAllSessions: () => Promise<void>;
 }
 
 function SearchMenuDropdown({
@@ -130,11 +134,19 @@ export default function AIChatBox({
   isSourcesPanelOpen,
   onSend, onStop, onRegenerate, onToggleExpand, onCollapse, onLoadSession, onNewSession,
   onModelChange, onShowChart, onSetSearchMode, onToggleSourcesPanel, onRefreshSessions,
+  onRenameSession, onDeleteSession, onDeleteSessions, onDeleteAllSessions,
 }: Props) {
   const [input, setInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchMenuOpen, setSearchMenuOpen] = useState(false);
+  const [contextMenuId, setContextMenuId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const searchMenuRef = useRef<HTMLDivElement>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -151,6 +163,53 @@ export default function AIChatBox({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [searchMenuOpen]);
+
+  useEffect(() => {
+    if (!contextMenuId) return;
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [contextMenuId]);
+
+  const toggleBulkSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    await onDeleteSessions(Array.from(selectedIds));
+    setSelectedIds(new Set());
+    setBulkMode(false);
+  }, [selectedIds, onDeleteSessions]);
+
+  const handleDeleteAll = useCallback(async () => {
+    await onDeleteAllSessions();
+    setConfirmDeleteAll(false);
+    setBulkMode(false);
+    setSelectedIds(new Set());
+  }, [onDeleteAllSessions]);
+
+  const handleStartRename = useCallback((id: string, currentTitle: string) => {
+    setRenamingId(id);
+    setRenameValue(currentTitle || '');
+    setContextMenuId(null);
+  }, []);
+
+  const handleConfirmRename = useCallback(async () => {
+    if (renamingId && renameValue.trim()) {
+      await onRenameSession(renamingId, renameValue.trim());
+    }
+    setRenamingId(null);
+    setRenameValue('');
+  }, [renamingId, renameValue, onRenameSession]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -345,6 +404,9 @@ export default function AIChatBox({
           borderBottom: '1px solid #292929',
           flexShrink: 0,
           minWidth: 240,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
         }}>
           <button
             onClick={() => { onNewSession(); setSidebarOpen(false); }}
@@ -372,7 +434,135 @@ export default function AIChatBox({
             </svg>
             New Chat
           </button>
+          {sessions.length > 0 && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                onClick={() => { setBulkMode(p => !p); setSelectedIds(new Set()); }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  padding: '5px 8px',
+                  background: bulkMode ? 'rgba(251,140,0,0.1)' : 'transparent',
+                  border: `1px solid ${bulkMode ? '#fb8c00' : '#292929'}`,
+                  borderRadius: 4,
+                  color: bulkMode ? '#fb8c00' : '#777',
+                  fontSize: 9,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 11 12 14 22 4" />
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                </svg>
+                {bulkMode ? 'Cancel' : 'Select'}
+              </button>
+              <button
+                onClick={() => setConfirmDeleteAll(true)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  padding: '5px 8px',
+                  background: 'transparent',
+                  border: '1px solid #292929',
+                  borderRadius: 4,
+                  color: '#777',
+                  fontSize: 9,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#ff1744'; e.currentTarget.style.color = '#ff1744'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#777'; }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14H7L5 6" />
+                  <path d="M10 11v6" /><path d="M14 11v6" />
+                </svg>
+                Delete All
+              </button>
+            </div>
+          )}
         </div>
+
+        {confirmDeleteAll && (
+          <div style={{
+            padding: '10px 12px',
+            borderBottom: '1px solid #292929',
+            background: '#1a0a0a',
+            minWidth: 240,
+            flexShrink: 0,
+          }}>
+            <div style={{ color: '#ff1744', fontSize: 10, fontWeight: 600, marginBottom: 6 }}>
+              Delete all conversations?
+            </div>
+            <div style={{ color: '#999', fontSize: 9, marginBottom: 8 }}>
+              This cannot be undone.
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={handleDeleteAll}
+                style={{
+                  flex: 1, padding: '5px 10px', background: '#ff1744', border: 'none',
+                  borderRadius: 4, color: '#fff', fontSize: 10, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Delete All
+              </button>
+              <button
+                onClick={() => setConfirmDeleteAll(false)}
+                style={{
+                  flex: 1, padding: '5px 10px', background: 'transparent',
+                  border: '1px solid #333', borderRadius: 4, color: '#aaa',
+                  fontSize: 10, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {bulkMode && selectedIds.size > 0 && (
+          <div style={{
+            padding: '8px 12px',
+            borderBottom: '1px solid #292929',
+            background: '#0d0a00',
+            minWidth: 240,
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <span style={{ color: '#fb8c00', fontSize: 10, fontWeight: 500 }}>
+              {selectedIds.size} selected
+            </span>
+            <button
+              onClick={handleBulkDelete}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', background: '#ff1744', border: 'none',
+                borderRadius: 4, color: '#fff', fontSize: 9, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14H7L5 6" />
+              </svg>
+              Delete Selected
+            </button>
+          </div>
+        )}
 
         <div style={{ flex: 1, overflowY: 'auto', minWidth: 240 }}>
           {sessions.length === 0 ? (
@@ -381,37 +571,157 @@ export default function AIChatBox({
             </div>
           ) : (
             sessions.map(s => (
-              <button
+              <div
                 key={s.id}
-                onClick={() => { onLoadSession(s.id); setSidebarOpen(false); }}
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  width: '100%',
-                  padding: '10px 16px',
-                  background: 'transparent',
-                  border: 'none',
+                  position: 'relative',
                   borderBottom: '1px solid #1a1a1a',
-                  color: '#ccc',
-                  fontSize: 11,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  fontFamily: 'inherit',
-                  transition: 'background 0.15s',
-                  gap: 4,
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#151515')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
-                  {s.title || 'Untitled'}
-                </div>
-                <div style={{ color: '#888', fontSize: 9 }}>
-                  {new Date(s.updated_at).toLocaleDateString(undefined, {
-                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                  })}
-                </div>
-              </button>
+                {renamingId === s.id ? (
+                  <div style={{ padding: '8px 12px', display: 'flex', gap: 4 }}>
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleConfirmRename();
+                        if (e.key === 'Escape') { setRenamingId(null); setRenameValue(''); }
+                      }}
+                      style={{
+                        flex: 1, background: '#1a1a1a', border: '1px solid #fb8c00',
+                        borderRadius: 3, color: '#e0e0e0', fontSize: 11, padding: '4px 8px',
+                        outline: 'none', fontFamily: 'inherit',
+                      }}
+                    />
+                    <button
+                      onClick={handleConfirmRename}
+                      style={{
+                        background: '#fb8c00', border: 'none', borderRadius: 3,
+                        color: '#000', padding: '4px 8px', fontSize: 10, fontWeight: 600,
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    {bulkMode && (
+                      <div
+                        onClick={() => toggleBulkSelect(s.id)}
+                        style={{
+                          width: 32, display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+                        }}
+                      >
+                        <div style={{
+                          width: 14, height: 14, borderRadius: 3,
+                          border: `1.5px solid ${selectedIds.has(s.id) ? '#fb8c00' : '#555'}`,
+                          background: selectedIds.has(s.id) ? '#fb8c00' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 0.15s',
+                        }}>
+                          {selectedIds.has(s.id) && (
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (bulkMode) { toggleBulkSelect(s.id); return; }
+                        onLoadSession(s.id); setSidebarOpen(false);
+                      }}
+                      style={{
+                        display: 'flex', flexDirection: 'column', flex: 1,
+                        padding: bulkMode ? '10px 8px 10px 0' : '10px 16px',
+                        background: 'transparent', border: 'none',
+                        color: '#ccc', fontSize: 11, cursor: 'pointer',
+                        textAlign: 'left', fontFamily: 'inherit',
+                        transition: 'background 0.15s', gap: 4,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#151515')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
+                        {s.title || 'Untitled'}
+                      </div>
+                      <div style={{ color: '#888', fontSize: 9 }}>
+                        {new Date(s.updated_at).toLocaleDateString(undefined, {
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                        })}
+                      </div>
+                    </button>
+                    {!bulkMode && (
+                      <div style={{ position: 'relative', flexShrink: 0, paddingRight: 8 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setContextMenuId(contextMenuId === s.id ? null : s.id); }}
+                          style={{
+                            background: 'transparent', border: 'none', color: '#666',
+                            cursor: 'pointer', padding: '4px', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            borderRadius: 3, transition: 'color 0.15s',
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#ccc')}
+                          onMouseLeave={e => (e.currentTarget.style.color = '#666')}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                          </svg>
+                        </button>
+                        {contextMenuId === s.id && (
+                          <div
+                            ref={contextMenuRef}
+                            style={{
+                              position: 'absolute', right: 0, top: '100%',
+                              background: '#1a1a1a', border: '1px solid #333',
+                              borderRadius: 6, padding: '4px 0', minWidth: 140,
+                              zIndex: 200, boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                            }}
+                          >
+                            <button
+                              onClick={() => handleStartRename(s.id, s.title || '')}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                width: '100%', padding: '7px 12px', background: 'transparent',
+                                border: 'none', color: '#ccc', fontSize: 11, cursor: 'pointer',
+                                fontFamily: 'inherit', transition: 'background 0.1s',
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.background = '#252525')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                              </svg>
+                              Rename
+                            </button>
+                            <button
+                              onClick={async () => { setContextMenuId(null); await onDeleteSession(s.id); }}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                width: '100%', padding: '7px 12px', background: 'transparent',
+                                border: 'none', color: '#ff1744', fontSize: 11, cursor: 'pointer',
+                                fontFamily: 'inherit', transition: 'background 0.1s',
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.background = '#1a0a0a')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14H7L5 6" />
+                                <path d="M10 11v6" /><path d="M14 11v6" />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             ))
           )}
         </div>

@@ -2069,6 +2069,51 @@ Deno.serve(async (req: Request) => {
         const latest = rows?.[0] ?? null;
         return jsonResponse({ searchResult: latest });
       }
+      case "ai-rename-session": {
+        if (req.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
+        const body = await req.json();
+        const { sessionId, title } = body;
+        if (!sessionId || typeof title !== "string") return jsonResponse({ error: "Missing sessionId or title" }, 400);
+        const { error: renameErr } = await supabase
+          .from("chat_sessions")
+          .update({ title, updated_at: new Date().toISOString() })
+          .eq("id", sessionId);
+        if (renameErr) return jsonResponse({ error: renameErr.message }, 500);
+        return jsonResponse({ ok: true });
+      }
+      case "ai-delete-session": {
+        if (req.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
+        const body = await req.json();
+        const { sessionId } = body;
+        if (!sessionId) return jsonResponse({ error: "Missing sessionId" }, 400);
+        const { error: delErr } = await supabase
+          .from("chat_sessions")
+          .delete()
+          .eq("id", sessionId);
+        if (delErr) return jsonResponse({ error: delErr.message }, 500);
+        return jsonResponse({ ok: true });
+      }
+      case "ai-delete-sessions": {
+        if (req.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
+        const body = await req.json();
+        const { sessionIds } = body;
+        if (!Array.isArray(sessionIds) || sessionIds.length === 0) return jsonResponse({ error: "Missing sessionIds array" }, 400);
+        const { error: bulkErr } = await supabase
+          .from("chat_sessions")
+          .delete()
+          .in("id", sessionIds);
+        if (bulkErr) return jsonResponse({ error: bulkErr.message }, 500);
+        return jsonResponse({ ok: true, deleted: sessionIds.length });
+      }
+      case "ai-delete-all-sessions": {
+        if (req.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
+        const { error: allErr } = await supabase
+          .from("chat_sessions")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        if (allErr) return jsonResponse({ error: allErr.message }, 500);
+        return jsonResponse({ ok: true });
+      }
       case "ai-chat": {
         if (req.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
         return handleAIChat(req);

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { streamAIChat, saveAIMessage, loadAIHistory, loadAISessions, fetchWebSearchSources } from '../lib/api';
+import { streamAIChat, saveAIMessage, loadAIHistory, loadAISessions, fetchWebSearchSources, renameAISession, deleteAISession, deleteAISessions, deleteAllAISessions } from '../lib/api';
 import type { AIMessage } from '../lib/api';
 import { parseAIResponse, executeToolCall, isClientToolCall, buildContextPayload } from '../lib/aiTools';
 import type { PlatformActions } from '../lib/aiTools';
@@ -49,6 +49,10 @@ export interface UseAIChatReturn {
   setSearchMode: (mode: SearchMode) => void;
   toggleSourcesPanel: () => void;
   refreshSessions: () => void;
+  renameSession: (id: string, title: string) => Promise<void>;
+  deleteSession: (id: string) => Promise<void>;
+  deleteSessions: (ids: string[]) => Promise<void>;
+  deleteAllSessions: () => Promise<void>;
 }
 
 function generateId(): string {
@@ -447,6 +451,54 @@ export function useAIChat(
     setIsSourcesPanelOpen(prev => !prev);
   }, []);
 
+  const handleRenameSession = useCallback(async (id: string, title: string) => {
+    await renameAISession(id, title);
+    refreshSessions();
+  }, [refreshSessions]);
+
+  const handleDeleteSession = useCallback(async (id: string) => {
+    await deleteAISession(id);
+    if (id === sessionId) {
+      const newId = generateId();
+      setSessionId(newId);
+      localStorage.setItem(SESSION_KEY, newId);
+      setMessages([]);
+      setStreamingContent('');
+      setSearchSources([]);
+      setSearchImages([]);
+      setSearchProgress(null);
+    }
+    refreshSessions();
+  }, [sessionId, refreshSessions]);
+
+  const handleDeleteSessions = useCallback(async (ids: string[]) => {
+    await deleteAISessions(ids);
+    if (ids.includes(sessionId)) {
+      const newId = generateId();
+      setSessionId(newId);
+      localStorage.setItem(SESSION_KEY, newId);
+      setMessages([]);
+      setStreamingContent('');
+      setSearchSources([]);
+      setSearchImages([]);
+      setSearchProgress(null);
+    }
+    refreshSessions();
+  }, [sessionId, refreshSessions]);
+
+  const handleDeleteAllSessions = useCallback(async () => {
+    await deleteAllAISessions();
+    const newId = generateId();
+    setSessionId(newId);
+    localStorage.setItem(SESSION_KEY, newId);
+    setMessages([]);
+    setStreamingContent('');
+    setSearchSources([]);
+    setSearchImages([]);
+    setSearchProgress(null);
+    refreshSessions();
+  }, [refreshSessions]);
+
   return {
     messages,
     isExpanded,
@@ -472,5 +524,9 @@ export function useAIChat(
     setSearchMode,
     toggleSourcesPanel,
     refreshSessions,
+    renameSession: handleRenameSession,
+    deleteSession: handleDeleteSession,
+    deleteSessions: handleDeleteSessions,
+    deleteAllSessions: handleDeleteAllSessions,
   };
 }

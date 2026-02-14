@@ -223,6 +223,46 @@ export async function loadAISessions() {
   return json.sessions ?? [];
 }
 
+export async function renameAISession(sessionId: string, title: string) {
+  const res = await fetch(`${API_BASE}/global-monitor?feed=ai-rename-session`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ sessionId, title }),
+  });
+  if (!res.ok) throw new Error('Rename failed');
+  return res.json();
+}
+
+export async function deleteAISession(sessionId: string) {
+  const res = await fetch(`${API_BASE}/global-monitor?feed=ai-delete-session`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ sessionId }),
+  });
+  if (!res.ok) throw new Error('Delete failed');
+  return res.json();
+}
+
+export async function deleteAISessions(sessionIds: string[]) {
+  const res = await fetch(`${API_BASE}/global-monitor?feed=ai-delete-sessions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ sessionIds }),
+  });
+  if (!res.ok) throw new Error('Bulk delete failed');
+  return res.json();
+}
+
+export async function deleteAllAISessions() {
+  const res = await fetch(`${API_BASE}/global-monitor?feed=ai-delete-all-sessions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new Error('Delete all failed');
+  return res.json();
+}
+
 export async function fetchWebSearchSources(sessionId: string) {
   const res = await fetch(
     `${API_BASE}/global-monitor?feed=web-search-sources&sessionId=${encodeURIComponent(sessionId)}`,
