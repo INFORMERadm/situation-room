@@ -331,7 +331,7 @@ export default function AIChatBox({
       position: 'relative',
     }}>
       <div style={{
-        width: sidebarOpen ? 240 : 0,
+        width: sidebarOpen ? 283 : 0,
         overflow: 'hidden',
         transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
         borderRight: sidebarOpen ? '1px solid #292929' : 'none',
