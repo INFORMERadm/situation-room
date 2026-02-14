@@ -179,13 +179,23 @@ export default function MarketsDashboard() {
             <div style={{ padding: '8px 12px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' as const, color: '#ffffff', background: '#0a0a0a', borderBottom: '1px solid #292929', flexShrink: 0 }}>
               Live TV
             </div>
-            <iframe
-              src="https://www.youtube.com/embed/KQp-e_XQnDE?autoplay=1&mute=1&loop=1&playlist=KQp-e_XQnDE"
-              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-              title="Live Stream"
-            />
+            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+              <iframe
+                src="https://www.youtube.com/embed/KQp-e_XQnDE?autoplay=1&mute=1&loop=1&playlist=KQp-e_XQnDE&controls=0&modestbranding=1&showinfo=0&rel=0"
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  width: '180%',
+                  height: '180%',
+                  transform: 'translate(-50%, -50%)',
+                  border: 'none',
+                }}
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+                title="Live Stream"
+              />
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             <div style={toggleBarStyle}>
