@@ -470,10 +470,7 @@ export default function AIChatBox({
               background: isStreaming ? '#00c853' : '#fb8c00',
               animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
             }} />
-            <span style={{ color: '#e0e0e0', fontSize: 12, fontWeight: 600, letterSpacing: 0.5 }}>
-              N3 AI
-            </span>
-            <div style={{ position: 'relative' }}>
+<div style={{ position: 'relative' }}>
               <select
                 value={selectedModel}
                 onChange={e => onModelChange(e.target.value)}
