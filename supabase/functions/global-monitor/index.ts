@@ -542,8 +542,17 @@ async function fetchEarningsCalendar() {
   return fallback;
 }
 
+const ECON_RELEVANT_COUNTRIES = new Set([
+  "US", "EU", "GB", "JP", "CH", "AU", "RU", "CN",
+  "EA", "EMU", "UK", "EZ",
+]);
+
+function isRelevantCountry(country: string): boolean {
+  return ECON_RELEVANT_COUNTRIES.has(country.toUpperCase());
+}
+
 async function fetchEconomicCalendar() {
-  const cached = await getCached("economic-calendar", 300_000);
+  const cached = await getCached("economic-calendar", 1_800_000);
   if (cached) return cached;
 
   try {
@@ -552,10 +561,10 @@ async function fetchEconomicCalendar() {
     const mondayOffset = day === 0 ? -6 : 1 - day;
     const thisMonday = new Date(now);
     thisMonday.setDate(now.getDate() + mondayOffset);
-    const nextFriday = new Date(thisMonday);
-    nextFriday.setDate(thisMonday.getDate() + 11);
+    const nextSunday = new Date(thisMonday);
+    nextSunday.setDate(thisMonday.getDate() + 13);
     const from = thisMonday.toISOString().slice(0, 10);
-    const to = nextFriday.toISOString().slice(0, 10);
+    const to = nextSunday.toISOString().slice(0, 10);
 
     const data = await fmpFetch("economic-calendar", { from, to });
 
@@ -576,10 +585,12 @@ async function fetchEconomicCalendar() {
       previous: (e.previous as number) ?? null,
       estimate: (e.estimate as number) ?? null,
       actual: (e.actual as number) ?? null,
-    })).filter((e) => e.event.length > 0);
+    })).filter((e) =>
+      e.event.length > 0 && isRelevantCountry(e.country)
+    );
 
     mapped.sort((a, b) => a.date.localeCompare(b.date));
-    const result = mapped.slice(0, 50);
+    const result = mapped.slice(0, 200);
 
     if (result.length > 0) {
       await setCache("economic-calendar", result);
@@ -587,30 +598,38 @@ async function fetchEconomicCalendar() {
     }
   } catch { /* fall through to fallback */ }
 
-  const todayStr = new Date().toISOString().slice(0, 10);
   const d = (offset: number, time: string) => {
-    const dt = new Date();
-    dt.setDate(dt.getDate() + offset);
-    return dt.toISOString().slice(0, 10) + "T" + time;
+    const now = new Date();
+    const day = now.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset + offset);
+    return monday.toISOString().slice(0, 10) + "T" + time;
   };
   const fallback = [
     { event: "MBA Mortgage Applications", date: d(0, "07:00:00"), country: "US", impact: "Medium", previous: -2.0, estimate: null, actual: null },
-    { event: "Wholesale Inventories (MoM)", date: d(0, "10:00:00"), country: "US", impact: "Low", previous: 0.2, estimate: 0.1, actual: null },
     { event: "10-Year Note Auction", date: d(0, "13:00:00"), country: "US", impact: "Medium", previous: null, estimate: null, actual: null },
+    { event: "BOJ Interest Rate Decision", date: d(0, "23:00:00"), country: "JP", impact: "High", previous: 0.25, estimate: 0.25, actual: null },
     { event: "CPI (MoM)", date: d(1, "08:30:00"), country: "US", impact: "High", previous: 0.4, estimate: 0.3, actual: null },
     { event: "CPI (YoY)", date: d(1, "08:30:00"), country: "US", impact: "High", previous: 2.9, estimate: 2.9, actual: null },
     { event: "Core CPI (MoM)", date: d(1, "08:30:00"), country: "US", impact: "High", previous: 0.2, estimate: 0.3, actual: null },
-    { event: "Initial Jobless Claims", date: d(1, "08:30:00"), country: "US", impact: "High", previous: 219000, estimate: 218000, actual: null },
+    { event: "SNB Interest Rate Decision", date: d(1, "03:30:00"), country: "CH", impact: "High", previous: 1.0, estimate: 0.75, actual: null },
+    { event: "Initial Jobless Claims", date: d(2, "08:30:00"), country: "US", impact: "High", previous: 219000, estimate: 218000, actual: null },
     { event: "PPI (MoM)", date: d(2, "08:30:00"), country: "US", impact: "Medium", previous: 0.2, estimate: 0.3, actual: null },
     { event: "ECB Interest Rate Decision", date: d(2, "07:45:00"), country: "EU", impact: "High", previous: 2.9, estimate: 2.65, actual: null },
     { event: "Retail Sales (MoM)", date: d(3, "08:30:00"), country: "US", impact: "High", previous: 0.4, estimate: 0.3, actual: null },
     { event: "Industrial Production (MoM)", date: d(3, "09:15:00"), country: "US", impact: "Medium", previous: 0.9, estimate: 0.3, actual: null },
     { event: "GDP (QoQ)", date: d(3, "02:00:00"), country: "GB", impact: "High", previous: 0.1, estimate: 0.2, actual: null },
+    { event: "RBA Interest Rate Decision", date: d(3, "03:30:00"), country: "AU", impact: "High", previous: 4.35, estimate: 4.35, actual: null },
     { event: "Empire State Manufacturing Index", date: d(7, "08:30:00"), country: "US", impact: "Medium", previous: -12.6, estimate: -1.0, actual: null },
+    { event: "ZEW Economic Sentiment", date: d(7, "05:00:00"), country: "EU", impact: "Medium", previous: 17.0, estimate: 15.0, actual: null },
     { event: "Building Permits", date: d(8, "08:30:00"), country: "US", impact: "Medium", previous: 1482000, estimate: 1460000, actual: null },
     { event: "FOMC Meeting Minutes", date: d(8, "14:00:00"), country: "US", impact: "High", previous: null, estimate: null, actual: null },
+    { event: "CPI (YoY)", date: d(8, "02:00:00"), country: "GB", impact: "High", previous: 2.5, estimate: 2.6, actual: null },
     { event: "Philadelphia Fed Manufacturing Index", date: d(9, "08:30:00"), country: "US", impact: "Medium", previous: 44.3, estimate: 20.0, actual: null },
+    { event: "Tankan Manufacturing Index", date: d(9, "19:50:00"), country: "JP", impact: "Medium", previous: 14, estimate: 13, actual: null },
     { event: "Existing Home Sales", date: d(10, "10:00:00"), country: "US", impact: "Medium", previous: 4240000, estimate: 4200000, actual: null },
+    { event: "Consumer Confidence", date: d(10, "05:00:00"), country: "EU", impact: "Medium", previous: -14.5, estimate: -14.0, actual: null },
   ];
   await setCache("economic-calendar", fallback);
   return fallback;
