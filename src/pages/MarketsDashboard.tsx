@@ -171,7 +171,10 @@ export default function MarketsDashboard() {
         </div>
 
         <div style={rightStyle}>
-          <div style={{ borderBottom: '1px solid #292929', background: '#000', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ borderBottom: '1px solid #292929', background: '#000', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '8px 12px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' as const, color: '#ffffff', background: '#0a0a0a', borderBottom: '1px solid #292929', flexShrink: 0 }}>
+              Live TV
+            </div>
             <iframe
               src="https://www.youtube.com/embed/KQp-e_XQnDE?autoplay=1&mute=1&loop=1&playlist=KQp-e_XQnDE"
               style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
