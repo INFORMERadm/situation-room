@@ -1,12 +1,13 @@
 import { useState } from 'react';
 
-type Mode = 'markets' | 'news' | 'pa' | 'chat';
+type Mode = 'markets' | 'news' | 'pa' | 'chat' | 'mail';
 
 const MODES: { key: Mode; label: string }[] = [
   { key: 'markets', label: 'Markets' },
   { key: 'news', label: 'News' },
   { key: 'pa', label: 'PA' },
   { key: 'chat', label: 'Chat' },
+  { key: 'mail', label: 'Mail' },
 ];
 
 function MarketsIcon({ active }: { active: boolean }) {
@@ -49,11 +50,21 @@ function ChatIcon({ active }: { active: boolean }) {
   );
 }
 
+function MailIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#ff9800' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="M22 4l-10 8L2 4" />
+    </svg>
+  );
+}
+
 const ICON_MAP: Record<Mode, (props: { active: boolean }) => JSX.Element> = {
   markets: MarketsIcon,
   news: NewsIcon,
   pa: PAIcon,
   chat: ChatIcon,
+  mail: MailIcon,
 };
 
 export default function ModeSidebar() {
@@ -76,7 +87,7 @@ export default function ModeSidebar() {
         const isActive = activeMode === m.key;
         const isHovered = hoveredMode === m.key;
         return (
-          <>{m.key === 'chat' && (
+          <>{(m.key === 'chat' || m.key === 'mail') && (
             <div style={{ width: '100%', padding: '0 4px', boxSizing: 'border-box' }}>
               <div style={{ height: 1, background: '#333' }} />
             </div>
