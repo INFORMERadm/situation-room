@@ -175,4 +175,5 @@ export interface SearchSourcesPayload {
 export interface SearchProgress {
   stage: string;
   count?: number;
+  completed?: number;
 }

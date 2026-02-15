@@ -104,7 +104,9 @@ export default function SearchProgressIndicator({ progress }: Props) {
                   whiteSpace: 'nowrap',
                 }}>
                   {stage.label}
-                  {isActive && progress.count ? ` (${progress.count})` : ''}
+                  {isActive && stage.key === 'reading' && progress.count && progress.completed != null
+                    ? ` (${progress.completed}/${progress.count})`
+                    : isActive && progress.count ? ` (${progress.count})` : ''}
                 </span>
 
                 {i < STAGES.length - 1 && (

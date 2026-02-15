@@ -942,10 +942,10 @@ interface SerperResponse {
   images?: SerperImageResult[];
 }
 
-async function callSerperSearch(query: string): Promise<SerperResponse> {
+async function callSerperSearchPage(query: string, page = 1, num = 10): Promise<SerperResponse> {
   if (!SERPER_API_KEY) return {};
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeout = setTimeout(() => controller.abort(), 12000);
   try {
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",
@@ -953,7 +953,7 @@ async function callSerperSearch(query: string): Promise<SerperResponse> {
         "X-API-KEY": SERPER_API_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ q: query, num: 28 }),
+      body: JSON.stringify({ q: query, num, page }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -961,9 +961,44 @@ async function callSerperSearch(query: string): Promise<SerperResponse> {
     return await res.json();
   } catch (e) {
     clearTimeout(timeout);
-    console.error("Serper error:", e);
+    console.error(`Serper error (page ${page}):`, e);
     return {};
   }
+}
+
+async function callSerperSearch(query: string, targetCount = 28): Promise<SerperResponse> {
+  const firstPage = await callSerperSearchPage(query, 1, targetCount);
+  const organic = firstPage.organic ?? [];
+  const images = firstPage.images ?? [];
+  console.log(`[Serper] Page 1 returned ${organic.length} organic results`);
+
+  if (organic.length >= targetCount) {
+    return { organic: organic.slice(0, targetCount), images };
+  }
+
+  const seenUrls = new Set(organic.map((r) => r.link));
+  let page = 2;
+  const maxPages = 4;
+
+  while (organic.length < targetCount && page <= maxPages) {
+    const pageData = await callSerperSearchPage(query, page, 10);
+    const pageOrganic = pageData.organic ?? [];
+    console.log(`[Serper] Page ${page} returned ${pageOrganic.length} organic results`);
+
+    if (pageOrganic.length === 0) break;
+
+    for (const r of pageOrganic) {
+      if (!seenUrls.has(r.link)) {
+        seenUrls.add(r.link);
+        organic.push(r);
+      }
+      if (organic.length >= targetCount) break;
+    }
+    page++;
+  }
+
+  console.log(`[Serper] Final organic count: ${organic.length}/${targetCount}`);
+  return { organic: organic.slice(0, targetCount), images };
 }
 
 async function callSerperImageSearch(query: string): Promise<SerperImageResult[]> {
@@ -1003,57 +1038,138 @@ function faviconUrl(domain: string): string {
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
 }
 
-async function callFirecrawlScrape(url: string): Promise<string> {
+async function callFirecrawlScrape(url: string, retries = 2): Promise<string> {
   if (!FIRECRAWL_API_KEY) return "";
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url, formats: ["markdown"] }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (res.status === 429 && attempt < retries) {
+        console.log(`[Firecrawl] Rate limited on ${url}, retry ${attempt + 1}/${retries}`);
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+        continue;
+      }
+      if (!res.ok) return "";
+      const json = await res.json();
+      const md = json?.data?.markdown ?? "";
+      return md.slice(0, 5000);
+    } catch {
+      clearTimeout(timeout);
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      return "";
+    }
+  }
+  return "";
+}
+
+async function callJinaReader(url: string): Promise<string> {
+  if (!JINA_API_KEY) return "";
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
-    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
+    const res = await fetch(`https://r.jina.ai/${url}`, {
+      method: "GET",
       headers: {
-        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
-        "Content-Type": "application/json",
+        "Authorization": `Bearer ${JINA_API_KEY}`,
+        "Accept": "application/json",
       },
-      body: JSON.stringify({ url, formats: ["markdown"] }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
     if (!res.ok) return "";
     const json = await res.json();
-    const md = json?.data?.markdown ?? "";
-    return md.slice(0, 3000);
+    const content = json?.data?.content ?? "";
+    return content.slice(0, 5000);
   } catch {
     clearTimeout(timeout);
     return "";
   }
 }
 
+interface ScrapeStats {
+  firecrawl: number;
+  jina: number;
+  snippetOnly: number;
+  total: number;
+}
+
 async function scrapeTopResults(
   results: SerperOrganicResult[],
-  limit = 5,
-): Promise<SearchSource[]> {
+  limit = 28,
+  onProgress?: (completed: number, total: number) => void,
+): Promise<{ sources: SearchSource[]; stats: ScrapeStats }> {
   const top = results.slice(0, limit);
-  const promises = top.map(async (r, i) => {
-    const domain = extractDomain(r.link);
-    let fullContent = "";
-    try {
-      fullContent = await callFirecrawlScrape(r.link);
-    } catch { /* use snippet as fallback */ }
-    return {
-      index: i + 1,
-      title: r.title,
-      url: r.link,
-      domain,
-      favicon: faviconUrl(domain),
-      snippet: r.snippet,
-      fullContent: fullContent || r.snippet,
-      relevanceScore: 0,
-    } as SearchSource;
-  });
-  const settled = await Promise.allSettled(promises);
-  return settled
-    .filter((r): r is PromiseFulfilledResult<SearchSource> => r.status === "fulfilled")
-    .map((r) => r.value);
+  const BATCH_SIZE = 5;
+  const allSources: SearchSource[] = [];
+  const stats: ScrapeStats = { firecrawl: 0, jina: 0, snippetOnly: 0, total: top.length };
+  let completed = 0;
+
+  for (let i = 0; i < top.length; i += BATCH_SIZE) {
+    const batch = top.slice(i, i + BATCH_SIZE).map((r, j) => ({
+      result: r,
+      globalIndex: i + j,
+    }));
+
+    const batchPromises = batch.map(async ({ result: r, globalIndex }) => {
+      const domain = extractDomain(r.link);
+      let fullContent = "";
+      let scrapeMethod = "snippet";
+
+      if (FIRECRAWL_API_KEY) {
+        fullContent = await callFirecrawlScrape(r.link);
+        if (fullContent) scrapeMethod = "firecrawl";
+      }
+
+      if (!fullContent && JINA_API_KEY) {
+        fullContent = await callJinaReader(r.link);
+        if (fullContent) scrapeMethod = "jina";
+      }
+
+      return {
+        source: {
+          index: globalIndex + 1,
+          title: r.title,
+          url: r.link,
+          domain,
+          favicon: faviconUrl(domain),
+          snippet: r.snippet,
+          fullContent: fullContent || r.snippet,
+          relevanceScore: 0,
+        } as SearchSource,
+        scrapeMethod,
+      };
+    });
+
+    const settled = await Promise.allSettled(batchPromises);
+    for (const r of settled) {
+      if (r.status === "fulfilled") {
+        allSources.push(r.value.source);
+        if (r.value.scrapeMethod === "firecrawl") stats.firecrawl++;
+        else if (r.value.scrapeMethod === "jina") stats.jina++;
+        else stats.snippetOnly++;
+      }
+    }
+
+    completed += batch.length;
+    if (onProgress) onProgress(completed, top.length);
+    console.log(`[Scraping] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} URLs processed (${completed}/${top.length} total)`);
+  }
+
+  console.log(`[Scraping] Final: ${stats.firecrawl} firecrawl, ${stats.jina} jina fallback, ${stats.snippetOnly} snippet only out of ${stats.total}`);
+  return { sources: allSources, stats };
 }
 
 async function callJinaRerank(
@@ -1065,7 +1181,7 @@ async function callJinaRerank(
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const documents = sources.map((s) => ({
-      text: `${s.title}\n${s.fullContent.slice(0, 500)}`,
+      text: `${s.title}\n${s.fullContent.slice(0, 800)}`,
     }));
     const res = await fetch("https://api.jina.ai/v1/rerank", {
       method: "POST",
@@ -1104,22 +1220,50 @@ interface AdvancedSearchResult {
 
 async function performAdvancedWebSearch(
   query: string,
-  sendStatus: (stage: string, count?: number) => void,
+  sendStatus: (stage: string, count?: number, completed?: number) => void,
 ): Promise<AdvancedSearchResult> {
   sendStatus("searching");
   const [serperData, dedicatedImages] = await Promise.all([
-    callSerperSearch(query),
+    callSerperSearch(query, 28),
     callSerperImageSearch(query),
   ]);
   const organic = serperData.organic ?? [];
   const inlineImages = serperData.images ?? [];
   const images = dedicatedImages.length > 0 ? dedicatedImages : inlineImages;
 
+  console.log(`[DeepSearch] Serper returned ${organic.length} organic results`);
+
   if (organic.length === 0) {
+    console.log("[DeepSearch] No organic results, returning empty");
     return { sources: [], images, query };
   }
 
-  const allSources: SearchSource[] = organic.map((r, i) => {
+  const targetCount = Math.min(organic.length, 28);
+  sendStatus("reading", targetCount, 0);
+
+  if (FIRECRAWL_API_KEY || JINA_API_KEY) {
+    const { sources: scraped, stats } = await scrapeTopResults(
+      organic,
+      targetCount,
+      (completed, total) => {
+        sendStatus("reading", total, completed);
+      },
+    );
+
+    console.log(`[DeepSearch] Scraping complete: ${stats.firecrawl} firecrawl, ${stats.jina} jina, ${stats.snippetOnly} snippet-only out of ${stats.total}`);
+
+    if (JINA_API_KEY) {
+      sendStatus("analyzing");
+      const reranked = await callJinaRerank(query, scraped);
+      reranked.forEach((r, i) => (r.index = i + 1));
+      console.log(`[DeepSearch] Jina reranked ${reranked.length} sources`);
+      return { sources: reranked, images, query };
+    }
+
+    return { sources: scraped, images, query };
+  }
+
+  const snippetSources: SearchSource[] = organic.slice(0, targetCount).map((r, i) => {
     const domain = extractDomain(r.link);
     return {
       index: i + 1,
@@ -1133,33 +1277,26 @@ async function performAdvancedWebSearch(
     };
   });
 
-  if (FIRECRAWL_API_KEY) {
-    sendStatus("reading", Math.min(organic.length, 28));
-    const scraped = await scrapeTopResults(organic, 28);
-    for (const s of scraped) {
-      const idx = allSources.findIndex((a) => a.url === s.url);
-      if (idx !== -1) {
-        allSources[idx].fullContent = s.fullContent;
-      }
-    }
-  }
-
-  if (JINA_API_KEY) {
-    sendStatus("analyzing");
-    const reranked = await callJinaRerank(query, allSources);
-    reranked.forEach((r, i) => (r.index = i + 1));
-    return { sources: reranked, images, query };
-  }
-
-  return { sources: allSources, images, query };
+  return { sources: snippetSources, images, query };
 }
 
 function formatAdvancedSearchContext(result: AdvancedSearchResult): string {
+  const sources = result.sources.slice(0, 28);
   const parts: string[] = ["\n\nWEB SEARCH RESULTS (Deep Search):"];
-  for (const s of result.sources.slice(0, 28)) {
-    parts.push(`\n[Source ${s.index}] ${s.title} (${s.url})`);
-    parts.push(s.fullContent.slice(0, 800));
+
+  for (const s of sources) {
+    const contentLimit = s.index <= 10 ? 1200 : 800;
+    const isSnippetOnly = s.fullContent === s.snippet;
+    const tag = isSnippetOnly ? " [snippet only]" : "";
+    parts.push(`\n[Source ${s.index}] ${s.title} (${s.url})${tag}`);
+    parts.push(s.fullContent.slice(0, contentLimit));
   }
+
+  const snippetCount = sources.filter((s) => s.fullContent === s.snippet).length;
+  if (snippetCount > 8) {
+    parts.push(`\nNote: ${snippetCount} of ${sources.length} sources could only provide brief snippets. Sources marked [snippet only] have limited information.`);
+  }
+
   parts.push(
     "\nIMPORTANT: Use numbered inline citations like [1], [2] when referencing source information. Use these results to supplement your answer alongside the conversation history. Do NOT fabricate information not present in these results or the conversation.",
   );
@@ -1759,8 +1896,8 @@ async function handleAIChat(req: Request): Promise<Response> {
           if (webSearch && useAdvanced) {
             if (searchQuery) {
               console.log(`[AI Chat] Advanced deep search for: "${searchQuery}"`);
-              const sendStatus = (stage: string, count?: number) => {
-                sendChunk(`<search_status>${JSON.stringify({ stage, count })}</search_status>`);
+              const sendStatus = (stage: string, count?: number, completed?: number) => {
+                sendChunk(`<search_status>${JSON.stringify({ stage, count, completed })}</search_status>`);
               };
               const advResult = await performAdvancedWebSearch(searchQuery, sendStatus);
               if (advResult.sources.length > 0) {
