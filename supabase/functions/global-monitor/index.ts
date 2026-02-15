@@ -1156,7 +1156,7 @@ async function performAdvancedWebSearch(
 
 function formatAdvancedSearchContext(result: AdvancedSearchResult): string {
   const parts: string[] = ["\n\nWEB SEARCH RESULTS (Deep Search):"];
-  for (const s of result.sources.slice(0, 15)) {
+  for (const s of result.sources.slice(0, 28)) {
     parts.push(`\n[Source ${s.index}] ${s.title} (${s.url})`);
     parts.push(s.fullContent.slice(0, 800));
   }
