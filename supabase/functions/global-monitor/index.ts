@@ -1234,12 +1234,7 @@ You have access to the following tools:
 9. switch_left_tab - Switch left sidebar tab
    Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
 
-WEB SEARCH:
-- The platform has a "Web Search" toggle that the user can enable.
-- When the user enables it, web search is performed automatically BEFORE your response. The results will appear in the system prompt as "WEB SEARCH RESULTS".
-- You do NOT have a web search tool. Web search is handled by the system.
-- If the user asks about current events, non-financial topics, or anything requiring real-time web information and no web search results are present in this prompt, tell them: "Enable the **Web Search** toggle to search the web for this topic."
-- If web search results ARE present below, use them to answer the question. Do NOT claim you cannot search the web.
+{{WEB_SEARCH_SECTION}}
 
 RESPONSE FORMAT:
 - For tool calls, include JSON blocks wrapped in <tool_call> tags: <tool_call>{"tool":"tool_name","params":{...}}</tool_call>
@@ -1708,7 +1703,20 @@ async function handleAIChat(req: Request): Promise<Response> {
     console.log(`[AI Chat] Available tools: ${aiTools.map(t => t.function.name).join(", ")}`);
 
     const contextStr = platformContext ? JSON.stringify(platformContext) : "{}";
-    const baseSystemContent = AI_SYSTEM_PROMPT + contextStr;
+
+    const webSearchSection = webSearch
+      ? `WEB SEARCH:
+- Web search is currently ENABLED by the user.
+- The system performs web search automatically BEFORE your response. The results will appear in the system prompt as "WEB SEARCH RESULTS".
+- You do NOT have a web search tool. Web search is handled by the system.
+- If web search results ARE present below, use them to answer the question.
+- If web search results are NOT present or are not relevant, answer based on your knowledge. Do NOT tell the user to enable Web Search - it is already enabled.`
+      : `WEB SEARCH:
+- The platform has a "Web Search" toggle that the user can enable.
+- You do NOT have a web search tool. Web search is handled by the system.
+- If the user asks about current events, non-financial topics, or anything requiring real-time web information, tell them: "Enable the **Web Search** toggle to search the web for this topic."`;
+
+    const baseSystemContent = AI_SYSTEM_PROMPT.replace("{{WEB_SEARCH_SECTION}}", webSearchSection) + contextStr;
     const MAX_CHAIN_DEPTH = 5;
 
     const stream = new ReadableStream({
