@@ -3,12 +3,38 @@ import { supabase } from './supabase';
 const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
-  return {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  };
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    if (error || !session) {
+      return {
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = session.expires_at ?? 0;
+
+    if (expiresAt < now) {
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      const token = refreshData?.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+      return {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+    }
+
+    return {
+      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    };
+  } catch {
+    return {
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+    };
+  }
 }
 
 async function fetchWithRetry(
