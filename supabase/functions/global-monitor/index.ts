@@ -1134,8 +1134,8 @@ async function performAdvancedWebSearch(
   });
 
   if (FIRECRAWL_API_KEY) {
-    sendStatus("reading", Math.min(organic.length, 8));
-    const scraped = await scrapeTopResults(organic, 8);
+    sendStatus("reading", Math.min(organic.length, 28));
+    const scraped = await scrapeTopResults(organic, 28);
     for (const s of scraped) {
       const idx = allSources.findIndex((a) => a.url === s.url);
       if (idx !== -1) {
