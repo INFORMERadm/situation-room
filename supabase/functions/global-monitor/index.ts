@@ -1710,12 +1710,14 @@ async function handleAIChat(req: Request): Promise<Response> {
 
     const webSearchSection = webSearch
       ? `WEB SEARCH:
-- Web search is currently ENABLED by the user.
-- The system performs web search automatically BEFORE your response. The results will appear in the system prompt as "WEB SEARCH RESULTS".
-- You do NOT have a web search tool. Web search is handled by the system.
-- If web search results ARE present below, use them to supplement your answer.
-- If web search results are NOT present or are not relevant, answer based on your knowledge and the conversation history. Do NOT tell the user to enable Web Search - it is already enabled.
-- CRITICAL: ALWAYS consider the FULL conversation history. Web search results are supplementary context only. If the user asks a follow-up question about something discussed earlier in the conversation, use the conversation history as your primary source and use search results only if they add new information.`
+- Web search is currently ENABLED and has ALREADY been performed by the system BEFORE your response.
+- The search results appear below as "WEB SEARCH RESULTS". They are ALREADY AVAILABLE to you right now.
+- You do NOT have a web search tool. You CANNOT perform additional searches. The search is already done.
+- CRITICAL: Use the search results IMMEDIATELY in your response. Answer the user's question directly using the data from the search results.
+- NEVER say "give me a moment", "let me look that up", "let me search", or anything implying you need to fetch data. The data is ALREADY HERE in the search results below.
+- NEVER tell the user to visit a website or look something up themselves if the answer is in the search results.
+- If the search results do not contain relevant information, answer based on your knowledge and conversation history. Do NOT tell the user to enable Web Search - it is already enabled.
+- ALWAYS consider the FULL conversation history alongside the search results. If the user asks a follow-up about something discussed earlier, use the conversation history as your primary source and search results only if they add new information.`
       : `WEB SEARCH:
 - The platform has a "Web Search" toggle that the user can enable.
 - You do NOT have a web search tool. Web search is handled by the system.
