@@ -1161,7 +1161,7 @@ function formatAdvancedSearchContext(result: AdvancedSearchResult): string {
     parts.push(s.fullContent.slice(0, 800));
   }
   parts.push(
-    "\nIMPORTANT: Use numbered inline citations like [1], [2] when referencing source information. Synthesize from these results. Do NOT fabricate information not present in these results.",
+    "\nIMPORTANT: Use numbered inline citations like [1], [2] when referencing source information. Use these results to supplement your answer alongside the conversation history. Do NOT fabricate information not present in these results or the conversation.",
   );
   return parts.join("\n");
 }
@@ -1177,7 +1177,7 @@ function formatTavilyContext(data: TavilyResponse): string {
       parts.push(`${i + 1}. ${r.title} (${r.url})\n   ${r.content?.slice(0, 300) ?? ""}`);
     });
   }
-  parts.push("\nIMPORTANT: Synthesize your answer from these web search results. Reference sources by number when citing information. Do NOT call tavily_search - the search has already been performed for you. Do NOT fabricate or hallucinate any information not present in these results.");
+  parts.push("\nIMPORTANT: Use these results to supplement your answer alongside the conversation history. Reference sources by number when citing information. Do NOT call tavily_search - the search has already been performed for you. Do NOT fabricate or hallucinate any information not present in these results or the conversation.");
   return parts.join("\n");
 }
 
@@ -1713,8 +1713,9 @@ async function handleAIChat(req: Request): Promise<Response> {
 - Web search is currently ENABLED by the user.
 - The system performs web search automatically BEFORE your response. The results will appear in the system prompt as "WEB SEARCH RESULTS".
 - You do NOT have a web search tool. Web search is handled by the system.
-- If web search results ARE present below, use them to answer the question.
-- If web search results are NOT present or are not relevant, answer based on your knowledge. Do NOT tell the user to enable Web Search - it is already enabled.`
+- If web search results ARE present below, use them to supplement your answer.
+- If web search results are NOT present or are not relevant, answer based on your knowledge and the conversation history. Do NOT tell the user to enable Web Search - it is already enabled.
+- CRITICAL: ALWAYS consider the FULL conversation history. Web search results are supplementary context only. If the user asks a follow-up question about something discussed earlier in the conversation, use the conversation history as your primary source and use search results only if they add new information.`
       : `WEB SEARCH:
 - The platform has a "Web Search" toggle that the user can enable.
 - You do NOT have a web search tool. Web search is handled by the system.
@@ -1737,9 +1738,23 @@ async function handleAIChat(req: Request): Promise<Response> {
           let tavilySourcesMd = "";
           const useAdvanced = searchMode === "advanced" && SERPER_API_KEY;
 
+          const lastUserMsg = messages[messages.length - 1];
+          const lastUserText = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
+
+          let searchQuery = lastUserText;
+          if (webSearch && lastUserText && messages.length > 1) {
+            const recentContext: string[] = [];
+            const historySlice = messages.slice(-6, -1);
+            for (const m of historySlice) {
+              const c = typeof m.content === "string" ? m.content : "";
+              if (c) recentContext.push(`${m.role}: ${c.slice(0, 200)}`);
+            }
+            if (recentContext.length > 0) {
+              searchQuery = `${lastUserText} (context: ${recentContext.join("; ")})`;
+            }
+          }
+
           if (webSearch && useAdvanced) {
-            const lastUserMsg = messages[messages.length - 1];
-            const searchQuery = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
             if (searchQuery) {
               console.log(`[AI Chat] Advanced deep search for: "${searchQuery}"`);
               const sendStatus = (stage: string, count?: number) => {
@@ -1763,7 +1778,6 @@ async function handleAIChat(req: Request): Promise<Response> {
                 sendChunk(`<search_sources>${JSON.stringify(sourcesPayload)}</search_sources>`);
                 console.log(`[AI Chat] Advanced search found ${advResult.sources.length} sources`);
 
-                const lastSessionMsg = messages[messages.length - 1];
                 const sid = body.sessionId || "";
                 if (sid) {
                   supabase.from("web_search_results").insert({
@@ -1778,8 +1792,6 @@ async function handleAIChat(req: Request): Promise<Response> {
               }
             }
           } else if (webSearch && TAVILY_API_KEY) {
-            const lastUserMsg = messages[messages.length - 1];
-            const searchQuery = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
             if (searchQuery) {
               console.log(`[AI Chat] Pre-searching web for: "${searchQuery}"`);
               sendChunk(`<tool_call>${JSON.stringify({ tool: "tavily_search", params: { query: searchQuery } })}</tool_call>`);
