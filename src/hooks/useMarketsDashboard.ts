@@ -60,6 +60,7 @@ export function useMarketsDashboard(): MarketsDashboardData {
   const [loading, setLoading] = useState<Record<string, boolean>>({});
 
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+  const mountedRef = useRef(true);
 
   const setLoad = useCallback((key: string, val: boolean) => {
     setLoading(prev => ({ ...prev, [key]: val }));
@@ -68,47 +69,61 @@ export function useMarketsDashboard(): MarketsDashboardData {
   const loadOverview = useCallback(async () => {
     try {
       const data = await fetchMarketOverview();
-      setOverview(data);
-    } catch { /* skip */ }
+      if (mountedRef.current) setOverview(data);
+    } catch (err) {
+      console.error('[Dashboard] overview load failed:', err);
+    }
   }, []);
 
   const loadMovers = useCallback(async () => {
     try {
       const data = await fetchMarketMovers();
-      setMovers({
-        gainers: data.gainers ?? [],
-        losers: data.losers ?? [],
-        active: data.active ?? [],
-      });
-    } catch { /* skip */ }
+      if (mountedRef.current) {
+        setMovers({
+          gainers: data.gainers ?? [],
+          losers: data.losers ?? [],
+          active: data.active ?? [],
+        });
+      }
+    } catch (err) {
+      console.error('[Dashboard] movers load failed:', err);
+    }
   }, []);
 
   const loadSectors = useCallback(async () => {
     try {
       const data = await fetchSectorPerformance();
-      setSectors(data);
-    } catch { /* skip */ }
+      if (mountedRef.current) setSectors(data);
+    } catch (err) {
+      console.error('[Dashboard] sectors load failed:', err);
+    }
   }, []);
 
   const loadEarnings = useCallback(async () => {
     try {
       const data = await fetchEarningsCalendar();
-      setEarnings(data);
-    } catch { /* skip */ }
+      if (mountedRef.current) setEarnings(data);
+    } catch (err) {
+      console.error('[Dashboard] earnings load failed:', err);
+    }
   }, []);
 
   const loadEconomic = useCallback(async () => {
     try {
       const data = await fetchEconomicCalendar();
-      setEconomic(data);
-    } catch { /* skip */ }
+      if (mountedRef.current) setEconomic(data);
+    } catch (err) {
+      console.error('[Dashboard] economic load failed:', err);
+    }
   }, []);
 
   const loadNews = useCallback(async () => {
     try {
       const data = await fetchMarketNews();
-      setNews(data);
-    } catch { /* skip */ }
+      if (mountedRef.current) setNews(data);
+    } catch (err) {
+      console.error('[Dashboard] news load failed:', err);
+    }
   }, []);
 
   const loadSymbolData = useCallback(async (symbol: string, timeframe: string) => {
@@ -116,15 +131,19 @@ export function useMarketsDashboard(): MarketsDashboardData {
     setLoad('profile', true);
 
     try {
-      const [chartData, profileData, quoteData] = await Promise.all([
+      const [chartData, profileData, quoteData] = await Promise.allSettled([
         fetchHistoricalChart(symbol, timeframe),
         fetchCompanyProfile(symbol),
         fetchQuote(symbol),
       ]);
-      setChart(chartData);
-      setProfile(profileData);
-      setQuote(quoteData);
-    } catch { /* skip */ }
+      if (mountedRef.current) {
+        if (chartData.status === 'fulfilled') setChart(chartData.value);
+        if (profileData.status === 'fulfilled') setProfile(profileData.value);
+        if (quoteData.status === 'fulfilled') setQuote(quoteData.value);
+      }
+    } catch (err) {
+      console.error('[Dashboard] symbol data load failed:', err);
+    }
 
     setLoad('chart', false);
     setLoad('profile', false);
@@ -141,13 +160,21 @@ export function useMarketsDashboard(): MarketsDashboardData {
   }, [selectedSymbol, loadSymbolData]);
 
   useEffect(() => {
-    loadOverview();
-    loadMovers();
-    loadSectors();
-    loadEarnings();
-    loadEconomic();
-    loadNews();
-    loadSymbolData('AAPL', 'daily');
+    mountedRef.current = true;
+
+    const loadAll = () => {
+      loadOverview();
+      loadMovers();
+      loadSectors();
+      loadEarnings();
+      loadEconomic();
+      loadNews();
+      loadSymbolData('AAPL', 'daily');
+    };
+
+    loadAll();
+
+    const retryTimer = setTimeout(loadAll, 5_000);
 
     const i1 = setInterval(loadOverview, 15_000);
     const i2 = setInterval(loadMovers, 60_000);
@@ -157,7 +184,11 @@ export function useMarketsDashboard(): MarketsDashboardData {
     const i6 = setInterval(loadEconomic, 300_000);
 
     intervalsRef.current = [i1, i2, i3, i4, i5, i6];
-    return () => intervalsRef.current.forEach(clearInterval);
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(retryTimer);
+      intervalsRef.current.forEach(clearInterval);
+    };
   }, [loadOverview, loadMovers, loadSectors, loadEarnings, loadEconomic, loadNews, loadSymbolData]);
 
   return {

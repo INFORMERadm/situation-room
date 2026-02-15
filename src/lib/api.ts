@@ -11,18 +11,37 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries = 2,
+  delay = 1000,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok || attempt === retries) return res;
+    } catch (err) {
+      if (attempt === retries) throw err;
+    }
+    await new Promise(r => setTimeout(r, delay * (attempt + 1)));
+  }
+  return fetch(url, options);
+}
+
 export async function fetchFeed(feed: string) {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}/global-monitor?feed=${feed}`, { headers });
+  const res = await fetchWithRetry(`${API_BASE}/global-monitor?feed=${feed}`, { headers });
   if (!res.ok) throw new Error(`Feed ${feed} failed: ${res.status}`);
   return res.json();
 }
 
 export async function fetchSymbolSearch(query: string) {
   const headers = await getAuthHeaders();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${API_BASE}/global-monitor?feed=search-symbol&query=${encodeURIComponent(query)}`,
-    { headers }
+    { headers },
+    1,
   );
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
   const json = await res.json();
@@ -31,9 +50,9 @@ export async function fetchSymbolSearch(query: string) {
 
 export async function fetchQuote(symbol: string) {
   const headers = await getAuthHeaders();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${API_BASE}/global-monitor?feed=quote&symbol=${encodeURIComponent(symbol)}`,
-    { headers }
+    { headers },
   );
   if (!res.ok) throw new Error(`Quote failed: ${res.status}`);
   const json = await res.json();
@@ -43,9 +62,9 @@ export async function fetchQuote(symbol: string) {
 export async function fetchBatchQuotes(symbols: string[]) {
   if (symbols.length === 0) return {};
   const headers = await getAuthHeaders();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${API_BASE}/global-monitor?feed=batch-quotes&symbols=${encodeURIComponent(symbols.join(','))}`,
-    { headers }
+    { headers },
   );
   if (!res.ok) throw new Error(`Batch quotes failed: ${res.status}`);
   const json = await res.json();
@@ -54,7 +73,7 @@ export async function fetchBatchQuotes(symbols: string[]) {
 
 export async function fetchMarketOverview() {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}/global-monitor?feed=market-overview`, { headers });
+  const res = await fetchWithRetry(`${API_BASE}/global-monitor?feed=market-overview`, { headers });
   if (!res.ok) throw new Error(`Market overview failed: ${res.status}`);
   const json = await res.json();
   return json.overview ?? [];
@@ -62,14 +81,14 @@ export async function fetchMarketOverview() {
 
 export async function fetchMarketMovers() {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}/global-monitor?feed=market-movers`, { headers });
+  const res = await fetchWithRetry(`${API_BASE}/global-monitor?feed=market-movers`, { headers });
   if (!res.ok) throw new Error(`Market movers failed: ${res.status}`);
   return res.json();
 }
 
 export async function fetchSectorPerformance() {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}/global-monitor?feed=sector-performance`, { headers });
+  const res = await fetchWithRetry(`${API_BASE}/global-monitor?feed=sector-performance`, { headers });
   if (!res.ok) throw new Error(`Sector performance failed: ${res.status}`);
   const json = await res.json();
   return json.sectors ?? [];
@@ -77,9 +96,9 @@ export async function fetchSectorPerformance() {
 
 export async function fetchHistoricalChart(symbol: string, timeframe: string) {
   const headers = await getAuthHeaders();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${API_BASE}/global-monitor?feed=historical-chart&symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`,
-    { headers }
+    { headers },
   );
   if (!res.ok) throw new Error(`Chart failed: ${res.status}`);
   const json = await res.json();
@@ -88,9 +107,9 @@ export async function fetchHistoricalChart(symbol: string, timeframe: string) {
 
 export async function fetchCompanyProfile(symbol: string) {
   const headers = await getAuthHeaders();
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `${API_BASE}/global-monitor?feed=company-profile&symbol=${encodeURIComponent(symbol)}`,
-    { headers }
+    { headers },
   );
   if (!res.ok) throw new Error(`Profile failed: ${res.status}`);
   const json = await res.json();
@@ -99,7 +118,7 @@ export async function fetchCompanyProfile(symbol: string) {
 
 export async function fetchEarningsCalendar() {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}/global-monitor?feed=earnings-calendar`, { headers });
+  const res = await fetchWithRetry(`${API_BASE}/global-monitor?feed=earnings-calendar`, { headers });
   if (!res.ok) throw new Error(`Earnings calendar failed: ${res.status}`);
   const json = await res.json();
   return json.earnings ?? [];
@@ -107,7 +126,7 @@ export async function fetchEarningsCalendar() {
 
 export async function fetchEconomicCalendar() {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}/global-monitor?feed=economic-calendar`, { headers });
+  const res = await fetchWithRetry(`${API_BASE}/global-monitor?feed=economic-calendar`, { headers });
   if (!res.ok) throw new Error(`Economic calendar failed: ${res.status}`);
   const json = await res.json();
   return json.events ?? [];
@@ -115,7 +134,7 @@ export async function fetchEconomicCalendar() {
 
 export async function fetchMarketNews() {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}/global-monitor?feed=market-news`, { headers });
+  const res = await fetchWithRetry(`${API_BASE}/global-monitor?feed=market-news`, { headers });
   if (!res.ok) throw new Error(`Market news failed: ${res.status}`);
   const json = await res.json();
   return json.news ?? [];
@@ -128,7 +147,7 @@ export async function fetchFmpProxy(endpoint: string, params: Record<string, str
     endpoint,
     params: JSON.stringify(params),
   });
-  const res = await fetch(`${API_BASE}/global-monitor?${qs.toString()}`, { headers });
+  const res = await fetchWithRetry(`${API_BASE}/global-monitor?${qs.toString()}`, { headers });
   if (!res.ok) throw new Error(`FMP proxy failed: ${res.status}`);
   const json = await res.json();
   return json.data ?? null;
