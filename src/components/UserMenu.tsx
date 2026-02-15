@@ -21,7 +21,7 @@ export default function UserMenu() {
     : user?.email?.[0]?.toUpperCase() || '?';
 
   const displayName = profile?.display_name || user?.email || '';
-  const n3Email = profile?.n3_email || '';
+  const n4Email = profile?.n4_email || '';
 
   return (
     <div ref={menuRef} style={{ position: 'relative' }}>
@@ -87,9 +87,9 @@ export default function UserMenu() {
             <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f6fc' }}>
               {displayName}
             </div>
-            {n3Email && (
+            {n4Email && (
               <div style={{ fontSize: 11, color: '#fb8c00', marginTop: 3 }}>
-                {n3Email}
+                {n4Email}
               </div>
             )}
             <div style={{ fontSize: 11, color: '#484f58', marginTop: 2 }}>

@@ -35,10 +35,10 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock }: Pr
       >
         <img
           src="/Black_Transparent.png"
-          alt="N3 Logo"
+          alt="N4 Logo"
           style={{ width: 28, height: 28, objectFit: 'contain' }}
         />
-        <span style={{ position: 'relative', top: 1 }}>N3-AI Agentic Information Platform</span>
+        <span style={{ position: 'relative', top: 1 }}>N4-AI Agentic Information Platform</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks

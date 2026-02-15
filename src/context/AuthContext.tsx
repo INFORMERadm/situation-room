@@ -7,7 +7,7 @@ export interface UserProfile {
   id: string;
   first_name: string;
   last_name: string;
-  n3_email: string;
+  n4_email: string;
   display_name: string | null;
   avatar_url: string | null;
   onboarding_completed: boolean;

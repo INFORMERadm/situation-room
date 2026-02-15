@@ -1181,7 +1181,7 @@ function formatTavilyContext(data: TavilyResponse): string {
   return parts.join("\n");
 }
 
-const AI_SYSTEM_PROMPT = `You are N3 Assistant, the AI command center for the Global Monitor financial markets platform.
+const AI_SYSTEM_PROMPT = `You are N4 Assistant, the AI command center for the Global Monitor financial markets platform.
 
 You have access to the following tools:
 

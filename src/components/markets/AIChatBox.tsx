@@ -309,7 +309,7 @@ export default function AIChatBox({
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask N3... (e.g. 'Show me TSLA balance sheet')"
+          placeholder="Ask N4... (e.g. 'Show me TSLA balance sheet')"
           style={{
             flex: 1,
             background: 'transparent',
@@ -923,7 +923,7 @@ export default function AIChatBox({
                   gap: 12,
                 }}>
                   <div style={{ opacity: 0.3 }}>
-                    <img src="/white_transparent.png" alt="N3" width={48} height={48} style={{ display: 'block' }} />
+                    <img src="/white_transparent.png" alt="N4" width={48} height={48} style={{ display: 'block' }} />
                   </div>
                   <span style={{ fontSize: 12 }}>Ask about any stock, market data, or financial information</span>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 400 }}>
@@ -972,7 +972,7 @@ export default function AIChatBox({
                       fontSize: 10, color: msg.role === 'user' ? '#000' : '#00c853',
                       fontWeight: 700, flexShrink: 0,
                     }}>
-                      {msg.role === 'user' ? 'U' : 'N3'}
+                      {msg.role === 'user' ? 'U' : 'N4'}
                     </div>
                     <div style={{
                       maxWidth: '85%', minWidth: 0, overflow: 'hidden',
@@ -1030,7 +1030,7 @@ export default function AIChatBox({
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 10, color: '#00c853', fontWeight: 700, flexShrink: 0,
                     }}>
-                      N3
+                      N4
                     </div>
                     <div style={{
                       maxWidth: '85%', minWidth: 0, overflow: 'hidden',
@@ -1068,7 +1068,7 @@ export default function AIChatBox({
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 10, color: '#00c853', fontWeight: 700, flexShrink: 0,
                     }}>
-                      N3
+                      N4
                     </div>
                     <div style={{
                       background: '#0d0d0d', borderRadius: 8, padding: '10px 14px',
@@ -1175,7 +1175,7 @@ export default function AIChatBox({
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask N3 about any financial data..."
+                placeholder="Ask N4 about any financial data..."
                 rows={1}
                 style={{
                   flex: 1, background: 'transparent', border: 'none', outline: 'none',

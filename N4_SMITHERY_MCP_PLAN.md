@@ -1,8 +1,8 @@
-# N3 - Smithery MCP Integration Plan
+# N4 - Smithery MCP Integration Plan
 
 ## Overview
 
-N3 is an advanced ChatGPT-type application with enhanced MCP (Model Context Protocol) integration. A crucial part of this integration is the connection to Smithery, which allows users to connect their own MCPs in addition to the default system MCPs.
+N4 is an advanced ChatGPT-type application with enhanced MCP (Model Context Protocol) integration. A crucial part of this integration is the connection to Smithery, which allows users to connect their own MCPs in addition to the default system MCPs.
 
 ---
 
@@ -78,7 +78,7 @@ N3 is an advanced ChatGPT-type application with enhanced MCP (Model Context Prot
 2. Frontend calls the `smithery-connect` edge function
 3. If `status === 'auth_required'`, redirect user to `authorizationUrl`
 4. User completes OAuth with the upstream provider
-5. User is redirected back to N3
+5. User is redirected back to N4
 6. Frontend retries connection with saved `connectionId`
 7. Connection status updates to `connected`
 
@@ -113,7 +113,7 @@ N3 is an advanced ChatGPT-type application with enhanced MCP (Model Context Prot
 | Client auth | Service tokens (1hr TTL) | Scoped, short-lived, safe for browser |
 | Connection tracking | Supabase DB + Smithery metadata | Dual tracking for reliability |
 | Tool aggregation | Server-side in edge function | Consistent, secure |
-| Namespace | `n3-app` | Single namespace for all N3 connections |
+| Namespace | `n4-app` | Single namespace for all N4 connections |
 
 ---
 
@@ -131,29 +131,29 @@ import { createConnection, SmitheryAuthorizationError } from '@smithery/api/mcp'
 ```typescript
 // Create connection
 const conn = await smithery.beta.connect.connections.set(connectionId, {
-  namespace: 'n3-app',
+  namespace: 'n4-app',
   mcpUrl: 'https://server.smithery.ai/@anthropic/github',
   name: 'GitHub',
   metadata: { userId: 'user-123' }
 });
 
 // List user connections
-const connections = await smithery.beta.connect.connections.list('n3-app', {
+const connections = await smithery.beta.connect.connections.list('n4-app', {
   metadata: { userId: 'user-123' }
 });
 
 // Mint service token
 const { token } = await smithery.tokens.create({
   allow: {
-    connections: { actions: ['read'], namespaces: ['n3-app'], metadata: { userId } },
-    mcp: { actions: ['write'], namespaces: ['n3-app'], metadata: { userId } }
+    connections: { actions: ['read'], namespaces: ['n4-app'], metadata: { userId } },
+    mcp: { actions: ['write'], namespaces: ['n4-app'], metadata: { userId } }
   },
   ttlSeconds: 3600
 });
 
 // Direct MCP call
 const result = await smithery.beta.connect.mcp.call(connectionId, {
-  namespace: 'n3-app',
+  namespace: 'n4-app',
   method: 'tools/call',
   params: { name: 'tool_name', arguments: { ... } }
 });

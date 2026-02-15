@@ -27,18 +27,18 @@ export default function OnboardingPage() {
     setIsSubmitting(true);
 
     const { data: emailData, error: emailError } = await supabase
-      .rpc('generate_n3_email', {
+      .rpc('generate_n4_email', {
         p_first_name: firstName.trim(),
         p_last_name: lastName.trim(),
       });
 
     if (emailError || !emailData) {
       setIsSubmitting(false);
-      setError(emailError?.message || 'Failed to generate N3 email.');
+      setError(emailError?.message || 'Failed to generate N4 email.');
       return;
     }
 
-    const n3Email = emailData as string;
+    const n4Email = emailData as string;
     const displayName = `${firstName.trim()} ${lastName.trim()}`;
 
     const { error: insertError } = await supabase
@@ -47,7 +47,7 @@ export default function OnboardingPage() {
         id: user.id,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-        n3_email: n3Email,
+        n4_email: n4Email,
         display_name: displayName,
         onboarding_completed: true,
       });
@@ -59,7 +59,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    setGeneratedEmail(n3Email);
+    setGeneratedEmail(n4Email);
     await refreshProfile();
   };
 
@@ -70,20 +70,20 @@ export default function OnboardingPage() {
           <div style={styles.logoRow}>
             <img
               src="/white_transparent.png"
-              alt="N3 Logo"
+              alt="N4 Logo"
               style={styles.logo}
             />
           </div>
-          <h1 style={styles.title}>Welcome to N3</h1>
+          <h1 style={styles.title}>Welcome to N4</h1>
           <p style={styles.subtitle}>Your account is ready</p>
 
           <div style={styles.emailDisplay}>
-            <span style={styles.emailLabel}>Your N3 Email Address</span>
+            <span style={styles.emailLabel}>Your N4 Email Address</span>
             <span style={styles.emailValue}>{generatedEmail}</span>
           </div>
 
           <p style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', margin: '16px 0 24px', lineHeight: 1.6 }}>
-            This is your unique N3 platform email address. You can use it to communicate with other N3 users.
+            This is your unique N4 platform email address. You can use it to communicate with other N4 users.
           </p>
 
           <a href="/" style={styles.button}>
@@ -100,13 +100,13 @@ export default function OnboardingPage() {
         <div style={styles.logoRow}>
           <img
             src="/white_transparent.png"
-            alt="N3 Logo"
+            alt="N4 Logo"
             style={styles.logo}
           />
         </div>
         <h1 style={styles.title}>Set Up Your Profile</h1>
         <p style={styles.subtitle}>
-          Tell us your name and we'll generate your unique N3 email address
+          Tell us your name and we'll generate your unique N4 email address
         </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -136,7 +136,7 @@ export default function OnboardingPage() {
               <span style={{ color: '#6b7280', fontSize: 11 }}>Preview:</span>
               <span style={{ color: '#fb8c00', fontSize: 13 }}>
                 {firstName.trim().toLowerCase().replace(/[^a-z]/gi, '')}.
-                {lastName.trim().toLowerCase().replace(/[^a-z]/gi, '')}@n3mail.com
+                {lastName.trim().toLowerCase().replace(/[^a-z]/gi, '')}@n4mail.com
               </span>
             </div>
           )}
@@ -150,7 +150,7 @@ export default function OnboardingPage() {
               cursor: isSubmitting ? 'not-allowed' : 'pointer',
             }}
           >
-            {isSubmitting ? 'Generating...' : 'Generate My N3 Email'}
+            {isSubmitting ? 'Generating...' : 'Generate My N4 Email'}
           </button>
         </form>
       </div>
