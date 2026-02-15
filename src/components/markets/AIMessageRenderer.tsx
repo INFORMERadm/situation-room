@@ -251,7 +251,7 @@ export default function AIMessageRenderer({ content, searchSources, onOpenSource
       continue;
     }
 
-    if (line.includes('|') && line.trim().startsWith('|')) {
+    if (line.includes('|') && (line.trim().startsWith('|') || (i + 1 < lines.length && lines[i + 1].match(/^\s*\|?\s*[-:]+[-|: ]+/)))) {
       const tableLines: string[] = [line];
       i++;
       while (i < lines.length && lines[i].includes('|')) {

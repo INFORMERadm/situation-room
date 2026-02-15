@@ -1243,7 +1243,11 @@ RESPONSE FORMAT:
 - When asked about a price or financial data for a specific company, ALWAYS also call change_symbol to navigate to that stock
 - When the user asks to ADD a symbol/stock to their watchlist, you MUST call add_to_watchlist with both the symbol and the company name. Example: <tool_call>{"tool":"add_to_watchlist","params":{"symbol":"BABA","name":"Alibaba Group"}}</tool_call>
 - When the user asks to REMOVE a symbol/stock from their watchlist, you MUST call remove_from_watchlist. Example: <tool_call>{"tool":"remove_from_watchlist","params":{"symbol":"BABA"}}</tool_call>
-- Format financial data in markdown tables for readability
+- Format data in proper markdown tables using pipe (|) delimiters and a separator row. Example:
+  | Metric | Value |
+  |--------|-------|
+  | Revenue | $100B |
+  CRITICAL: ALWAYS use | characters for table columns. NEVER use space-aligned or tab-aligned tables without pipes.
 - Use ** for bold key figures
 - Keep responses concise and data-focused
 - When presenting financial statements, show key line items in a clean table
