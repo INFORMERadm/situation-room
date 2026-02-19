@@ -1,11 +1,12 @@
 import { useState } from 'react';
 
-type Mode = 'markets' | 'news' | 'pa' | 'chat' | 'mail';
+type Mode = 'markets' | 'news' | 'pa' | 'law' | 'chat' | 'mail';
 
 const MODES: { key: Mode; label: string }[] = [
   { key: 'markets', label: 'Markets' },
   { key: 'news', label: 'News' },
   { key: 'pa', label: 'PA' },
+  { key: 'law', label: 'Law' },
   { key: 'chat', label: 'Chat' },
   { key: 'mail', label: 'Mail' },
 ];
@@ -42,6 +43,18 @@ function PAIcon({ active }: { active: boolean }) {
   );
 }
 
+function LawIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#ff9800' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2v20" />
+      <path d="M5 5h14" />
+      <path d="M5 5l-3 6a3 3 0 0 0 6 0L5 5z" />
+      <path d="M19 5l-3 6a3 3 0 0 0 6 0L19 5z" />
+      <path d="M8 22h8" />
+    </svg>
+  );
+}
+
 function ChatIcon({ active }: { active: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#ff9800' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -63,6 +76,7 @@ const ICON_MAP: Record<Mode, (props: { active: boolean }) => JSX.Element> = {
   markets: MarketsIcon,
   news: NewsIcon,
   pa: PAIcon,
+  law: LawIcon,
   chat: ChatIcon,
   mail: MailIcon,
 };
