@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { streamAIChat, saveAIMessage, loadAIHistory, loadAISessions, fetchWebSearchSources, renameAISession, deleteAISession, deleteAISessions, deleteAllAISessions } from '../lib/api';
 import type { AIMessage } from '../lib/api';
-import { parseAIResponse, executeToolCall, isClientToolCall, buildContextPayload } from '../lib/aiTools';
+import { parseAIResponse, executeToolCall, isClientToolCall, isChartNavToolCall, buildContextPayload } from '../lib/aiTools';
 import type { PlatformActions } from '../lib/aiTools';
 import { usePlatform } from '../context/PlatformContext';
 import type { SearchSource, SearchImage, SearchProgress } from '../types/index';
@@ -130,6 +130,7 @@ export function useAIChat(
     removeFromWatchlist: () => {},
     setRightPanelView: () => {},
     setLeftTab: () => {},
+    collapseChat: () => {},
   });
   platformActionsRef.current = {
     selectSymbol: (s: string) => {
@@ -143,6 +144,7 @@ export function useAIChat(
     removeFromWatchlist: platform.removeFromWatchlist,
     setRightPanelView: platform.setRightPanelView,
     setLeftTab: platform.setLeftTab,
+    collapseChat: () => setIsExpanded(false),
   };
 
   const refreshSessions = useCallback(() => {
@@ -257,8 +259,12 @@ export function useAIChat(
           parsed.text.includes('```') ||
           parsed.text.includes('**');
 
+        const hasChartNavCall = clientCalls.some(isChartNavToolCall);
+
         if (hasDataContent) {
           setIsExpanded(true);
+        } else if (hasChartNavCall) {
+          setIsExpanded(false);
         }
 
         if (statuses.length > 0 && !hasDataContent) {

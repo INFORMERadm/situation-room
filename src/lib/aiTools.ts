@@ -27,6 +27,17 @@ export function parseAIResponse(raw: string): ParsedAIResponse {
   return { text, toolCalls };
 }
 
+const CHART_NAV_TOOLS = new Set([
+  'change_symbol',
+  'change_timeframe',
+  'change_chart_type',
+  'toggle_indicator',
+]);
+
+export function isChartNavToolCall(tc: ToolCall): boolean {
+  return CHART_NAV_TOOLS.has(tc.tool);
+}
+
 export interface PlatformActions {
   selectSymbol: (symbol: string) => void;
   setChartTimeframe: (tf: string) => void;
@@ -36,6 +47,7 @@ export interface PlatformActions {
   removeFromWatchlist: (symbol: string) => void;
   setRightPanelView: (view: 'news' | 'economic') => void;
   setLeftTab: (tab: string) => void;
+  collapseChat: () => void;
 }
 
 export function executeToolCall(tc: ToolCall, actions: PlatformActions): string {
