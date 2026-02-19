@@ -254,20 +254,22 @@ export function useAIChat(
           if (result) statuses.push(result);
         }
 
-        const hasDataContent = parsed.text.length > 80 ||
-          parsed.text.includes('|') ||
-          parsed.text.includes('```') ||
-          parsed.text.includes('**');
-
         const hasChartNavCall = clientCalls.some(isChartNavToolCall);
 
-        if (hasDataContent) {
-          setIsExpanded(true);
-        } else if (hasChartNavCall) {
+        const hasRichDataContent = !hasChartNavCall && (
+          parsed.text.length > 80 ||
+          parsed.text.includes('|') ||
+          parsed.text.includes('```') ||
+          parsed.text.includes('**')
+        );
+
+        if (hasChartNavCall) {
           setIsExpanded(false);
+        } else if (hasRichDataContent) {
+          setIsExpanded(true);
         }
 
-        if (statuses.length > 0 && !hasDataContent) {
+        if (statuses.length > 0 && !hasRichDataContent) {
           setInlineStatus(statuses.join(' | '));
           clearTimeout(inlineTimerRef.current);
           inlineTimerRef.current = setTimeout(() => setInlineStatus(null), 3000);
