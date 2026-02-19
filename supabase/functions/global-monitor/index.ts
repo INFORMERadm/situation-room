@@ -1038,47 +1038,35 @@ function faviconUrl(domain: string): string {
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
 }
 
-async function callFirecrawlScrape(url: string, retries = 2): Promise<string> {
+async function callFirecrawlScrape(url: string): Promise<string> {
   if (!FIRECRAWL_API_KEY) return "";
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    try {
-      const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ url, formats: ["markdown"] }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (res.status === 429 && attempt < retries) {
-        console.log(`[Firecrawl] Rate limited on ${url}, retry ${attempt + 1}/${retries}`);
-        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
-        continue;
-      }
-      if (!res.ok) return "";
-      const json = await res.json();
-      const md = json?.data?.markdown ?? "";
-      return md.slice(0, 5000);
-    } catch {
-      clearTimeout(timeout);
-      if (attempt < retries) {
-        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
-        continue;
-      }
-      return "";
-    }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url, formats: ["markdown"] }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return "";
+    const json = await res.json();
+    const md = json?.data?.markdown ?? "";
+    return md.slice(0, 5000);
+  } catch {
+    clearTimeout(timeout);
+    return "";
   }
-  return "";
 }
 
 async function callJinaReader(url: string): Promise<string> {
   if (!JINA_API_KEY) return "";
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 9000);
   try {
     const res = await fetch(`https://r.jina.ai/${url}`, {
       method: "GET",
@@ -1112,64 +1100,76 @@ async function scrapeTopResults(
   onProgress?: (completed: number, total: number) => void,
 ): Promise<{ sources: SearchSource[]; stats: ScrapeStats }> {
   const top = results.slice(0, limit);
-  const BATCH_SIZE = 5;
-  const allSources: SearchSource[] = [];
-  const stats: ScrapeStats = { firecrawl: 0, jina: 0, snippetOnly: 0, total: top.length };
-  let completed = 0;
+  const total = top.length;
+  const stats: ScrapeStats = { firecrawl: 0, jina: 0, snippetOnly: 0, total };
+  const sources: (SearchSource & { scrapeMethod: string })[] = new Array(total);
 
-  for (let i = 0; i < top.length; i += BATCH_SIZE) {
-    const batch = top.slice(i, i + BATCH_SIZE).map((r, j) => ({
-      result: r,
-      globalIndex: i + j,
-    }));
+  let completedCount = 0;
+  const MAX_CONCURRENT = 8;
+  let activeCount = 0;
+  let nextIndex = 0;
 
-    const batchPromises = batch.map(async ({ result: r, globalIndex }) => {
-      const domain = extractDomain(r.link);
-      let fullContent = "";
-      let scrapeMethod = "snippet";
+  await new Promise<void>((resolve) => {
+    function startNext() {
+      while (activeCount < MAX_CONCURRENT && nextIndex < total) {
+        const i = nextIndex++;
+        activeCount++;
+        const r = top[i];
+        const domain = extractDomain(r.link);
 
-      if (FIRECRAWL_API_KEY) {
-        fullContent = await callFirecrawlScrape(r.link);
-        if (fullContent) scrapeMethod = "firecrawl";
-      }
+        (async () => {
+          let fullContent = "";
+          let scrapeMethod = "snippet";
 
-      if (!fullContent && JINA_API_KEY) {
-        fullContent = await callJinaReader(r.link);
-        if (fullContent) scrapeMethod = "jina";
-      }
+          if (FIRECRAWL_API_KEY) {
+            fullContent = await callFirecrawlScrape(r.link);
+            if (fullContent) scrapeMethod = "firecrawl";
+          }
 
-      return {
-        source: {
-          index: globalIndex + 1,
-          title: r.title,
-          url: r.link,
-          domain,
-          favicon: faviconUrl(domain),
-          snippet: r.snippet,
-          fullContent: fullContent || r.snippet,
-          relevanceScore: 0,
-        } as SearchSource,
-        scrapeMethod,
-      };
-    });
+          if (!fullContent && JINA_API_KEY) {
+            fullContent = await callJinaReader(r.link);
+            if (fullContent) scrapeMethod = "jina";
+          }
 
-    const settled = await Promise.allSettled(batchPromises);
-    for (const r of settled) {
-      if (r.status === "fulfilled") {
-        allSources.push(r.value.source);
-        if (r.value.scrapeMethod === "firecrawl") stats.firecrawl++;
-        else if (r.value.scrapeMethod === "jina") stats.jina++;
-        else stats.snippetOnly++;
+          sources[i] = {
+            index: i + 1,
+            title: r.title,
+            url: r.link,
+            domain,
+            favicon: faviconUrl(domain),
+            snippet: r.snippet,
+            fullContent: fullContent || r.snippet,
+            relevanceScore: 0,
+            scrapeMethod,
+          };
+
+          completedCount++;
+          activeCount--;
+          console.log(`[Scraping] ${completedCount}/${total}: ${r.link} (${scrapeMethod})`);
+          if (onProgress) onProgress(completedCount, total);
+
+          if (completedCount === total) {
+            resolve();
+          } else {
+            startNext();
+          }
+        })();
       }
     }
 
-    completed += batch.length;
-    if (onProgress) onProgress(completed, top.length);
-    console.log(`[Scraping] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} URLs processed (${completed}/${top.length} total)`);
+    startNext();
+    if (total === 0) resolve();
+  });
+
+  for (const s of sources) {
+    if (!s) continue;
+    if (s.scrapeMethod === "firecrawl") stats.firecrawl++;
+    else if (s.scrapeMethod === "jina") stats.jina++;
+    else stats.snippetOnly++;
   }
 
-  console.log(`[Scraping] Final: ${stats.firecrawl} firecrawl, ${stats.jina} jina fallback, ${stats.snippetOnly} snippet only out of ${stats.total}`);
-  return { sources: allSources, stats };
+  console.log(`[Scraping] Final: ${stats.firecrawl} firecrawl, ${stats.jina} jina, ${stats.snippetOnly} snippet-only out of ${stats.total}`);
+  return { sources: sources.filter(Boolean) as (SearchSource & { scrapeMethod: string })[], stats };
 }
 
 async function callJinaRerank(
