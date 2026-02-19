@@ -112,43 +112,58 @@ export default function MarketNews({ news, onSelectSymbol, onExplain }: Props) {
                 </button>
               )}
               {onExplain && (
-                <button
-                  onClick={() => onExplain(item.title)}
-                  style={{
-                    background: '#fb8c0015',
-                    border: '1px solid #fb8c0033',
-                    color: '#fb8c00',
-                    fontSize: 9,
-                    padding: '1px 5px',
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    marginLeft: 'auto',
-                    opacity: 0,
-                    transition: 'opacity 0.15s',
-                  }}
-                  className="ai-explain-btn"
-                >
-                  AI
-                </button>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(item.title);
+                    }}
+                    style={{
+                      background: '#1e90ff15',
+                      border: '1px solid #1e90ff33',
+                      color: '#1e90ff',
+                      fontSize: 9,
+                      padding: '1px 5px',
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      opacity: 0,
+                      transition: 'opacity 0.15s',
+                    }}
+                    className="ai-explain-btn"
+                  >
+                    Copy
+                  </button>
+                  <button
+                    onClick={() => onExplain(item.title)}
+                    style={{
+                      background: '#fb8c0015',
+                      border: '1px solid #fb8c0033',
+                      color: '#fb8c00',
+                      fontSize: 9,
+                      padding: '1px 5px',
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      opacity: 0,
+                      transition: 'opacity 0.15s',
+                    }}
+                    className="ai-explain-btn"
+                  >
+                    AI
+                  </button>
+                </div>
               )}
             </div>
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
+            <span
               style={{
                 color: '#ccc',
                 fontSize: 11,
                 lineHeight: 1.4,
-                textDecoration: 'none',
                 display: 'block',
               }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#ccc')}
             >
               {item.title}
-            </a>
+            </span>
           </div>
         ))}
       </div>
