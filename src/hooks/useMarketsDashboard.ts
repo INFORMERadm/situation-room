@@ -126,6 +126,8 @@ export function useMarketsDashboard(): MarketsDashboardData {
     }
   }, []);
 
+  const selectedSymbolRef = useRef('AAPL');
+
   const loadSymbolData = useCallback(async (symbol: string, timeframe: string) => {
     setLoad('chart', true);
     setLoad('profile', true);
@@ -149,7 +151,18 @@ export function useMarketsDashboard(): MarketsDashboardData {
     setLoad('profile', false);
   }, [setLoad]);
 
+  const refreshQuote = useCallback(async () => {
+    const symbol = selectedSymbolRef.current;
+    try {
+      const quoteData = await fetchQuote(symbol);
+      if (mountedRef.current) setQuote(quoteData);
+    } catch (err) {
+      console.error('[Dashboard] quote refresh failed:', err);
+    }
+  }, []);
+
   const selectSymbol = useCallback((symbol: string) => {
+    selectedSymbolRef.current = symbol;
     setSelectedSymbol(symbol);
     loadSymbolData(symbol, chartTimeframe);
   }, [chartTimeframe, loadSymbolData]);
@@ -182,14 +195,15 @@ export function useMarketsDashboard(): MarketsDashboardData {
     const i4 = setInterval(loadNews, 120_000);
     const i5 = setInterval(loadEarnings, 300_000);
     const i6 = setInterval(loadEconomic, 300_000);
+    const i7 = setInterval(refreshQuote, 15_000);
 
-    intervalsRef.current = [i1, i2, i3, i4, i5, i6];
+    intervalsRef.current = [i1, i2, i3, i4, i5, i6, i7];
     return () => {
       mountedRef.current = false;
       clearTimeout(retryTimer);
       intervalsRef.current.forEach(clearInterval);
     };
-  }, [loadOverview, loadMovers, loadSectors, loadEarnings, loadEconomic, loadNews, loadSymbolData]);
+  }, [loadOverview, loadMovers, loadSectors, loadEarnings, loadEconomic, loadNews, loadSymbolData, refreshQuote]);
 
   return {
     overview,
