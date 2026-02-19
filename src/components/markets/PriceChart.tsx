@@ -19,6 +19,7 @@ interface Props {
   timeframe: string;
   onTimeframeChange: (tf: string) => void;
   loading: boolean;
+  livePrice?: number;
   externalChartType?: string;
   onChartTypeChange?: (type: string) => void;
   externalIndicators?: IndicatorConfig[];
@@ -103,7 +104,7 @@ function drawOverlayLine(
 }
 
 export default function PriceChart({
-  data, symbol, timeframe, onTimeframeChange, loading,
+  data, symbol, timeframe, onTimeframeChange, loading, livePrice,
   externalChartType, onChartTypeChange, externalIndicators, onToggleIndicator,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -153,14 +154,29 @@ export default function PriceChart({
 
   const slicedData = (() => {
     const reversed = [...data].reverse();
+    let sliced: HistoricalPrice[];
     if (timeframe === 'daily') {
       const days = CAL_DAYS[selectedRange] ?? 90;
-      return reversed.slice(-days);
+      sliced = reversed.slice(-days);
+    } else {
+      const bpd = BARS_PER_DAY[timeframe] ?? 78;
+      const days = RANGE_DAYS[selectedRange] ?? 5;
+      const maxBars = bpd * days;
+      sliced = reversed.slice(-maxBars);
     }
-    const bpd = BARS_PER_DAY[timeframe] ?? 78;
-    const days = RANGE_DAYS[selectedRange] ?? 5;
-    const maxBars = bpd * days;
-    return reversed.slice(-maxBars);
+    if (livePrice != null && sliced.length > 0) {
+      const last = sliced[sliced.length - 1];
+      sliced = [
+        ...sliced.slice(0, -1),
+        {
+          ...last,
+          close: livePrice,
+          high: Math.max(last.high, livePrice),
+          low: Math.min(last.low, livePrice),
+        },
+      ];
+    }
+    return sliced;
   })();
 
   useEffect(() => {
