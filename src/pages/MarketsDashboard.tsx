@@ -104,9 +104,6 @@ export default function MarketsDashboard() {
               onSelect={data.selectSymbol}
               externalTab={platform.leftTab}
               onTabChange={platform.setLeftTab}
-              externalWatchlist={platform.watchlist}
-              onAddInstrument={platform.addToWatchlist}
-              onRemoveInstrument={platform.removeFromWatchlist}
             />
           </div>
         </div>
