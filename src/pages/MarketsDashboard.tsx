@@ -84,6 +84,18 @@ export default function MarketsDashboard() {
     platform.toggleIndicator(id);
   };
 
+  const lastCandle = data.chart.length > 0 ? data.chart[data.chart.length - 1] : null;
+  const chartAlignedQuote = data.quote && lastCandle
+    ? {
+        ...data.quote,
+        price: lastCandle.close,
+        change: lastCandle.close - (data.quote.previousClose ?? lastCandle.open),
+        changesPercentage: data.quote.previousClose
+          ? ((lastCandle.close - data.quote.previousClose) / data.quote.previousClose) * 100
+          : data.quote.changesPercentage,
+      }
+    : data.quote;
+
   return (
     <div style={pageStyle}>
       <Header
@@ -120,7 +132,7 @@ export default function MarketsDashboard() {
               <div style={panelDivider}>
                 <CompanyProfile
                   profile={data.profile}
-                  quote={data.quote}
+                  quote={chartAlignedQuote}
                   loading={!!data.loading['profile']}
                 />
               </div>
