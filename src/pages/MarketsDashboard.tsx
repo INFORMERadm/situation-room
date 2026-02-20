@@ -157,6 +157,8 @@ export default function MarketsDashboard() {
               onSend={ai.sendMessage}
               onStop={ai.stopGenerating}
               onRegenerate={ai.regenerate}
+              onDeleteMessage={ai.deleteMessage}
+              onRegenerateFrom={ai.regenerateFrom}
               onToggleExpand={ai.toggleExpand}
               onCollapse={ai.collapse}
               onLoadSession={ai.loadSession}

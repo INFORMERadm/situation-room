@@ -6,6 +6,8 @@ import ToolCallIndicator, { extractToolCalls } from './ToolCallIndicator';
 import SourcePills from './SourcePills';
 import SourcesPanel from './SourcesPanel';
 import SearchProgressIndicator from './SearchProgressIndicator';
+import MessageDropdownMenu from './MessageDropdownMenu';
+import type { MessageMenuAction } from './MessageDropdownMenu';
 
 const MODEL_OPTIONS = [
   { id: 'hypermind-6.5', label: 'Hypermind 6.5' },
@@ -28,6 +30,8 @@ interface Props {
   onSend: (text: string) => void;
   onStop: () => void;
   onRegenerate: () => void;
+  onDeleteMessage: (id: string) => void;
+  onRegenerateFrom: (id: string) => void;
   onToggleExpand: () => void;
   onCollapse: () => void;
   onLoadSession: (id: string) => void;
@@ -132,7 +136,8 @@ export default function AIChatBox({
   sessions, inlineStatus, selectedModel, searchMode,
   searchSources, searchImages, searchProgress,
   isSourcesPanelOpen,
-  onSend, onStop, onRegenerate, onToggleExpand, onCollapse, onLoadSession, onNewSession,
+  onSend, onStop, onRegenerate, onDeleteMessage, onRegenerateFrom,
+  onToggleExpand, onCollapse, onLoadSession, onNewSession,
   onModelChange, onShowChart, onSetSearchMode, onToggleSourcesPanel, onRefreshSessions,
   onRenameSession, onDeleteSession, onDeleteSessions, onDeleteAllSessions,
 }: Props) {
@@ -145,6 +150,10 @@ export default function AIChatBox({
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+  const [openMsgMenuId, setOpenMsgMenuId] = useState<string | null>(null);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [rawMsgId, setRawMsgId] = useState<string | null>(null);
   const searchMenuRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -210,6 +219,39 @@ export default function AIChatBox({
     setRenamingId(null);
     setRenameValue('');
   }, [renamingId, renameValue, onRenameSession]);
+
+  const handleMessageAction = useCallback((id: string, action: MessageMenuAction) => {
+    const msg = messages.find(m => m.id === id);
+    if (!msg) return;
+    switch (action) {
+      case 'copy':
+        navigator.clipboard.writeText(msg.content).then(() => {
+          setCopiedMsgId(id);
+          setTimeout(() => setCopiedMsgId(null), 1500);
+        }).catch(() => {});
+        break;
+      case 'copy-markdown':
+        navigator.clipboard.writeText(msg.content).then(() => {
+          setCopiedMsgId(id);
+          setTimeout(() => setCopiedMsgId(null), 1500);
+        }).catch(() => {});
+        break;
+      case 'edit':
+        setInput(msg.content);
+        onDeleteMessage(id);
+        setTimeout(() => inputRef.current?.focus(), 50);
+        break;
+      case 'delete':
+        onDeleteMessage(id);
+        break;
+      case 'regenerate-from':
+        onRegenerateFrom(id);
+        break;
+      case 'show-raw':
+        setRawMsgId(prev => prev === id ? null : id);
+        break;
+    }
+  }, [messages, onDeleteMessage, onRegenerateFrom]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -957,55 +999,124 @@ export default function AIChatBox({
                 </div>
               )}
 
-              {messages.map(msg => (
-                <div key={msg.id} style={{ padding: '8px 16px', animation: 'aiFadeIn 0.3s ease-out' }}>
-                  <div style={{
-                    display: 'flex',
-                    gap: 10,
-                    alignItems: 'flex-start',
-                    flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-                  }}>
+              {messages.map(msg => {
+                const isHovered = hoveredMsgId === msg.id;
+                const menuOpen = openMsgMenuId === msg.id;
+                const isCopied = copiedMsgId === msg.id;
+                const showRaw = rawMsgId === msg.id;
+                const showActions = isHovered || menuOpen;
+                return (
+                  <div
+                    key={msg.id}
+                    style={{ padding: '8px 16px', animation: 'aiFadeIn 0.3s ease-out' }}
+                    onMouseEnter={() => setHoveredMsgId(msg.id)}
+                    onMouseLeave={() => { setHoveredMsgId(null); }}
+                  >
                     <div style={{
-                      width: 24, height: 24, borderRadius: '50%',
-                      background: msg.role === 'user' ? '#fb8c00' : '#292929',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 10, color: msg.role === 'user' ? '#000' : '#00c853',
-                      fontWeight: 700, flexShrink: 0,
+                      display: 'flex',
+                      gap: 10,
+                      alignItems: 'flex-start',
+                      flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
                     }}>
-                      {msg.role === 'user' ? 'U' : 'N4'}
-                    </div>
-                    <div style={{
-                      maxWidth: '85%', minWidth: 0, overflow: 'hidden',
-                      background: msg.role === 'user' ? '#1a1a1a' : '#0d0d0d',
-                      borderRadius: 8, padding: '10px 14px',
-                      borderLeft: msg.role === 'assistant' ? '2px solid #00c853' : 'none',
-                      borderRight: msg.role === 'user' ? '2px solid #fb8c00' : 'none',
-                    }}>
-                      {msg.role === 'user' ? (
-                        <div style={{ color: '#e0e0e0', fontSize: 12, lineHeight: 1.5 }}>{msg.content}</div>
-                      ) : (
-                        <>
-                          {msg.searchSources && msg.searchSources.length > 0 && (
-                            <SourcePills
-                              sources={msg.searchSources}
-                              onOpenPanel={onToggleSourcesPanel}
-                              onSourceClick={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
-                            />
+                      <div style={{
+                        width: 24, height: 24, borderRadius: '50%',
+                        background: msg.role === 'user' ? '#fb8c00' : '#292929',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10, color: msg.role === 'user' ? '#000' : '#00c853',
+                        fontWeight: 700, flexShrink: 0,
+                      }}>
+                        {msg.role === 'user' ? 'U' : 'N4'}
+                      </div>
+                      <div style={{ maxWidth: '85%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        <div style={{
+                          overflow: 'hidden',
+                          background: msg.role === 'user' ? '#1a1a1a' : '#0d0d0d',
+                          borderRadius: 8, padding: '10px 14px',
+                          borderLeft: msg.role === 'assistant' ? '2px solid #00c853' : 'none',
+                          borderRight: msg.role === 'user' ? '2px solid #fb8c00' : 'none',
+                        }}>
+                          {msg.role === 'user' ? (
+                            <div style={{ color: '#e0e0e0', fontSize: 12, lineHeight: 1.5 }}>{msg.content}</div>
+                          ) : showRaw ? (
+                            <pre style={{
+                              color: '#aaa', fontSize: 10, lineHeight: 1.6,
+                              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                              margin: 0, fontFamily: 'JetBrains Mono, monospace',
+                            }}>{msg.content}</pre>
+                          ) : (
+                            <>
+                              {msg.searchSources && msg.searchSources.length > 0 && (
+                                <SourcePills
+                                  sources={msg.searchSources}
+                                  onOpenPanel={onToggleSourcesPanel}
+                                  onSourceClick={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
+                                />
+                              )}
+                              <AIMessageRenderer
+                                content={msg.content}
+                                searchSources={msg.searchSources}
+                                onOpenSourcesPanel={onToggleSourcesPanel}
+                              />
+                            </>
                           )}
-                          <AIMessageRenderer
-                            content={msg.content}
-                            searchSources={msg.searchSources}
-                            onOpenSourcesPanel={onToggleSourcesPanel}
-                          />
-                        </>
-                      )}
-                      <div style={{ color: '#777', fontSize: 9, marginTop: 4, textAlign: msg.role === 'user' ? 'right' : 'left' }}>
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          <div style={{ color: '#777', fontSize: 9, marginTop: 4, textAlign: msg.role === 'user' ? 'right' : 'left' }}>
+                            {isCopied ? (
+                              <span style={{ color: '#00c853' }}>Copied!</span>
+                            ) : (
+                              new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            )}
+                          </div>
+                        </div>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                          height: showActions ? 'auto' : 0,
+                          overflow: 'hidden',
+                          transition: 'height 0.15s ease',
+                          marginTop: showActions ? 3 : 0,
+                          position: 'relative',
+                        }}>
+                          {showActions && (
+                            <div style={{ position: 'relative', display: 'inline-flex' }}>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOpenMsgMenuId(menuOpen ? null : msg.id); }}
+                                title="Message options"
+                                style={{
+                                  background: menuOpen ? '#1e1e1e' : 'transparent',
+                                  border: `1px solid ${menuOpen ? '#333' : '#222'}`,
+                                  borderRadius: 4,
+                                  color: '#666',
+                                  padding: '2px 6px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  fontSize: 9,
+                                  fontFamily: 'inherit',
+                                  transition: 'all 0.12s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.color = '#aaa'; e.currentTarget.style.borderColor = '#444'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = '#666'; e.currentTarget.style.borderColor = menuOpen ? '#333' : '#222'; }}
+                              >
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
+                                </svg>
+                              </button>
+                              {menuOpen && (
+                                <MessageDropdownMenu
+                                  role={msg.role}
+                                  onAction={(action) => handleMessageAction(msg.id, action)}
+                                  onClose={() => setOpenMsgMenuId(null)}
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {isStreaming && searchProgress && (
                 <SearchProgressIndicator progress={searchProgress} />
