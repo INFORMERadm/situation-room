@@ -182,7 +182,13 @@ export async function startConversationSession(
 
   let mediaStream: MediaStream;
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true,
+      },
+    });
   } catch (err) {
     handlers.onStatusChange?.('error');
     handlers.onError?.(new Error(`Microphone access denied: ${err instanceof Error ? err.message : String(err)}`));
