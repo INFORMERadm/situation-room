@@ -4,9 +4,9 @@ const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (error || !session) {
+    if (!session) {
       return {
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
@@ -15,12 +15,18 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = session.expires_at ?? 0;
+    const bufferSeconds = 60;
 
-    if (expiresAt < now) {
-      const { data: refreshData } = await supabase.auth.refreshSession();
-      const token = refreshData?.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (expiresAt - bufferSeconds < now) {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData?.session) {
+        return {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        };
+      }
       return {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${refreshData.session.access_token}`,
         'Content-Type': 'application/json',
       };
     }
@@ -47,6 +53,17 @@ async function fetchWithRetry(
     try {
       const res = await fetch(url, options);
       if (res.ok || attempt === retries) return res;
+      if (res.status === 401) {
+        const { data } = await supabase.auth.refreshSession();
+        const token = data?.session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+        options = {
+          ...options,
+          headers: {
+            ...(options.headers as Record<string, string>),
+            Authorization: `Bearer ${token}`,
+          },
+        };
+      }
     } catch (err) {
       if (attempt === retries) throw err;
     }
