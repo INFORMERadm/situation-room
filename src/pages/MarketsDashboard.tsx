@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import Header from '../components/Header';
 import TickerStrip from '../components/markets/TickerStrip';
 import MarketSearch from '../components/markets/MarketSearch';
@@ -13,6 +14,12 @@ import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
 import { useAIChat } from '../hooks/useAIChat';
 import { usePlatform } from '../context/PlatformContext';
 import { useAuth } from '../context/AuthContext';
+import {
+  startConversationSession,
+  stopConversationSession,
+  isConversationActive,
+  type ConversationStatus,
+} from '../lib/realtimeConversation';
 
 const pageStyle: React.CSSProperties = {
   display: 'grid',
@@ -79,6 +86,48 @@ export default function MarketsDashboard() {
   const platform = usePlatform();
   const { user } = useAuth();
   const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id);
+
+  const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
+
+  const handleConversationToggle = useCallback(async () => {
+    if (isConversationActive()) {
+      stopConversationSession();
+      setConversationStatus('idle');
+    } else {
+      try {
+        const contextMessages = ai.messages.slice(-6)
+          .map(m => `${m.role}: ${m.content}`)
+          .join('\n');
+
+        await startConversationSession(
+          {
+            onStatusChange: setConversationStatus,
+            onTranscription: (event) => {
+              if (event.isFinal && event.text.trim()) {
+                ai.sendMessage(event.text.trim());
+              }
+            },
+            onResponseText: (_text, _isFinal) => {},
+            onError: (error) => {
+              console.error('Conversation error:', error);
+              setConversationStatus('error');
+            },
+            onSpeakingStart: () => {},
+            onSpeakingEnd: () => {},
+            onToolCall: (_toolName) => {},
+          },
+          {
+            conversationContext: contextMessages || undefined,
+            mcpServers: [],
+            userId: user?.id,
+          }
+        );
+      } catch (error) {
+        console.error('Failed to start conversation:', error);
+        setConversationStatus('error');
+      }
+    }
+  }, [ai.messages, ai.sendMessage, user?.id]);
 
   const handleToggleIndicator = (id: string) => {
     platform.toggleIndicator(id);
@@ -172,6 +221,8 @@ export default function MarketsDashboard() {
               onDeleteSession={ai.deleteSession}
               onDeleteSessions={ai.deleteSessions}
               onDeleteAllSessions={ai.deleteAllSessions}
+              conversationStatus={conversationStatus}
+              onConversationToggle={handleConversationToggle}
             />
           </div>
         </div>

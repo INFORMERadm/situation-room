@@ -8,6 +8,8 @@ import SourcesPanel from './SourcesPanel';
 import SearchProgressIndicator from './SearchProgressIndicator';
 import MessageDropdownMenu from './MessageDropdownMenu';
 import type { MessageMenuAction } from './MessageDropdownMenu';
+import { ConversationModeButton } from '../ConversationModeButton';
+import type { ConversationStatus } from '../../lib/realtimeConversation';
 
 const MODEL_OPTIONS = [
   { id: 'hypermind-6.5', label: 'Hypermind 6.5' },
@@ -45,6 +47,8 @@ interface Props {
   onDeleteSession: (id: string) => Promise<void>;
   onDeleteSessions: (ids: string[]) => Promise<void>;
   onDeleteAllSessions: () => Promise<void>;
+  conversationStatus: ConversationStatus;
+  onConversationToggle: () => void;
 }
 
 function SearchMenuDropdown({
@@ -140,6 +144,7 @@ export default function AIChatBox({
   onToggleExpand, onCollapse, onLoadSession, onNewSession,
   onModelChange, onShowChart, onSetSearchMode, onToggleSourcesPanel, onRefreshSessions,
   onRenameSession, onDeleteSession, onDeleteSessions, onDeleteAllSessions,
+  conversationStatus, onConversationToggle,
 }: Props) {
   const [input, setInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -372,6 +377,10 @@ export default function AIChatBox({
             {inlineStatus}
           </span>
         )}
+        <ConversationModeButton
+          status={conversationStatus}
+          onToggle={onConversationToggle}
+        />
         <button
           onClick={handleSend}
           disabled={!input.trim() || isStreaming}
@@ -1293,6 +1302,10 @@ export default function AIChatBox({
                   color: '#e0e0e0', fontSize: 12, fontFamily: 'JetBrains Mono, monospace',
                   resize: 'none', lineHeight: 1.4,
                 }}
+              />
+              <ConversationModeButton
+                status={conversationStatus}
+                onToggle={onConversationToggle}
               />
               <button
                 onClick={handleSend}
