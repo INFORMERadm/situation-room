@@ -15,6 +15,10 @@ function formatPrice(price: number, category: string): string {
 export default function TickerStrip({ items, onSelect }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
+  const posRef = useRef(0);
+  const pausedRef = useRef(false);
+
+  pausedRef.current = paused;
 
   const grouped: Record<string, MarketItem[]> = {};
   for (const item of items) {
@@ -36,23 +40,22 @@ export default function TickerStrip({ items, onSelect }: Props) {
     if (!track || items.length === 0) return;
 
     let animId: number;
-    let pos = 0;
 
     const step = () => {
-      if (!paused) {
-        pos -= 0.5;
+      if (!pausedRef.current) {
+        posRef.current -= 0.5;
         const half = track.scrollWidth / 2;
-        if (half > 0 && Math.abs(pos) >= half) {
-          pos += half;
+        if (half > 0 && Math.abs(posRef.current) >= half) {
+          posRef.current += half;
         }
-        track.style.transform = `translateX(${pos}px)`;
+        track.style.transform = `translateX(${posRef.current}px)`;
       }
       animId = requestAnimationFrame(step);
     };
 
     animId = requestAnimationFrame(step);
     return () => cancelAnimationFrame(animId);
-  }, [items, paused]);
+  }, [items.length]);
 
   const renderItems = () => (
     <>
