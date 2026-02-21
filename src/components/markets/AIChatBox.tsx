@@ -167,6 +167,8 @@ export default function AIChatBox({
   const [openMsgMenuId, setOpenMsgMenuId] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [rawMsgId, setRawMsgId] = useState<string | null>(null);
+  const [stickyToolCalls, setStickyToolCalls] = useState<{ name: string; detail: string | null }[]>([]);
+  const stickyTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const searchMenuRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -307,6 +309,20 @@ export default function AIChatBox({
     () => isStreaming ? extractToolCalls(streamingContent) : [],
     [streamingContent, isStreaming]
   );
+
+  useEffect(() => {
+    if (!isStreaming) {
+      clearTimeout(stickyTimerRef.current);
+      stickyTimerRef.current = setTimeout(() => setStickyToolCalls([]), 800);
+      return;
+    }
+    if (activeToolCalls.length > 0) {
+      setStickyToolCalls(activeToolCalls);
+      clearTimeout(stickyTimerRef.current);
+    }
+  }, [isStreaming, activeToolCalls]);
+
+  const visibleToolCalls = isStreaming ? (activeToolCalls.length > 0 ? activeToolCalls : stickyToolCalls) : stickyToolCalls;
 
   const lastMsgIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
 
@@ -1176,6 +1192,10 @@ export default function AIChatBox({
                 <SearchProgressIndicator progress={searchProgress} />
               )}
 
+              {visibleToolCalls.length > 0 && !searchProgress && (
+                <ToolCallIndicator toolCalls={visibleToolCalls} />
+              )}
+
               {isStreaming && searchSources.length > 0 && !cleanStreaming && (
                 <div style={{ padding: '8px 16px' }}>
                   <SourcePills
@@ -1220,11 +1240,7 @@ export default function AIChatBox({
                 </div>
               )}
 
-              {isStreaming && activeToolCalls.length > 0 && !searchProgress && (
-                <ToolCallIndicator toolCalls={activeToolCalls} />
-              )}
-
-              {isStreaming && !cleanStreaming && activeToolCalls.length === 0 && !searchProgress && (
+              {isStreaming && !cleanStreaming && visibleToolCalls.length === 0 && !searchProgress && (
                 <div style={{ padding: '8px 16px' }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <div style={{
