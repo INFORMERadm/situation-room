@@ -66,6 +66,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 let currentSession: ConversationSession | null = null;
+let sessionAuthToken: string = SUPABASE_KEY;
 
 function updateStatus(status: ConversationStatus) {
   if (!currentSession) return;
@@ -94,7 +95,7 @@ async function executeToolCall(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Authorization': `Bearer ${sessionAuthToken}`,
       },
       body: JSON.stringify({ toolName, arguments: args, server }),
     });
@@ -167,6 +168,7 @@ export async function startConversationSession(
     mcpServers?: MCPServerInput[];
     userId?: string;
     searchMode?: string;
+    userToken?: string;
   }
 ): Promise<void> {
   if (currentSession && currentSession.status !== 'idle' && currentSession.status !== 'error') {
@@ -174,6 +176,7 @@ export async function startConversationSession(
   }
 
   const mcpServers = transformServersForEdge(options?.mcpServers || []);
+  sessionAuthToken = options?.userToken || SUPABASE_KEY;
 
   handlers.onStatusChange?.('connecting');
 
@@ -396,7 +399,7 @@ export async function startConversationSession(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Authorization': `Bearer ${sessionAuthToken}`,
       },
       body: JSON.stringify({
         sdp: offer.sdp,
@@ -448,6 +451,7 @@ export function stopConversationSession(): void {
 
   const session = currentSession;
   currentSession = null;
+  sessionAuthToken = SUPABASE_KEY;
 
   if (session.mediaStream) {
     session.mediaStream.getTracks().forEach(track => track.stop());

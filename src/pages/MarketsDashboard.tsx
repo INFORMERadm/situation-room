@@ -84,7 +84,7 @@ const panelDivider: React.CSSProperties = {
 export default function MarketsDashboard() {
   const data = useMarketsDashboard();
   const platform = usePlatform();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id);
 
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
@@ -98,6 +98,8 @@ export default function MarketsDashboard() {
         const contextMessages = ai.messages.slice(-6)
           .map(m => `${m.role}: ${m.content}`)
           .join('\n');
+
+        const userToken = session?.access_token;
 
         await startConversationSession(
           {
@@ -121,6 +123,7 @@ export default function MarketsDashboard() {
             mcpServers: [],
             userId: user?.id,
             searchMode: ai.searchMode,
+            userToken,
           }
         );
       } catch (error) {
@@ -128,7 +131,7 @@ export default function MarketsDashboard() {
         setConversationStatus('error');
       }
     }
-  }, [ai.messages, ai.sendMessage, ai.searchMode, user?.id]);
+  }, [ai.messages, ai.sendMessage, ai.searchMode, user?.id, session?.access_token]);
 
   const handleToggleIndicator = (id: string) => {
     platform.toggleIndicator(id);
