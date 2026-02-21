@@ -2421,7 +2421,6 @@ async function executeServerTool(
     const rawToolName = tc.tool.replace(/^customgpt_/, "");
     console.log(`[CustomGPT] Calling tool: ${rawToolName} with params:`, JSON.stringify(tc.params));
     const result = await callCustomGPTTool(rawToolName, tc.params);
-    sendChunk(`\n\n${result}\n`);
     return result;
   }
 
