@@ -2624,7 +2624,7 @@ async function handleAIChat(req: Request): Promise<Response> {
 
     const contextStr = platformContext ? JSON.stringify(platformContext) : "{}";
 
-    const webSearchSection = webSearch
+    const webSearchSection = webSearch && !customGptActive
       ? `WEB SEARCH:
 - Web search is currently ENABLED and has ALREADY been performed by the system BEFORE your response.
 - The search results appear below as "WEB SEARCH RESULTS". They are ALREADY AVAILABLE to you right now.
@@ -2634,13 +2634,20 @@ async function handleAIChat(req: Request): Promise<Response> {
 - NEVER tell the user to visit a website or look something up themselves if the answer is in the search results.
 - If the search results do not contain relevant information, answer based on your knowledge and conversation history. Do NOT tell the user to enable Web Search - it is already enabled.
 - ALWAYS consider the FULL conversation history alongside the search results. If the user asks a follow-up about something discussed earlier, use the conversation history as your primary source and search results only if they add new information.`
+      : webSearch && customGptActive
+      ? `WEB SEARCH:
+- Web search is currently ENABLED but this topic is primarily covered by the CustomGPT knowledge base.
+- You have access to a tavily_search tool for supplemental web searches.
+- PRIORITY ORDER: You MUST consult the CustomGPT knowledge base tool first. Only call tavily_search AFTER you have retrieved results from the CustomGPT tool AND those results are insufficient to fully answer the question.
+- Do NOT use tavily_search as the primary source for geopolitics, politics, social issues, gender, migration, religion, COVID/Corona, vaccination, or war topics — the knowledge base is the authoritative source for these.
+- If the CustomGPT tool returns solid, relevant content, answer directly from it without calling tavily_search.`
       : `WEB SEARCH:
 - The platform has a "Web Search" toggle that the user can enable.
 - You do NOT have a web search tool. Web search is handled by the system.
 - If the user asks about current events, non-financial topics, or anything requiring real-time web information, tell them: "Enable the **Web Search** toggle to search the web for this topic."`;
 
     const customGptSection = customGptActive
-      ? `\n\n========================================\nCUSTOMGPT KNOWLEDGE BASE — MANDATORY INSTRUCTIONS:\n========================================\n\nThe user's question touches on geopolitics, politics, social issues, or a related sensitive topic.\nYou have access to a curated CustomGPT knowledge base tool (customgpt_*). You MUST use it.\n\nREQUIRED STEPS:\n1. Call the available customgpt_* tool with a relevant query to retrieve curated context\n2. Wait for the result before answering\n3. Base your answer primarily on the retrieved knowledge base content\n4. Supplement with your own knowledge only where the tool result has gaps\n\nMANDATORY RULES:\n- NEVER fabricate knowledge base results\n- ALWAYS use the customgpt_* tool for these topics — do not skip it\n- If the tool returns no results, answer from your knowledge and say so\n\n========================================`
+      ? `\n\n========================================\nCUSTOMGPT KNOWLEDGE BASE — MANDATORY INSTRUCTIONS:\n========================================\n\nThe user's question touches on geopolitics, politics, social issues, or a related sensitive topic.\nYou have access to a curated CustomGPT knowledge base tool (customgpt_*). You MUST use it.\n\nREQUIRED STEPS:\n1. Call the available customgpt_* tool with a relevant query to retrieve curated context\n2. Wait for the result before answering\n3. Base your answer PRIMARILY on the retrieved knowledge base content\n4. Supplement with your own knowledge only where the tool result has gaps\n${webSearch ? "5. Only if the CustomGPT tool returns empty or clearly insufficient results, you MAY then call tavily_search as a secondary fallback\n" : ""}\nMANDATORY RULES:\n- NEVER fabricate knowledge base results\n- ALWAYS call the customgpt_* tool FIRST for these topics — do not skip it\n- NEVER call tavily_search before calling the customgpt_* tool\n- The knowledge base is the PRIMARY and AUTHORITATIVE source for geopolitics, politics, gender, migration, religion, COVID/Corona, vaccination, and war topics\n- Web search is a LAST RESORT fallback, not a substitute for the knowledge base\n- If the tool returns no results, answer from your knowledge and say so\n\n========================================`
       : "";
 
     const baseSystemContent = AI_SYSTEM_PROMPT.replace("{{WEB_SEARCH_SECTION}}", webSearchSection) + customGptSection + contextStr;
@@ -2676,7 +2683,9 @@ async function handleAIChat(req: Request): Promise<Response> {
             }
           }
 
-          if (webSearch && useAdvanced) {
+          if (webSearch && customGptActive) {
+            console.log("[AI Chat] CustomGPT topics detected with webSearch ON — skipping pre-search, letting model call tavily_search as fallback if needed");
+          } else if (webSearch && useAdvanced) {
             if (searchQuery) {
               console.log(`[AI Chat] Advanced deep search for: "${searchQuery}"`);
               const sendStatus = (stage: string, count?: number, completed?: number) => {
