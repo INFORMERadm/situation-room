@@ -1957,7 +1957,180 @@ const ALL_AI_TOOLS = [
   },
 ];
 
-const SERVER_TOOLS = new Set(["fetch_fmp_data", "tavily_search"]);
+const SERVER_TOOLS = new Set(["fetch_fmp_data", "tavily_search", "customgpt_search"]);
+
+const CUSTOMGPT_BASE_URL = "https://mcp.customgpt.ai/projects/79211/mcp/";
+let customGptSessionId: string | null = null;
+let customGptToolsCache: typeof ALL_AI_TOOLS | null = null;
+
+const CUSTOMGPT_TOPICS_RE = new RegExp(
+  [
+    "geopolit",
+    "politics?",
+    "political",
+    "socialist?",
+    "socialism",
+    "communis[mt]",
+    "capitalis[mt]",
+    "israel",
+    "palest",
+    "gaza",
+    "iran",
+    "middle east",
+    "russia",
+    "trump",
+    "woke",
+    "war\\b",
+    "warfare",
+    "gender",
+    "corona",
+    "covid",
+    "vaccin",
+    "climate change",
+    "global warming",
+    "migrat",
+    "refugee",
+    "\\bimmigratio",
+    "far.?right",
+    "far.?left",
+    "authoritar",
+    "dictator",
+    "democracy",
+    "election fraud",
+    "deep state",
+    "propaganda",
+    "censorship",
+    "nato",
+    "ukraine",
+    "hezbollah",
+    "hamas",
+    "terrorism",
+    "extremis",
+    "populis",
+    "liberal",
+    "conservative",
+    "democrat",
+    "republican",
+    "right.?wing",
+    "left.?wing",
+  ].join("|"),
+  "i"
+);
+
+function detectsCustomGPTTopics(messages: Array<{ role: string; content: unknown }>): boolean {
+  const recentMessages = messages.slice(-5);
+  for (const msg of recentMessages) {
+    const text = typeof msg.content === "string" ? msg.content : "";
+    if (text && CUSTOMGPT_TOPICS_RE.test(text)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function getCustomGPTAuthHeader(): Promise<string | null> {
+  const token = Deno.env.get("CUSTOMGPT_PROJECT_TOKEN") ?? Deno.env.get("CustomGPT_API_KEY") ?? "";
+  return token ? `Bearer ${token}` : null;
+}
+
+async function customGptMcpRequest(method: string, params: Record<string, unknown>): Promise<unknown> {
+  const authHeader = await getCustomGPTAuthHeader();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (authHeader) headers["Authorization"] = authHeader;
+  if (customGptSessionId) headers["Mcp-Session-Id"] = customGptSessionId;
+
+  const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method, params });
+  const res = await fetch(CUSTOMGPT_BASE_URL, { method: "POST", headers, body });
+
+  const sessionHeader = res.headers.get("Mcp-Session-Id");
+  if (sessionHeader) customGptSessionId = sessionHeader;
+
+  if (!res.ok) throw new Error(`CustomGPT MCP error: ${res.status}`);
+  const text = await res.text();
+  if (!text.trim()) return null;
+  return JSON.parse(text);
+}
+
+async function fetchCustomGPTTools(): Promise<typeof ALL_AI_TOOLS> {
+  if (customGptToolsCache) return customGptToolsCache;
+
+  try {
+    if (!customGptSessionId) {
+      await customGptMcpRequest("initialize", {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "n4-global-monitor", version: "1.0.0" },
+      });
+    }
+
+    const result = await customGptMcpRequest("tools/list", {}) as { result?: { tools?: Array<{ name: string; description?: string; inputSchema?: unknown }> } } | null;
+    const rawTools = result?.result?.tools ?? [];
+
+    const mapped: typeof ALL_AI_TOOLS = rawTools.map((t) => ({
+      type: "function",
+      function: {
+        name: `customgpt_${t.name}`,
+        description: t.description ?? `CustomGPT tool: ${t.name}`,
+        parameters: (t.inputSchema as Record<string, unknown>) ?? { type: "object", properties: {} },
+      },
+    }));
+
+    if (mapped.length === 0) {
+      const fallback: typeof ALL_AI_TOOLS = [{
+        type: "function",
+        function: {
+          name: "customgpt_search",
+          description: "Search the CustomGPT curated knowledge base for information about geopolitics, politics, social issues, wars, and similar topics.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "Search query about the topic" },
+            },
+            required: ["query"],
+          },
+        },
+      }];
+      customGptToolsCache = fallback;
+      return fallback;
+    }
+
+    customGptToolsCache = mapped;
+    for (const t of mapped) {
+      SERVER_TOOLS.add(t.function.name);
+    }
+    return mapped;
+  } catch (e) {
+    console.error("[CustomGPT] Failed to fetch tools:", e);
+    return [];
+  }
+}
+
+async function callCustomGPTTool(toolName: string, args: Record<string, unknown>): Promise<string> {
+  try {
+    if (!customGptSessionId) {
+      await customGptMcpRequest("initialize", {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "n4-global-monitor", version: "1.0.0" },
+      });
+    }
+
+    const result = await customGptMcpRequest("tools/call", { name: toolName, arguments: args }) as {
+      result?: { content?: Array<{ type: string; text?: string }> }
+    } | null;
+
+    const content = result?.result?.content ?? [];
+    const text = content
+      .filter((c) => c.type === "text" && c.text)
+      .map((c) => c.text)
+      .join("\n\n");
+
+    return text || "No results returned from knowledge base.";
+  } catch (e) {
+    console.error(`[CustomGPT] Tool call error for ${toolName}:`, e);
+    return `Knowledge base lookup failed: ${e instanceof Error ? e.message : "unknown error"}`;
+  }
+}
 
 function getToolsForRequest(webSearchEnabled: boolean): typeof ALL_AI_TOOLS {
   if (webSearchEnabled) {
@@ -2158,6 +2331,14 @@ async function executeServerTool(
       return errMsg;
     }
   }
+  if (tc.tool.startsWith("customgpt_")) {
+    const rawToolName = tc.tool.replace(/^customgpt_/, "");
+    console.log(`[CustomGPT] Calling tool: ${rawToolName} with params:`, JSON.stringify(tc.params));
+    const result = await callCustomGPTTool(rawToolName, tc.params);
+    sendChunk(`\n\n${result}\n`);
+    return result;
+  }
+
   return "Action executed on client.";
 }
 
@@ -2338,8 +2519,19 @@ async function handleAIChat(req: Request): Promise<Response> {
     const modelKey = typeof model === "string" && MODEL_CONFIGS[model] ? model : "hypermind-6.5";
     const modelConfig = MODEL_CONFIGS[modelKey];
 
-    const aiTools = getToolsForRequest(!!webSearch);
+    let aiTools = getToolsForRequest(!!webSearch);
     console.log(`[AI Chat] webSearch=${webSearch}, tools count=${aiTools.length}`);
+
+    const customGptActive = detectsCustomGPTTopics(messages);
+    if (customGptActive) {
+      console.log("[AI Chat] CustomGPT topics detected — loading CustomGPT tools");
+      const cgTools = await fetchCustomGPTTools();
+      if (cgTools.length > 0) {
+        aiTools = [...aiTools, ...cgTools];
+        console.log(`[AI Chat] Added ${cgTools.length} CustomGPT tool(s): ${cgTools.map(t => t.function.name).join(", ")}`);
+      }
+    }
+
     console.log(`[AI Chat] Available tools: ${aiTools.map(t => t.function.name).join(", ")}`);
 
     const contextStr = platformContext ? JSON.stringify(platformContext) : "{}";
@@ -2359,7 +2551,11 @@ async function handleAIChat(req: Request): Promise<Response> {
 - You do NOT have a web search tool. Web search is handled by the system.
 - If the user asks about current events, non-financial topics, or anything requiring real-time web information, tell them: "Enable the **Web Search** toggle to search the web for this topic."`;
 
-    const baseSystemContent = AI_SYSTEM_PROMPT.replace("{{WEB_SEARCH_SECTION}}", webSearchSection) + contextStr;
+    const customGptSection = customGptActive
+      ? `\n\n========================================\nCUSTOMGPT KNOWLEDGE BASE — MANDATORY INSTRUCTIONS:\n========================================\n\nThe user's question touches on geopolitics, politics, social issues, or a related sensitive topic.\nYou have access to a curated CustomGPT knowledge base tool (customgpt_*). You MUST use it.\n\nREQUIRED STEPS:\n1. Call the available customgpt_* tool with a relevant query to retrieve curated context\n2. Wait for the result before answering\n3. Base your answer primarily on the retrieved knowledge base content\n4. Supplement with your own knowledge only where the tool result has gaps\n\nMANDATORY RULES:\n- NEVER fabricate knowledge base results\n- ALWAYS use the customgpt_* tool for these topics — do not skip it\n- If the tool returns no results, answer from your knowledge and say so\n\n========================================`
+      : "";
+
+    const baseSystemContent = AI_SYSTEM_PROMPT.replace("{{WEB_SEARCH_SECTION}}", webSearchSection) + customGptSection + contextStr;
     const MAX_CHAIN_DEPTH = 5;
 
     const stream = new ReadableStream({
