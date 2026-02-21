@@ -166,6 +166,7 @@ export async function startConversationSession(
     conversationContext?: string;
     mcpServers?: MCPServerInput[];
     userId?: string;
+    searchMode?: string;
   }
 ): Promise<void> {
   if (currentSession && currentSession.status !== 'idle' && currentSession.status !== 'error') {
@@ -403,6 +404,7 @@ export async function startConversationSession(
         conversationContext: options?.conversationContext,
         mcpServers,
         userId: options?.userId,
+        searchMode: options?.searchMode,
       }),
     });
 

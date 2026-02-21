@@ -1839,7 +1839,7 @@ async function handleAIChat(req: Request): Promise<Response> {
     const modelKey = typeof model === "string" && MODEL_CONFIGS[model] ? model : "hypermind-6.5";
     const modelConfig = MODEL_CONFIGS[modelKey];
 
-    const aiTools = getToolsForRequest(false);
+    const aiTools = getToolsForRequest(!!webSearch);
     console.log(`[AI Chat] webSearch=${webSearch}, tools count=${aiTools.length}`);
     console.log(`[AI Chat] Available tools: ${aiTools.map(t => t.function.name).join(", ")}`);
 

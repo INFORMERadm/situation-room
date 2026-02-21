@@ -120,6 +120,7 @@ export default function MarketsDashboard() {
             conversationContext: contextMessages || undefined,
             mcpServers: [],
             userId: user?.id,
+            searchMode: ai.searchMode,
           }
         );
       } catch (error) {
@@ -127,7 +128,7 @@ export default function MarketsDashboard() {
         setConversationStatus('error');
       }
     }
-  }, [ai.messages, ai.sendMessage, user?.id]);
+  }, [ai.messages, ai.sendMessage, ai.searchMode, user?.id]);
 
   const handleToggleIndicator = (id: string) => {
     platform.toggleIndicator(id);

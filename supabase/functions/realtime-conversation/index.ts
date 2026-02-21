@@ -25,6 +25,7 @@ interface ConversationRequest {
   conversationContext?: string;
   mcpServers?: MCPServerConfig[];
   userId?: string;
+  searchMode?: string;
 }
 
 async function mcpJsonRpcRequest(
@@ -179,7 +180,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body: ConversationRequest = await req.json();
-    const { sdp, systemPrompt, conversationContext, mcpServers = [], userId } = body;
+    const { sdp, systemPrompt, conversationContext, mcpServers = [], userId, searchMode } = body;
 
     if (!sdp) {
       return new Response(
@@ -252,7 +253,12 @@ Deno.serve(async (req: Request) => {
 
     const defaultInstructions = `You are N4, an advanced AI financial assistant with real-time market intelligence. You have access to live market data, financial analysis tools, and can help with trading decisions, market analysis, portfolio management, and financial research. Be concise, accurate, and proactive in providing market insights. When speaking, keep responses brief and conversational.`;
 
-    let fullInstructions = systemPrompt || defaultInstructions;
+    const webSearchEnabled = searchMode && searchMode !== 'off';
+    const webSearchInstruction = webSearchEnabled
+      ? `\n\nWEB SEARCH: Web search is currently ENABLED. When the user asks about current events, news, or topics requiring real-time information, the system will perform a web search and results will be available in the conversation context. Use those results directly in your response. Do NOT tell the user to enable any toggle — web search is already active.`
+      : `\n\nWEB SEARCH: Web search is currently OFF. If the user asks about current events or real-time information, let them know they can enable the Web Search toggle in the chat panel to search the web.`;
+
+    let fullInstructions = (systemPrompt || defaultInstructions) + webSearchInstruction;
     if (conversationContext) {
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }
