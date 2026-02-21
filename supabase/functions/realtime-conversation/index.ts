@@ -28,6 +28,80 @@ interface ConversationRequest {
   searchMode?: string;
 }
 
+interface NewsItem {
+  title: string;
+  site: string;
+  publishedDate: string;
+}
+
+async function fetchMarketNewsWithCache(supabaseUrl: string, serviceKey: string): Promise<NewsItem[]> {
+  const { createClient } = await import("npm:@supabase/supabase-js@2");
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  const CACHE_KEY = "market-news";
+  const CACHE_MAX_AGE_MS = 60_000;
+
+  const { data: cached } = await supabase
+    .from("market_cache")
+    .select("data, updated_at")
+    .eq("cache_key", CACHE_KEY)
+    .maybeSingle();
+
+  if (cached) {
+    const age = Date.now() - new Date(cached.updated_at).getTime();
+    if (age < CACHE_MAX_AGE_MS && Array.isArray(cached.data)) {
+      return cached.data as NewsItem[];
+    }
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch("https://rss.app/feeds/_wsGBiJ7aEHbD3fVL.xml", { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!res.ok) throw new Error(`RSS fetch failed: ${res.status}`);
+    const xml = await res.text();
+
+    const items: NewsItem[] = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let match;
+    while ((match = itemRegex.exec(xml)) !== null && items.length < 30) {
+      const block = match[1];
+      const title = (block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || block.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim() ?? "";
+      const pubDate = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/))?.[1]?.trim() ?? "";
+      const creator = (block.match(/<dc:creator><!\[CDATA\[([\s\S]*?)\]\]><\/dc:creator>/) || block.match(/<dc:creator>([\s\S]*?)<\/dc:creator>/))?.[1]?.trim() ?? "";
+      if (title) {
+        items.push({
+          title,
+          site: creator.replace(/^@/, "") || "Breaking News",
+          publishedDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+        });
+      }
+    }
+
+    if (items.length > 0) {
+      await supabase.from("market_cache").upsert({
+        cache_key: CACHE_KEY,
+        data: items,
+        updated_at: new Date().toISOString(),
+      });
+      return items;
+    }
+  } catch { /* fall through */ }
+
+  return [];
+}
+
+function formatNewsForContext(news: NewsItem[]): string {
+  if (news.length === 0) return "";
+  const headlines = news.slice(0, 20).map((n, i) => {
+    const time = new Date(n.publishedDate).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" });
+    return `${i + 1}. [${time} ET] ${n.title} — ${n.site}`;
+  }).join("\n");
+  return `\n\nLATEST MARKET NEWS (live feed, refreshed every minute):\n${headlines}\n\nUse these headlines to answer questions about current market news and events. When asked about news, reference these headlines directly.`;
+}
+
 async function mcpJsonRpcRequest(
   server: MCPServerConfig,
   method: string,
@@ -255,10 +329,16 @@ Deno.serve(async (req: Request) => {
 
     const webSearchEnabled = searchMode && searchMode !== 'off';
     const webSearchInstruction = webSearchEnabled
-      ? `\n\nWEB SEARCH: Web search is currently ENABLED. When the user asks about current events, news, or topics requiring real-time information, the system will perform a web search and results will be available in the conversation context. Use those results directly in your response. Do NOT tell the user to enable any toggle — web search is already active.`
-      : `\n\nWEB SEARCH: Web search is currently OFF. If the user asks about current events or real-time information, let them know they can enable the Web Search toggle in the chat panel to search the web.`;
+      ? `\n\nWEB SEARCH: Web search is currently ENABLED. Use the tavily_search tool when the user asks about current events, news, or topics requiring real-time information.`
+      : `\n\nWEB SEARCH: Web search is currently OFF. You have the tavily_search tool available — use it proactively when the user asks about current events or real-time information.`;
 
-    let fullInstructions = (systemPrompt || defaultInstructions) + webSearchInstruction;
+    let newsContext = "";
+    try {
+      const news = await fetchMarketNewsWithCache(supabaseUrl, supabaseServiceKey);
+      newsContext = formatNewsForContext(news);
+    } catch { /* non-fatal */ }
+
+    let fullInstructions = (systemPrompt || defaultInstructions) + webSearchInstruction + newsContext;
     if (conversationContext) {
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }
