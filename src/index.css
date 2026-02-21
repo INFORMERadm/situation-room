@@ -111,3 +111,23 @@ div:hover > div > .ai-explain-btn {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+@keyframes mcpOrbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes mcpCorePulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+  50% { transform: translate(-50%, -50%) scale(1.35); opacity: 0.6; }
+}
+
+@keyframes mcpShimmer {
+  0% { background-position: -300% 0; }
+  100% { background-position: 300% 0; }
+}
+
+@keyframes mcpCardSlideIn {
+  from { opacity: 0; transform: translateX(-10px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
