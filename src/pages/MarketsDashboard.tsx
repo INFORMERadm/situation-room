@@ -106,10 +106,14 @@ export default function MarketsDashboard() {
             onStatusChange: setConversationStatus,
             onTranscription: (event) => {
               if (event.isFinal && event.text.trim()) {
-                ai.sendMessage(event.text.trim());
+                ai.addVoiceMessage('user', event.text.trim());
               }
             },
-            onResponseText: (_text, _isFinal) => {},
+            onResponseText: (text, isFinal) => {
+              if (isFinal && text.trim()) {
+                ai.addVoiceMessage('assistant', text);
+              }
+            },
             onError: (error) => {
               console.error('Conversation error:', error);
               setConversationStatus('error');
@@ -135,7 +139,7 @@ export default function MarketsDashboard() {
         setConversationStatus('error');
       }
     }
-  }, [ai.messages, ai.sendMessage, ai.searchMode, user?.id, session?.access_token]);
+  }, [ai.messages, ai.addVoiceMessage, ai.searchMode, user?.id, session?.access_token]);
 
   const handleToggleIndicator = (id: string) => {
     platform.toggleIndicator(id);

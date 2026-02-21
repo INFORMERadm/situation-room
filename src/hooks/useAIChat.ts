@@ -39,6 +39,7 @@ export interface UseAIChatReturn {
   searchProgress: SearchProgress | null;
   isSourcesPanelOpen: boolean;
   sendMessage: (text: string) => void;
+  addVoiceMessage: (role: 'user' | 'assistant', text: string) => void;
   stopGenerating: () => void;
   regenerate: () => void;
   deleteMessage: (id: string) => void;
@@ -312,6 +313,18 @@ export function useAIChat(
       searchMode !== 'off' ? searchMode : undefined,
     );
   }, [messages, isStreaming, sessionId, platform, selectedModel, searchMode, refreshSessions, isSourcesPanelOpen]);
+
+  const addVoiceMessage = useCallback((role: 'user' | 'assistant', text: string) => {
+    if (!text.trim()) return;
+    const msg: ChatMessage = {
+      id: generateId(),
+      role,
+      content: text.trim(),
+      timestamp: Date.now(),
+    };
+    setMessages(prev => [...prev, msg]);
+    setIsExpanded(true);
+  }, []);
 
   const stopGenerating = useCallback(() => {
     if (abortRef.current) {
@@ -602,6 +615,7 @@ export function useAIChat(
     searchProgress,
     isSourcesPanelOpen,
     sendMessage,
+    addVoiceMessage,
     stopGenerating,
     regenerate,
     deleteMessage,

@@ -323,14 +323,19 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const realtimeTools = convertMCPToolsToRealtimeFormat(allTools);
+    const webSearchEnabled = searchMode && searchMode !== 'off';
+
+    const filteredTools = webSearchEnabled
+      ? allTools
+      : allTools.filter(t => t.name !== 'tavily_search');
+
+    const realtimeTools = convertMCPToolsToRealtimeFormat(filteredTools);
 
     const defaultInstructions = `You are N4, an advanced AI financial assistant with real-time market intelligence. You have access to live market data, financial analysis tools, and can help with trading decisions, market analysis, portfolio management, and financial research. Be concise, accurate, and proactive in providing market insights. When speaking, keep responses brief and conversational.`;
 
-    const webSearchEnabled = searchMode && searchMode !== 'off';
     const webSearchInstruction = webSearchEnabled
-      ? `\n\nWEB SEARCH: Web search is currently ENABLED. Use the tavily_search tool when the user asks about current events, news, or topics requiring real-time information.`
-      : `\n\nWEB SEARCH: Web search is currently OFF. You have the tavily_search tool available — use it proactively when the user asks about current events or real-time information.`;
+      ? `\n\nWEB SEARCH: You have web search available via the tavily_search tool. Only use it when the user's question genuinely requires current or real-time information that you cannot answer from your training data — for example, breaking news, live prices, or today's specific events. Do NOT use web search for greetings, general knowledge questions, conversational exchanges, or anything you can answer confidently without it.`
+      : '';
 
     let newsContext = "";
     try {
