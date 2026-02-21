@@ -353,6 +353,60 @@ export async function deleteAllAISessions() {
   return res.json();
 }
 
+export interface ChatDocument {
+  id: string;
+  user_id: string;
+  session_id: string | null;
+  filename: string;
+  mime_type: string;
+  file_size_bytes: number;
+  storage_path: string | null;
+  extracted_text: string;
+  char_count: number;
+  status: 'processing' | 'ready' | 'error';
+  error_message: string | null;
+  created_at: string;
+}
+
+export async function uploadChatDocument(
+  file: File,
+  sessionId: string,
+): Promise<{ documentId: string; filename: string; charCount: number; status: string; errorMessage: string | null }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('sessionId', sessionId);
+
+  const res = await fetch(`${API_BASE}/extract-document`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error || `Upload failed: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function getSessionDocument(sessionId: string): Promise<ChatDocument | null> {
+  const { data, error } = await supabase
+    .from('chat_documents')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('status', 'ready')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return null;
+  return data as ChatDocument | null;
+}
+
 export async function fetchWebSearchSources(sessionId: string) {
   const headers = await getAuthHeaders();
   const res = await fetch(

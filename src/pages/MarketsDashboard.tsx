@@ -272,6 +272,11 @@ export default function MarketsDashboard() {
               onDeleteSession={ai.deleteSession}
               onDeleteSessions={ai.deleteSessions}
               onDeleteAllSessions={ai.deleteAllSessions}
+              attachedDoc={ai.attachedDoc}
+              isUploadingDoc={ai.isUploadingDoc}
+              uploadDocError={ai.uploadDocError}
+              onAttachFile={ai.attachFile}
+              onClearDocAttachment={ai.clearDocAttachment}
               conversationStatus={conversationStatus}
               onConversationToggle={handleConversationToggle}
             />

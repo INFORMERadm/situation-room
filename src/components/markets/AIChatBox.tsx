@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { ChatMessage, ChatSession, SearchMode } from '../../hooks/useAIChat';
 import type { SearchSource, SearchImage, SearchProgress } from '../../types/index';
+import type { AttachedDoc } from '../../hooks/useDocumentAttachment';
 import AIMessageRenderer from './AIMessageRenderer';
 import ToolCallIndicator, { extractToolCalls } from './ToolCallIndicator';
 import SourcePills from './SourcePills';
@@ -47,6 +48,11 @@ interface Props {
   onDeleteSession: (id: string) => Promise<void>;
   onDeleteSessions: (ids: string[]) => Promise<void>;
   onDeleteAllSessions: () => Promise<void>;
+  attachedDoc: AttachedDoc | null;
+  isUploadingDoc: boolean;
+  uploadDocError: string | null;
+  onAttachFile: (file: File) => Promise<void>;
+  onClearDocAttachment: () => void;
   conversationStatus: ConversationStatus;
   onConversationToggle: () => void;
 }
@@ -140,6 +146,8 @@ export default function AIChatBox({
   sessions, inlineStatus, selectedModel, searchMode,
   searchSources, searchImages, searchProgress,
   isSourcesPanelOpen,
+  attachedDoc, isUploadingDoc, uploadDocError,
+  onAttachFile, onClearDocAttachment,
   onSend, onStop, onRegenerate, onDeleteMessage, onRegenerateFrom,
   onToggleExpand, onCollapse, onLoadSession, onNewSession,
   onModelChange, onShowChart, onSetSearchMode, onToggleSourcesPanel, onRefreshSessions,
@@ -164,6 +172,7 @@ export default function AIChatBox({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const webSearchEnabled = searchMode !== 'off';
 
@@ -264,10 +273,17 @@ export default function AIChatBox({
 
   const handleSend = useCallback(() => {
     const text = input.trim();
-    if (!text) return;
+    if (!text && !attachedDoc) return;
     setInput('');
     onSend(text);
-  }, [input, onSend]);
+  }, [input, onSend, attachedDoc]);
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    await onAttachFile(file);
+  }, [onAttachFile]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -351,12 +367,41 @@ export default function AIChatBox({
             />
           )}
         </div>
+        <button
+          onClick={() => { if (!isUploadingDoc) fileInputRef.current?.click(); }}
+          title="Attach document"
+          style={{
+            background: attachedDoc ? 'rgba(251,140,0,0.1)' : 'transparent',
+            border: `1px solid ${attachedDoc ? '#fb8c00' : '#333'}`,
+            borderRadius: 3,
+            color: attachedDoc ? '#fb8c00' : '#555',
+            width: 24,
+            height: 22,
+            padding: 0,
+            cursor: isUploadingDoc ? 'wait' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            transition: 'all 0.15s',
+          }}
+        >
+          {isUploadingDoc ? (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            </svg>
+          ) : (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
+          )}
+        </button>
         <input
           ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask N4... (e.g. 'Show me TSLA balance sheet')"
+          placeholder={attachedDoc ? `${attachedDoc.filename} attached — ask anything...` : "Ask N4... (e.g. 'Show me TSLA balance sheet')"}
           style={{
             flex: 1,
             background: 'transparent',
@@ -383,16 +428,16 @@ export default function AIChatBox({
         />
         <button
           onClick={handleSend}
-          disabled={!input.trim() || isStreaming}
+          disabled={(!input.trim() && !attachedDoc) || isStreaming}
           style={{
             background: 'transparent',
             border: '1px solid #292929',
             borderRadius: 3,
-            color: input.trim() ? '#fb8c00' : '#888',
+            color: (input.trim() || attachedDoc) ? '#fb8c00' : '#888',
             width: 28,
             height: 24,
             fontSize: 14,
-            cursor: input.trim() ? 'pointer' : 'default',
+            cursor: (input.trim() || attachedDoc) ? 'pointer' : 'default',
             padding: 0,
             fontFamily: 'inherit',
             display: 'flex',
@@ -1250,77 +1295,167 @@ export default function AIChatBox({
               </div>
             )}
 
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 12px', border: '2px solid #fb8c00',
-              borderRadius: 6, margin: '0 8px 8px 8px',
-              background: '#0a0a0a', flexShrink: 0,
-            }}>
+            <div style={{ margin: '0 8px 8px 8px', flexShrink: 0 }}>
+              {(attachedDoc || uploadDocError) && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '5px 10px', marginBottom: 4,
+                  background: uploadDocError ? 'rgba(255,23,68,0.06)' : 'rgba(251,140,0,0.06)',
+                  border: `1px solid ${uploadDocError ? '#ff1744' : (attachedDoc?.status === 'processing' ? '#555' : '#fb8c00')}`,
+                  borderRadius: 5,
+                  animation: 'aiFadeIn 0.2s ease-out',
+                }}>
+                  {attachedDoc?.status === 'processing' ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" style={{ flexShrink: 0, animation: 'spin 1s linear infinite' }}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                    </svg>
+                  ) : uploadDocError ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ff1744" strokeWidth="2" style={{ flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fb8c00" strokeWidth="2" style={{ flexShrink: 0 }}>
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                    </svg>
+                  )}
+                  <span style={{
+                    flex: 1, fontSize: 10,
+                    color: uploadDocError ? '#ff5252' : (attachedDoc?.status === 'processing' ? '#888' : '#fb8c00'),
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {uploadDocError
+                      ? uploadDocError
+                      : attachedDoc?.status === 'processing'
+                        ? `Processing ${attachedDoc.filename}...`
+                        : `${attachedDoc!.filename} · ${(attachedDoc!.charCount / 1000).toFixed(1)}k chars`
+                    }
+                  </span>
+                  <button
+                    onClick={onClearDocAttachment}
+                    title="Remove document"
+                    style={{
+                      background: 'transparent', border: 'none', color: '#555',
+                      cursor: 'pointer', padding: 2, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, transition: 'color 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#ccc')}
+                    onMouseLeave={e => (e.currentTarget.style.color = '#555')}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.xlsx,.pptx,.txt,.md"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
               <div style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: isStreaming ? '#00c853' : '#fb8c00',
-                flexShrink: 0,
-                animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
-              }} />
-              <div ref={searchMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 12px', border: '2px solid #fb8c00',
+                borderRadius: 6, background: '#0a0a0a',
+              }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: isStreaming ? '#00c853' : '#fb8c00',
+                  flexShrink: 0,
+                  animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
+                }} />
+                <div ref={searchMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
+                  <button
+                    onClick={() => setSearchMenuOpen(p => !p)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      background: webSearchEnabled ? 'rgba(0,188,212,0.1)' : 'transparent',
+                      border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#333'}`,
+                      borderRadius: 4, color: webSearchEnabled ? '#00bcd4' : '#555',
+                      padding: '4px 10px', fontSize: 10, fontWeight: 500,
+                      cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+                    </svg>
+                    {searchButtonLabel}
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                  {searchMenuOpen && (
+                    <SearchMenuDropdown
+                      searchMode={searchMode}
+                      onSetSearchMode={onSetSearchMode}
+                      onClose={() => setSearchMenuOpen(false)}
+                    />
+                  )}
+                </div>
                 <button
-                  onClick={() => setSearchMenuOpen(p => !p)}
+                  onClick={() => { if (!isUploadingDoc) fileInputRef.current?.click(); }}
+                  title="Attach document (PDF, DOCX, XLSX, PPTX, TXT, MD)"
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    background: webSearchEnabled ? 'rgba(0,188,212,0.1)' : 'transparent',
-                    border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#333'}`,
-                    borderRadius: 4, color: webSearchEnabled ? '#00bcd4' : '#555',
-                    padding: '4px 10px', fontSize: 10, fontWeight: 500,
-                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                    background: attachedDoc ? 'rgba(251,140,0,0.1)' : 'transparent',
+                    border: `1px solid ${attachedDoc ? '#fb8c00' : '#333'}`,
+                    borderRadius: 4,
+                    color: attachedDoc ? '#fb8c00' : '#555',
+                    padding: '4px 8px',
+                    cursor: isUploadingDoc ? 'wait' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 10, fontWeight: 500,
+                    fontFamily: 'inherit', transition: 'all 0.15s',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => { if (!attachedDoc) { e.currentTarget.style.borderColor = '#fb8c00'; e.currentTarget.style.color = '#fb8c00'; } }}
+                  onMouseLeave={e => { if (!attachedDoc) { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#555'; } }}
+                >
+                  {isUploadingDoc ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                    </svg>
+                  )}
+                  File
+                </button>
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={attachedDoc ? 'Ask about the attached document...' : 'Ask N4 about any financial data...'}
+                  rows={1}
+                  style={{
+                    flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                    color: '#e0e0e0', fontSize: 12, fontFamily: 'JetBrains Mono, monospace',
+                    resize: 'none', lineHeight: 1.4,
+                  }}
+                />
+                <ConversationModeButton
+                  status={conversationStatus}
+                  onToggle={onConversationToggle}
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={(!input.trim() && !attachedDoc) || isStreaming || isUploadingDoc}
+                  style={{
+                    background: (input.trim() || attachedDoc) ? '#fb8c00' : 'transparent',
+                    border: (input.trim() || attachedDoc) ? 'none' : '1px solid #292929',
+                    borderRadius: 4, color: (input.trim() || attachedDoc) ? '#000' : '#888',
+                    padding: '6px 16px', fontSize: 11,
+                    cursor: (input.trim() || attachedDoc) ? 'pointer' : 'default',
+                    fontFamily: 'inherit', fontWeight: 600, transition: 'all 0.15s',
+                    opacity: isUploadingDoc ? 0.5 : 1,
                   }}
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-                  </svg>
-                  {searchButtonLabel}
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  Send
                 </button>
-                {searchMenuOpen && (
-                  <SearchMenuDropdown
-                    searchMode={searchMode}
-                    onSetSearchMode={onSetSearchMode}
-                    onClose={() => setSearchMenuOpen(false)}
-                  />
-                )}
               </div>
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask N4 about any financial data..."
-                rows={1}
-                style={{
-                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                  color: '#e0e0e0', fontSize: 12, fontFamily: 'JetBrains Mono, monospace',
-                  resize: 'none', lineHeight: 1.4,
-                }}
-              />
-              <ConversationModeButton
-                status={conversationStatus}
-                onToggle={onConversationToggle}
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isStreaming}
-                style={{
-                  background: input.trim() ? '#fb8c00' : 'transparent',
-                  border: input.trim() ? 'none' : '1px solid #292929',
-                  borderRadius: 4, color: input.trim() ? '#000' : '#888',
-                  padding: '6px 16px', fontSize: 11,
-                  cursor: input.trim() ? 'pointer' : 'default',
-                  fontFamily: 'inherit', fontWeight: 600, transition: 'all 0.15s',
-                }}
-              >
-                Send
-              </button>
             </div>
           </div>
 

@@ -5,6 +5,8 @@ import { parseAIResponse, executeToolCall, isClientToolCall, isChartNavToolCall,
 import type { PlatformActions } from '../lib/aiTools';
 import { usePlatform } from '../context/PlatformContext';
 import type { SearchSource, SearchImage, SearchProgress } from '../types/index';
+import { useDocumentAttachment } from './useDocumentAttachment';
+import type { AttachedDoc } from './useDocumentAttachment';
 
 export type SearchMode = 'off' | 'tavily' | 'advanced';
 
@@ -38,6 +40,9 @@ export interface UseAIChatReturn {
   searchImages: SearchImage[];
   searchProgress: SearchProgress | null;
   isSourcesPanelOpen: boolean;
+  attachedDoc: AttachedDoc | null;
+  isUploadingDoc: boolean;
+  uploadDocError: string | null;
   sendMessage: (text: string) => void;
   addVoiceMessage: (role: 'user' | 'assistant', text: string) => void;
   stopGenerating: () => void;
@@ -56,6 +61,8 @@ export interface UseAIChatReturn {
   deleteSession: (id: string) => Promise<void>;
   deleteSessions: (ids: string[]) => Promise<void>;
   deleteAllSessions: () => Promise<void>;
+  attachFile: (file: File) => Promise<void>;
+  clearDocAttachment: () => void;
 }
 
 function generateId(): string {
@@ -99,6 +106,14 @@ export function useAIChat(
   userId?: string,
 ): UseAIChatReturn {
   const platform = usePlatform();
+  const {
+    attachedDoc,
+    isUploading: isUploadingDoc,
+    uploadError: uploadDocError,
+    attachFile: attachFileRaw,
+    clearAttachment: clearDocAttachment,
+    loadSessionDocument,
+  } = useDocumentAttachment();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -172,6 +187,8 @@ export function useAIChat(
         }
       }).catch(() => {});
 
+      loadSessionDocument(sessionId);
+
       fetchWebSearchSources(sessionId).then((result) => {
         if (result?.sources) {
           const payload = result.sources;
@@ -183,12 +200,14 @@ export function useAIChat(
   }, [sessionId]);
 
   const sendMessage = useCallback((text: string) => {
-    if (!text.trim() || isStreaming) return;
+    if ((!text.trim() && !attachedDoc) || isStreaming) return;
+
+    const messageText = text.trim() || 'What is this document about?';
 
     const userMsg: ChatMessage = {
       id: generateId(),
       role: 'user',
-      content: text.trim(),
+      content: messageText,
       timestamp: Date.now(),
     };
     setMessages(prev => [...prev, userMsg]);
@@ -202,13 +221,21 @@ export function useAIChat(
     }
     fullTextRef.current = '';
 
-    const title = messages.length === 0 ? text.trim().slice(0, 80) : undefined;
-    saveAIMessage(sessionId, 'user', text.trim(), undefined, title, userId).catch(() => {});
+    const title = messages.length === 0 ? messageText.slice(0, 80) : undefined;
+    saveAIMessage(sessionId, 'user', messageText, undefined, title, userId).catch(() => {});
 
-    const aiMessages: AIMessage[] = [
-      ...messages.map(m => ({ role: m.role, content: m.content })),
-      { role: 'user' as const, content: text.trim() },
-    ];
+    const historyMessages: AIMessage[] = messages.map(m => ({ role: m.role, content: m.content }));
+    historyMessages.push({ role: 'user' as const, content: messageText });
+
+    const aiMessages: AIMessage[] = attachedDoc?.extractedText
+      ? [
+          {
+            role: 'system' as const,
+            content: `The user has attached a document titled "${attachedDoc.filename}". Full document content:\n\n${attachedDoc.extractedText}\n\n---\nAlways refer to this document when answering the user's questions unless told otherwise.`,
+          },
+          ...historyMessages,
+        ]
+      : historyMessages;
 
     const contextPayload = buildContextPayload({
       selectedSymbol: '',
@@ -312,7 +339,7 @@ export function useAIChat(
       webSearch,
       searchMode !== 'off' ? searchMode : undefined,
     );
-  }, [messages, isStreaming, sessionId, platform, selectedModel, searchMode, refreshSessions, isSourcesPanelOpen]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel, searchMode, refreshSessions, isSourcesPanelOpen, attachedDoc]);
 
   const addVoiceMessage = useCallback((role: 'user' | 'assistant', text: string) => {
     if (!text.trim()) return;
@@ -450,7 +477,8 @@ export function useAIChat(
     setSearchSources([]);
     setSearchImages([]);
     setIsExpanded(true);
-  }, []);
+    loadSessionDocument(id);
+  }, [loadSessionDocument]);
 
   const newSession = useCallback(() => {
     const id = generateId();
@@ -461,7 +489,8 @@ export function useAIChat(
     setSearchSources([]);
     setSearchImages([]);
     setSearchProgress(null);
-  }, []);
+    clearDocAttachment();
+  }, [clearDocAttachment]);
 
   const setModel = useCallback((m: string) => {
     setSelectedModel(m);
@@ -520,8 +549,13 @@ export function useAIChat(
     setSearchSources([]);
     setSearchImages([]);
     setSearchProgress(null);
+    clearDocAttachment();
     refreshSessions();
-  }, [refreshSessions]);
+  }, [refreshSessions, clearDocAttachment]);
+
+  const attachFile = useCallback(async (file: File) => {
+    await attachFileRaw(file, sessionId);
+  }, [attachFileRaw, sessionId]);
 
   const deleteMessage = useCallback((id: string) => {
     setMessages(prev => prev.filter(m => m.id !== id));
@@ -614,6 +648,9 @@ export function useAIChat(
     searchImages,
     searchProgress,
     isSourcesPanelOpen,
+    attachedDoc,
+    isUploadingDoc,
+    uploadDocError,
     sendMessage,
     addVoiceMessage,
     stopGenerating,
@@ -632,5 +669,7 @@ export function useAIChat(
     deleteSession: handleDeleteSession,
     deleteSessions: handleDeleteSessions,
     deleteAllSessions: handleDeleteAllSessions,
+    attachFile,
+    clearDocAttachment,
   };
 }
