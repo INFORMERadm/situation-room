@@ -1823,6 +1823,157 @@ async function executeServerTool(
   return "Action executed on client.";
 }
 
+const MCP_TOOLS = [
+  {
+    name: "fetch_fmp_data",
+    description: "Fetch live financial market data including quotes, price history, company profiles, earnings, income statements, and more from the Financial Modeling Prep API.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        endpoint: { type: "string", description: "FMP API endpoint (e.g. quote, income-statement, balance-sheet-statement, historical-price-full)" },
+        params: { type: "object", description: "Query parameters (e.g. {\"symbol\": \"AAPL\", \"limit\": 5})" },
+      },
+      required: ["endpoint"],
+    },
+  },
+  {
+    name: "tavily_search",
+    description: "Search the web for current, real-time information. Use for recent news, breaking events, or any information after your training cutoff.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query (e.g. 'Tesla stock news today')" },
+      },
+      required: ["query"],
+    },
+  },
+];
+
+const mcpSessionIds = new Map<string, string>();
+
+async function handleMCPRequest(req: Request): Promise<Response> {
+  const requestId = crypto.randomUUID();
+
+  if (req.method === "GET" || req.method === "OPTIONS") {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
+
+  let body: { jsonrpc?: string; id?: unknown; method?: string; params?: Record<string, unknown> };
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const { id = requestId, method, params = {} } = body;
+
+  if (method === "initialize") {
+    const sessionId = crypto.randomUUID();
+    mcpSessionIds.set(sessionId, sessionId);
+    return new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id,
+        result: {
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {} },
+          serverInfo: { name: "n4-global-monitor", version: "1.0.0" },
+        },
+      }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "Mcp-Session-Id": sessionId,
+        },
+      }
+    );
+  }
+
+  if (method === "notifications/initialized") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (method === "tools/list") {
+    return new Response(
+      JSON.stringify({ jsonrpc: "2.0", id, result: { tools: MCP_TOOLS } }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  if (method === "tools/call") {
+    const toolName = (params.name as string) || "";
+    const args = (params.arguments as Record<string, unknown>) || {};
+
+    if (toolName === "fetch_fmp_data") {
+      try {
+        const endpoint = (args.endpoint as string) || "quote";
+        const extraParams = (args.params as Record<string, string>) || {};
+        const data = await fmpFetch(endpoint, extraParams);
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id,
+            result: { content: [{ type: "text", text: JSON.stringify(data) }] },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (err) {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id,
+            error: { code: -32000, message: err instanceof Error ? err.message : String(err) },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    if (toolName === "tavily_search") {
+      try {
+        const query = (args.query as string) || "";
+        const tavilyResult = await callTavilySearch(query);
+        const text = [
+          tavilyResult.answer ? `Summary: ${tavilyResult.answer}` : "",
+          ...(tavilyResult.results || []).map((r, i) => `[${i + 1}] ${r.title}\n${r.url}\n${r.content}`),
+        ].filter(Boolean).join("\n\n");
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id,
+            result: { content: [{ type: "text", text: text || "No results found." }] },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (err) {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id,
+            error: { code: -32000, message: err instanceof Error ? err.message : String(err) },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32601, message: `Unknown tool: ${toolName}` } }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  return new Response(
+    JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 async function handleAIChat(req: Request): Promise<Response> {
   try {
     const body = await req.json();
@@ -2280,6 +2431,9 @@ Deno.serve(async (req: Request) => {
       case "ai-chat": {
         if (req.method !== "POST") return jsonResponse({ error: "POST required" }, 405);
         return handleAIChat(req);
+      }
+      case "mcp": {
+        return handleMCPRequest(req);
       }
       default:
         return jsonResponse({ error: "Unknown feed" }, 400);

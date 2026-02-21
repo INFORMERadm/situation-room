@@ -120,7 +120,11 @@ export default function MarketsDashboard() {
           },
           {
             conversationContext: contextMessages || undefined,
-            mcpServers: [],
+            mcpServers: [
+              {
+                url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/global-monitor?feed=mcp`,
+              },
+            ],
             userId: user?.id,
             searchMode: ai.searchMode,
             userToken,
