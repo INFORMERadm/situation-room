@@ -1935,6 +1935,16 @@ async function handleMCPRequest(req: Request): Promise<Response> {
     }
 
     if (toolName === "tavily_search") {
+      if (!TAVILY_API_KEY) {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id,
+            error: { code: -32000, message: "Web search is not configured: TAVILY_API_KEY is missing" },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       try {
         const query = (args.query as string) || "";
         const tavilyResult = await callTavilySearch(query);

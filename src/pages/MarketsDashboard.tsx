@@ -10,8 +10,10 @@ import EarningsCalendar from '../components/markets/EarningsCalendar';
 import EconomicCalendar from '../components/markets/EconomicCalendar';
 import AIChatBox from '../components/markets/AIChatBox';
 import ModeSidebar from '../components/ModeSidebar';
+import MCPConnectionsPanel from '../components/MCPConnectionsPanel';
 import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
 import { useAIChat } from '../hooks/useAIChat';
+import { useSmitheryConnections } from '../hooks/useSmitheryConnections';
 import { usePlatform } from '../context/PlatformContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -88,6 +90,9 @@ export default function MarketsDashboard() {
   const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id);
 
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
+  const [showMCPPanel, setShowMCPPanel] = useState(false);
+
+  const smithery = useSmitheryConnections(user?.id);
 
   const handleConversationToggle = useCallback(async () => {
     if (isConversationActive()) {
@@ -100,6 +105,37 @@ export default function MarketsDashboard() {
           .join('\n');
 
         const userToken = session?.access_token;
+
+        let smitheryServiceToken: string | undefined;
+        if (smithery.connections.length > 0 && userToken) {
+          try {
+            const tokenRes = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smithery-token`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${userToken}`,
+                },
+              }
+            );
+            if (tokenRes.ok) {
+              const tokenData = await tokenRes.json();
+              smitheryServiceToken = tokenData.token || undefined;
+            }
+          } catch {
+            // proceed without service token
+          }
+        }
+
+        const userMcpServers = smithery.connections
+          .filter(c => c.status === 'connected')
+          .map(c => ({
+            url: c.mcp_url,
+            smitheryNamespace: c.smithery_namespace,
+            smitheryConnectionId: c.smithery_connection_id,
+            ...(smitheryServiceToken ? { apiKey: smitheryServiceToken } : {}),
+          }));
 
         await startConversationSession(
           {
@@ -128,6 +164,7 @@ export default function MarketsDashboard() {
               {
                 url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/global-monitor?feed=mcp`,
               },
+              ...userMcpServers,
             ],
             userId: user?.id,
             searchMode: ai.searchMode,
@@ -139,7 +176,7 @@ export default function MarketsDashboard() {
         setConversationStatus('error');
       }
     }
-  }, [ai.messages, ai.addVoiceMessage, ai.searchMode, user?.id, session?.access_token]);
+  }, [ai.messages, ai.addVoiceMessage, ai.searchMode, user?.id, session?.access_token, smithery.connections]);
 
   const handleToggleIndicator = (id: string) => {
     platform.toggleIndicator(id);
@@ -151,6 +188,8 @@ export default function MarketsDashboard() {
         externalClocks={platform.clocks}
         onAddClock={platform.addClock}
         onRemoveClock={platform.removeClock}
+        onMCPSettings={() => setShowMCPPanel(true)}
+        mcpCount={smithery.connections.filter(c => c.status === 'connected').length}
       />
       <TickerStrip items={data.overview} onSelect={data.selectSymbol} />
 
@@ -301,6 +340,16 @@ export default function MarketsDashboard() {
         </div>
         <ModeSidebar />
       </div>
+
+      {showMCPPanel && (
+        <MCPConnectionsPanel
+          connections={smithery.connections}
+          loading={smithery.loading}
+          onAdd={smithery.addConnection}
+          onRemove={smithery.removeConnection}
+          onClose={() => setShowMCPPanel(false)}
+        />
+      )}
     </div>
   );
 }
