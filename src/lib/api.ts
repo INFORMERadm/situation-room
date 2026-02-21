@@ -372,8 +372,8 @@ export async function uploadChatDocument(
   file: File,
   sessionId: string,
 ): Promise<{ documentId: string; filename: string; charCount: number; status: string; errorMessage: string | null }> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const authHeaders = await getAuthHeaders();
+  const { 'Content-Type': _ct, ...headersWithoutContentType } = authHeaders;
 
   const form = new FormData();
   form.append('file', file);
@@ -381,7 +381,7 @@ export async function uploadChatDocument(
 
   const res = await fetch(`${API_BASE}/extract-document`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: headersWithoutContentType,
     body: form,
   });
 
