@@ -2013,6 +2013,7 @@ const CUSTOMGPT_TOPICS_RE = new RegExp(
     "republican",
     "right.?wing",
     "left.?wing",
+    "customgpt",
   ].join("|"),
   "i"
 );
@@ -2035,36 +2036,143 @@ async function getCustomGPTAuthHeader(): Promise<string | null> {
 
 async function customGptMcpRequest(method: string, params: Record<string, unknown>): Promise<unknown> {
   const authHeader = await getCustomGPTAuthHeader();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Accept": "application/json, text/event-stream",
+  };
   if (authHeader) headers["Authorization"] = authHeader;
   if (customGptSessionId) headers["Mcp-Session-Id"] = customGptSessionId;
 
   const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method, params });
-  const res = await fetch(CUSTOMGPT_BASE_URL, { method: "POST", headers, body });
+  console.log(`[CustomGPT MCP] --> ${method}`, JSON.stringify(params).slice(0, 200));
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  let res: Response;
+  try {
+    res = await fetch(CUSTOMGPT_BASE_URL, { method: "POST", headers, body, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const sessionHeader = res.headers.get("Mcp-Session-Id");
   if (sessionHeader) customGptSessionId = sessionHeader;
 
-  if (!res.ok) throw new Error(`CustomGPT MCP error: ${res.status}`);
-  const text = await res.text();
-  if (!text.trim()) return null;
-  return JSON.parse(text);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`CustomGPT MCP error: ${res.status} ${errBody.slice(0, 200)}`);
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  const rawText = await res.text();
+  console.log(`[CustomGPT MCP] <-- ${method} content-type=${contentType} body=${rawText.slice(0, 500)}`);
+
+  if (!rawText.trim()) return null;
+
+  if (contentType.includes("text/event-stream")) {
+    const lines = rawText.split("\n");
+    let parsed: unknown = null;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("data: ")) {
+        const data = trimmed.slice(6).trim();
+        if (data && data !== "[DONE]") {
+          try { parsed = JSON.parse(data); } catch { /* skip */ }
+        }
+      }
+    }
+    return parsed;
+  }
+
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    console.error("[CustomGPT MCP] Failed to parse response as JSON:", rawText.slice(0, 300));
+    return null;
+  }
 }
+
+function extractToolsFromResponse(result: unknown): Array<{ name: string; description?: string; inputSchema?: unknown }> {
+  if (!result || typeof result !== "object") return [];
+  const r = result as Record<string, unknown>;
+
+  const candidates = [
+    (r.result as Record<string, unknown>)?.tools,
+    (r as Record<string, unknown>).tools,
+    ((r.result as Record<string, unknown>)?.result as Record<string, unknown>)?.tools,
+  ];
+  for (const c of candidates) {
+    if (Array.isArray(c) && c.length > 0) return c as Array<{ name: string; description?: string; inputSchema?: unknown }>;
+  }
+  return [];
+}
+
+function extractToolCallContent(result: unknown): string {
+  if (!result || typeof result !== "object") return "";
+  const r = result as Record<string, unknown>;
+
+  const candidates = [
+    (r.result as Record<string, unknown>)?.content,
+    (r as Record<string, unknown>).content,
+    ((r.result as Record<string, unknown>)?.result as Record<string, unknown>)?.content,
+  ];
+  for (const c of candidates) {
+    if (Array.isArray(c)) {
+      const text = c
+        .filter((item: unknown) => {
+          const i = item as Record<string, unknown>;
+          return i.type === "text" && i.text;
+        })
+        .map((item: unknown) => (item as Record<string, unknown>).text as string)
+        .join("\n\n");
+      if (text) return text;
+    }
+  }
+
+  const textStr = (r.result as Record<string, unknown>)?.text ?? (r as Record<string, unknown>).text;
+  if (typeof textStr === "string" && textStr) return textStr;
+
+  return "";
+}
+
+const CUSTOMGPT_FALLBACK_TOOLS: typeof ALL_AI_TOOLS = [{
+  type: "function",
+  function: {
+    name: "customgpt_search",
+    description: "Search the CustomGPT curated knowledge base for information about geopolitics, politics, social issues, wars, and similar topics. Use this whenever the user asks about political, social, or geopolitical topics.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "The search query to look up in the knowledge base" },
+      },
+      required: ["query"],
+    },
+  },
+}];
 
 async function fetchCustomGPTTools(): Promise<typeof ALL_AI_TOOLS> {
   if (customGptToolsCache) return customGptToolsCache;
 
   try {
-    if (!customGptSessionId) {
-      await customGptMcpRequest("initialize", {
-        protocolVersion: "2024-11-05",
-        capabilities: {},
-        clientInfo: { name: "n4-global-monitor", version: "1.0.0" },
-      });
-    }
+    await customGptMcpRequest("initialize", {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: { name: "n4-global-monitor", version: "1.0.0" },
+    });
 
-    const result = await customGptMcpRequest("tools/list", {}) as { result?: { tools?: Array<{ name: string; description?: string; inputSchema?: unknown }> } } | null;
-    const rawTools = result?.result?.tools ?? [];
+    const result = await customGptMcpRequest("tools/list", {});
+    console.log("[CustomGPT] tools/list raw result:", JSON.stringify(result).slice(0, 800));
+
+    const rawTools = extractToolsFromResponse(result);
+    console.log(`[CustomGPT] Extracted ${rawTools.length} tools:`, rawTools.map(t => t.name).join(", "));
+
+    if (rawTools.length === 0) {
+      console.warn("[CustomGPT] No tools returned from MCP — using fallback customgpt_search");
+      customGptToolsCache = CUSTOMGPT_FALLBACK_TOOLS;
+      SERVER_TOOLS.add("customgpt_search");
+      return CUSTOMGPT_FALLBACK_TOOLS;
+    }
 
     const mapped: typeof ALL_AI_TOOLS = rawTools.map((t) => ({
       type: "function",
@@ -2075,33 +2183,16 @@ async function fetchCustomGPTTools(): Promise<typeof ALL_AI_TOOLS> {
       },
     }));
 
-    if (mapped.length === 0) {
-      const fallback: typeof ALL_AI_TOOLS = [{
-        type: "function",
-        function: {
-          name: "customgpt_search",
-          description: "Search the CustomGPT curated knowledge base for information about geopolitics, politics, social issues, wars, and similar topics.",
-          parameters: {
-            type: "object",
-            properties: {
-              query: { type: "string", description: "Search query about the topic" },
-            },
-            required: ["query"],
-          },
-        },
-      }];
-      customGptToolsCache = fallback;
-      return fallback;
-    }
-
     customGptToolsCache = mapped;
     for (const t of mapped) {
       SERVER_TOOLS.add(t.function.name);
+      console.log(`[CustomGPT] Registered server tool: ${t.function.name}`);
     }
     return mapped;
   } catch (e) {
     console.error("[CustomGPT] Failed to fetch tools:", e);
-    return [];
+    SERVER_TOOLS.add("customgpt_search");
+    return CUSTOMGPT_FALLBACK_TOOLS;
   }
 }
 
@@ -2115,19 +2206,14 @@ async function callCustomGPTTool(toolName: string, args: Record<string, unknown>
       });
     }
 
-    const result = await customGptMcpRequest("tools/call", { name: toolName, arguments: args }) as {
-      result?: { content?: Array<{ type: string; text?: string }> }
-    } | null;
+    console.log(`[CustomGPT] Calling tool "${toolName}" with args:`, JSON.stringify(args));
+    const result = await customGptMcpRequest("tools/call", { name: toolName, arguments: args });
+    console.log(`[CustomGPT] Tool "${toolName}" raw result:`, JSON.stringify(result).slice(0, 500));
 
-    const content = result?.result?.content ?? [];
-    const text = content
-      .filter((c) => c.type === "text" && c.text)
-      .map((c) => c.text)
-      .join("\n\n");
-
-    return text || "No results returned from knowledge base.";
+    const text = extractToolCallContent(result);
+    return text || "No results returned from the knowledge base for this query.";
   } catch (e) {
-    console.error(`[CustomGPT] Tool call error for ${toolName}:`, e);
+    console.error(`[CustomGPT] Tool call error for "${toolName}":`, e);
     return `Knowledge base lookup failed: ${e instanceof Error ? e.message : "unknown error"}`;
   }
 }
@@ -2525,11 +2611,14 @@ async function handleAIChat(req: Request): Promise<Response> {
     const customGptActive = detectsCustomGPTTopics(messages);
     if (customGptActive) {
       console.log("[AI Chat] CustomGPT topics detected — loading CustomGPT tools");
-      const cgTools = await fetchCustomGPTTools();
-      if (cgTools.length > 0) {
-        aiTools = [...aiTools, ...cgTools];
-        console.log(`[AI Chat] Added ${cgTools.length} CustomGPT tool(s): ${cgTools.map(t => t.function.name).join(", ")}`);
+      let cgTools = await fetchCustomGPTTools();
+      if (cgTools.length === 0) {
+        console.warn("[AI Chat] fetchCustomGPTTools returned empty — injecting fallback");
+        cgTools = CUSTOMGPT_FALLBACK_TOOLS;
+        SERVER_TOOLS.add("customgpt_search");
       }
+      aiTools = [...aiTools, ...cgTools];
+      console.log(`[AI Chat] Added ${cgTools.length} CustomGPT tool(s): ${cgTools.map(t => t.function.name).join(", ")}`);
     }
 
     console.log(`[AI Chat] Available tools: ${aiTools.map(t => t.function.name).join(", ")}`);
