@@ -8,10 +8,12 @@ interface ConversationModeButtonProps {
   disabled?: boolean;
 }
 
-function WaveIcon({ className }: { className?: string }) {
+const ICON_SIZE = { width: 16, height: 16 };
+
+function WaveIcon() {
   return (
     <svg
-      className={className}
+      {...ICON_SIZE}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -24,43 +26,43 @@ function WaveIcon({ className }: { className?: string }) {
   );
 }
 
-function SpinnerIcon({ className }: { className?: string }) {
+function SpinnerIcon() {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg {...ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite' }}>
       <path d="M12 2a10 10 0 0 1 10 10" />
     </svg>
   );
 }
 
-function VolumeIcon({ className }: { className?: string }) {
+function VolumeIcon() {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
       <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
     </svg>
   );
 }
 
-function WrenchIcon({ className }: { className?: string }) {
+function WrenchIcon() {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'aiPulse 1s ease-in-out infinite' }}>
       <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
     </svg>
   );
 }
 
-function MicIcon({ className }: { className?: string }) {
+function MicIcon() {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
       <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
     </svg>
   );
 }
 
-function MicOffIcon({ className }: { className?: string }) {
+function MicOffIcon() {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg {...ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="1" y1="1" x2="23" y2="23" />
       <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
       <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23M12 19v4M8 23h8" />
@@ -87,11 +89,11 @@ export function ConversationModeButton({ status, onToggle, disabled }: Conversat
   };
 
   const getIcon = () => {
-    if (isConnecting)  return <SpinnerIcon className="w-4 h-4 animate-spin" />;
-    if (isToolCalling) return <WrenchIcon className="w-4 h-4 animate-pulse" />;
-    if (isSpeaking)    return <VolumeIcon className="w-4 h-4" />;
-    if (isListening)   return <WaveIcon className="w-4 h-4" />;
-    return <WaveIcon className="w-4 h-4" />;
+    if (isConnecting)  return <SpinnerIcon />;
+    if (isToolCalling) return <WrenchIcon />;
+    if (isSpeaking)    return <VolumeIcon />;
+    if (isListening)   return <WaveIcon />;
+    return <WaveIcon />;
   };
 
   const getButtonStyle = (): React.CSSProperties => {
@@ -115,7 +117,7 @@ export function ConversationModeButton({ status, onToggle, disabled }: Conversat
     if (isListening)   return { ...base, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' };
     if (isActive)      return { ...base, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' };
     if (status === 'error') return { ...base, background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' };
-    return { ...base, background: 'transparent', color: '#555555' };
+    return { ...base, background: 'transparent', color: '#aaaaaa', border: '1px solid #333' };
   };
 
   const getTooltip = () => {
@@ -206,7 +208,7 @@ export function ConversationModeButton({ status, onToggle, disabled }: Conversat
           }}
           title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
         >
-          {isMuted ? <MicOffIcon className="w-4 h-4" /> : <MicIcon className="w-4 h-4" />}
+          {isMuted ? <MicOffIcon /> : <MicIcon />}
         </button>
       )}
     </div>
