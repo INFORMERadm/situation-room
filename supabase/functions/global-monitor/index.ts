@@ -1711,13 +1711,17 @@ You have access to the following tools:
 
 {{WEB_SEARCH_SECTION}}
 
-RESPONSE FORMAT:
-- For tool calls, include JSON blocks wrapped in <tool_call> tags: <tool_call>{"tool":"tool_name","params":{...}}</tool_call>
+TOOL CALLING - MANDATORY:
+- You MUST actually invoke tools by making function calls. NEVER describe, simulate, or role-play a tool's action in text.
+- If the user asks to add something to the watchlist, you MUST call the add_to_watchlist tool. Do NOT just say "I've added it" without calling the tool.
+- If the user asks to show a chart or navigate to a symbol, you MUST call change_symbol. Do NOT just describe what would happen.
+- You can also use <tool_call> XML tags as a fallback: <tool_call>{"tool":"tool_name","params":{...}}</tool_call>
 - CRITICAL: After emitting a <tool_call> tag for fetch_fmp_data, STOP generating immediately. Do NOT predict, guess, or fabricate the tool's response. The system will execute the tool and provide real results. Any text you generate after a fetch_fmp_data tool call will be discarded.
 - You may combine multiple tool calls with text explanation
 - When asked about a price or financial data for a specific company, ALWAYS also call change_symbol to navigate to that stock
-- When the user asks to ADD a symbol/stock to their watchlist, you MUST call add_to_watchlist with both the symbol and the company name. Example: <tool_call>{"tool":"add_to_watchlist","params":{"symbol":"BABA","name":"Alibaba Group"}}</tool_call>
+- When the user asks to ADD a symbol/stock to their watchlist, you MUST call add_to_watchlist with both the symbol and the company name. Example: add_to_watchlist(symbol="BABA", name="Alibaba Group") or <tool_call>{"tool":"add_to_watchlist","params":{"symbol":"BABA","name":"Alibaba Group"}}</tool_call>
 - When the user asks to REMOVE a symbol/stock from their watchlist, you MUST call remove_from_watchlist. Example: <tool_call>{"tool":"remove_from_watchlist","params":{"symbol":"BABA"}}</tool_call>
+- When the user mentions MULTIPLE actions (e.g., "add to watchlist AND show chart"), you MUST call ALL relevant tools, not just one.
 - Format data in proper markdown tables using pipe (|) delimiters and a separator row. Example:
   | Metric | Value |
   |--------|-------|
@@ -2275,6 +2279,7 @@ async function streamOneLLMRound(
   };
   if (tools && tools.length > 0) {
     requestBody.tools = tools;
+    requestBody.tool_choice = "auto";
   }
   const hfRes = await fetch(modelConfig.url, {
     method: "POST",
@@ -2378,6 +2383,10 @@ async function streamOneLLMRound(
   }
 
   const nativeToolCalls = Array.from(nativeMap.values()).filter(tc => tc.name);
+  console.log(`[AI Chat] streamOneLLMRound complete: contentLen=${fullContent.length}, nativeToolCalls=${nativeToolCalls.length}, textToolCalls=${textToolCalls.length}`);
+  if (nativeToolCalls.length > 0) {
+    console.log(`[AI Chat] Native calls detail: ${nativeToolCalls.map(tc => `${tc.name}(${tc.arguments.substring(0, 100)})`).join(", ")}`);
+  }
   return { fullContent, nativeToolCalls, textToolCalls };
 }
 
@@ -2669,7 +2678,9 @@ async function handleAIChat(req: Request): Promise<Response> {
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
+        let sentAnyContent = false;
         const sendChunk = (content: string) => {
+          sentAnyContent = true;
           controller.enqueue(encoder.encode(
             `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`
           ));
@@ -2759,9 +2770,16 @@ async function handleAIChat(req: Request): Promise<Response> {
 
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
             console.log(`[AI Chat] Starting round ${depth + 1}/${MAX_CHAIN_DEPTH}`);
-            const { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
+            let { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
               controller, encoder, modelConfig, HF_TOKEN, chatMessages, aiTools,
             );
+
+            if (depth === 0 && !fullContent.trim() && nativeToolCalls.length === 0 && textToolCalls.length === 0 && aiTools.length > 0) {
+              console.warn("[AI Chat] Empty response with tools enabled — retrying without native tools (text-based fallback)");
+              ({ fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
+                controller, encoder, modelConfig, HF_TOKEN, chatMessages, undefined,
+              ));
+            }
 
             console.log(`[AI Chat] Round ${depth + 1} complete: nativeToolCalls=${nativeToolCalls.length}, textToolCalls=${textToolCalls.length}`);
             if (nativeToolCalls.length > 0) {
@@ -2859,6 +2877,10 @@ async function handleAIChat(req: Request): Promise<Response> {
 
           if (tavilySourcesMd) {
             sendChunk(tavilySourcesMd);
+          }
+          if (!sentAnyContent) {
+            console.warn("[AI Chat] No content was ever sent to client — emitting fallback message");
+            sendChunk("I wasn't able to generate a response. Please try again.");
           }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (e) {
