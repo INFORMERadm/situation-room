@@ -343,7 +343,18 @@ Deno.serve(async (req: Request) => {
       newsContext = formatNewsForContext(news);
     } catch { /* non-fatal */ }
 
-    let fullInstructions = (systemPrompt || defaultInstructions) + webSearchInstruction + newsContext;
+    const clientToolInstructions = `\n\nUI CONTROL TOOLS: You have tools to control the trading dashboard. You MUST call these tools when the user requests these actions — never just describe the action.
+- change_symbol: Navigate chart to a stock. Call when user mentions a ticker or asks to show/open a stock.
+- change_timeframe: Change chart interval (1min, 5min, 15min, 30min, 1hour, daily).
+- change_chart_type: Change chart type (area, line, bar, candlestick).
+- toggle_indicator: Toggle technical indicators (sma20, sma50, sma100, sma200, ema12, ema26, bollinger, vwap, volume, rsi, macd).
+- add_to_watchlist: Add a symbol to the watchlist. Requires both symbol and company name. ALWAYS also call change_symbol for the same symbol.
+- remove_from_watchlist: Remove a symbol from the watchlist.
+- switch_right_panel: Switch right panel (news, economic).
+- switch_left_tab: Switch left tab (overview, gainers, losers, active).
+When the user asks about a specific stock, ALWAYS call change_symbol to navigate to it. When adding to watchlist, ALWAYS pair with change_symbol.`;
+
+    let fullInstructions = (systemPrompt || defaultInstructions) + webSearchInstruction + clientToolInstructions + newsContext;
     if (conversationContext) {
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }

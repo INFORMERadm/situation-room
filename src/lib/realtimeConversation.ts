@@ -20,6 +20,7 @@ export interface ConversationEventHandlers {
   onSpeakingStart?: () => void;
   onSpeakingEnd?: () => void;
   onToolCall?: (toolName: string) => void;
+  onClientToolCall?: (toolName: string, args: Record<string, unknown>) => string;
 }
 
 interface MCPServerInput {
@@ -61,6 +62,17 @@ interface CompletedToolCall {
   name: string;
   arguments: string;
 }
+
+const CLIENT_TOOLS = new Set([
+  'change_symbol',
+  'change_timeframe',
+  'change_chart_type',
+  'toggle_indicator',
+  'add_to_watchlist',
+  'remove_from_watchlist',
+  'switch_right_panel',
+  'switch_left_tab',
+]);
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -127,15 +139,19 @@ async function processCompletedToolCalls(
       toolArgs = {};
     }
 
-    const server = currentSession.toolServerMap[toolCall.name];
     let result: string;
 
-    if (server) {
-      result = await executeToolCall(toolCall.name, toolArgs, server);
+    if (CLIENT_TOOLS.has(toolCall.name) && currentSession.handlers.onClientToolCall) {
+      result = currentSession.handlers.onClientToolCall(toolCall.name, toolArgs);
     } else {
-      result = `Error: Tool "${toolCall.name}" is not available. Available tools: ${
-        Object.keys(currentSession.toolServerMap).join(', ') || 'none'
-      }`;
+      const server = currentSession.toolServerMap[toolCall.name];
+      if (server) {
+        result = await executeToolCall(toolCall.name, toolArgs, server);
+      } else {
+        result = `Error: Tool "${toolCall.name}" is not available. Available tools: ${
+          Object.keys(currentSession.toolServerMap).join(', ') || 'none'
+        }`;
+      }
     }
 
     if (currentSession?.dataChannel?.readyState === 'open') {

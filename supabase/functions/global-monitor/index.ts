@@ -2474,6 +2474,96 @@ const MCP_TOOLS = [
       required: ["query"],
     },
   },
+  {
+    name: "change_symbol",
+    description: "Navigate the chart to display a specific stock symbol. Use when user asks to show, open, or navigate to a stock.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        symbol: { type: "string", description: "Stock ticker symbol (e.g. AAPL, TSLA, MSFT)" },
+      },
+      required: ["symbol"],
+    },
+  },
+  {
+    name: "change_timeframe",
+    description: "Change the chart time interval.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeframe: { type: "string", enum: ["1min", "5min", "15min", "30min", "1hour", "daily"], description: "Chart timeframe" },
+      },
+      required: ["timeframe"],
+    },
+  },
+  {
+    name: "change_chart_type",
+    description: "Change chart visualization type.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["area", "line", "bar", "candlestick"], description: "Chart type" },
+      },
+      required: ["type"],
+    },
+  },
+  {
+    name: "toggle_indicator",
+    description: "Toggle a technical indicator on the chart.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        indicator: { type: "string", enum: ["sma20", "sma50", "sma100", "sma200", "ema12", "ema26", "bollinger", "vwap", "volume", "rsi", "macd"], description: "Indicator ID" },
+        enabled: { type: "boolean", description: "Whether to enable or disable the indicator" },
+      },
+      required: ["indicator", "enabled"],
+    },
+  },
+  {
+    name: "add_to_watchlist",
+    description: "Add a symbol to the user's watchlist. Always provide both symbol and company name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        symbol: { type: "string", description: "Stock ticker symbol" },
+        name: { type: "string", description: "Company name" },
+      },
+      required: ["symbol", "name"],
+    },
+  },
+  {
+    name: "remove_from_watchlist",
+    description: "Remove a symbol from the user's watchlist.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        symbol: { type: "string", description: "Stock ticker symbol to remove" },
+      },
+      required: ["symbol"],
+    },
+  },
+  {
+    name: "switch_right_panel",
+    description: "Switch the right panel view between news and economic calendar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        view: { type: "string", enum: ["news", "economic"], description: "Panel view" },
+      },
+      required: ["view"],
+    },
+  },
+  {
+    name: "switch_left_tab",
+    description: "Switch the left sidebar tab.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tab: { type: "string", description: "Tab name (overview, gainers, losers, active)" },
+      },
+      required: ["tab"],
+    },
+  },
 ];
 
 const mcpSessionIds = new Map<string, string>();
@@ -2597,6 +2687,22 @@ async function handleMCPRequest(req: Request): Promise<Response> {
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    }
+
+    const clientTools = new Set([
+      "change_symbol", "change_timeframe", "change_chart_type",
+      "toggle_indicator", "add_to_watchlist", "remove_from_watchlist",
+      "switch_right_panel", "switch_left_tab",
+    ]);
+    if (clientTools.has(toolName)) {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id,
+          result: { content: [{ type: "text", text: `Client action executed: ${toolName}` }] },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(

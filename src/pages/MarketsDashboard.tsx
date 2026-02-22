@@ -16,6 +16,9 @@ import { useAIChat } from '../hooks/useAIChat';
 import { useSmitheryConnections } from '../hooks/useSmitheryConnections';
 import { usePlatform } from '../context/PlatformContext';
 import { useAuth } from '../context/AuthContext';
+import { useWatchlist } from '../context/WatchlistContext';
+import { executeToolCall as execClientTool } from '../lib/aiTools';
+import type { PlatformActions } from '../lib/aiTools';
 import {
   startConversationSession,
   stopConversationSession,
@@ -89,10 +92,28 @@ export default function MarketsDashboard() {
   const { user, session } = useAuth();
   const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id);
 
+  const { addToActiveWatchlist, removeFromActiveWatchlist } = useWatchlist();
+
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
   const [showMCPPanel, setShowMCPPanel] = useState(false);
 
   const smithery = useSmitheryConnections(user?.id);
+
+  const voicePlatformActions: PlatformActions = {
+    selectSymbol: data.selectSymbol,
+    setChartTimeframe: data.setChartTimeframe,
+    setChartType: platform.setChartType,
+    toggleIndicator: platform.toggleIndicator,
+    addToWatchlist: addToActiveWatchlist,
+    removeFromWatchlist: removeFromActiveWatchlist,
+    setRightPanelView: platform.setRightPanelView,
+    setLeftTab: platform.setLeftTab,
+    collapseChat: ai.collapse,
+  };
+
+  const handleClientToolCall = useCallback((toolName: string, args: Record<string, unknown>) => {
+    return execClientTool({ tool: toolName, params: args }, voicePlatformActions);
+  }, [data.selectSymbol, data.setChartTimeframe, platform.setChartType, platform.toggleIndicator, addToActiveWatchlist, removeFromActiveWatchlist, platform.setRightPanelView, platform.setLeftTab, ai.collapse]);
 
   const handleConversationToggle = useCallback(async () => {
     if (isConversationActive()) {
@@ -157,6 +178,7 @@ export default function MarketsDashboard() {
             onSpeakingStart: () => {},
             onSpeakingEnd: () => {},
             onToolCall: (_toolName) => {},
+            onClientToolCall: handleClientToolCall,
           },
           {
             conversationContext: contextMessages || undefined,
@@ -176,7 +198,7 @@ export default function MarketsDashboard() {
         setConversationStatus('error');
       }
     }
-  }, [ai.messages, ai.addVoiceMessage, ai.searchMode, user?.id, session?.access_token, smithery.connections]);
+  }, [ai.messages, ai.addVoiceMessage, ai.searchMode, user?.id, session?.access_token, smithery.connections, handleClientToolCall]);
 
   const handleToggleIndicator = (id: string) => {
     platform.toggleIndicator(id);
