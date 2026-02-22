@@ -2273,9 +2273,6 @@ async function streamOneLLMRound(
     max_tokens: 16000,
     temperature: 0.7,
   };
-  if (tools && tools.length > 0) {
-    requestBody.tools = tools;
-  }
   const hfRes = await fetch(modelConfig.url, {
     method: "POST",
     headers: {
