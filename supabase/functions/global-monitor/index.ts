@@ -2273,6 +2273,9 @@ async function streamOneLLMRound(
     max_tokens: 16000,
     temperature: 0.7,
   };
+  if (tools && tools.length > 0) {
+    requestBody.tools = tools;
+  }
   const hfRes = await fetch(modelConfig.url, {
     method: "POST",
     headers: {
@@ -2756,9 +2759,8 @@ async function handleAIChat(req: Request): Promise<Response> {
 
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
             console.log(`[AI Chat] Starting round ${depth + 1}/${MAX_CHAIN_DEPTH}`);
-            const roundTools = depth === 0 ? aiTools : undefined;
             const { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
-              controller, encoder, modelConfig, HF_TOKEN, chatMessages, roundTools,
+              controller, encoder, modelConfig, HF_TOKEN, chatMessages, aiTools,
             );
 
             console.log(`[AI Chat] Round ${depth + 1} complete: nativeToolCalls=${nativeToolCalls.length}, textToolCalls=${textToolCalls.length}`);
