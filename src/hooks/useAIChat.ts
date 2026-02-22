@@ -4,6 +4,7 @@ import type { AIMessage } from '../lib/api';
 import { parseAIResponse, executeToolCall, isClientToolCall, isChartNavToolCall, buildContextPayload } from '../lib/aiTools';
 import type { PlatformActions } from '../lib/aiTools';
 import { usePlatform } from '../context/PlatformContext';
+import { useWatchlist } from '../context/WatchlistContext';
 import type { SearchSource, SearchImage, SearchProgress } from '../types/index';
 import { useDocumentAttachment } from './useDocumentAttachment';
 import type { AttachedDoc } from './useDocumentAttachment';
@@ -106,6 +107,7 @@ export function useAIChat(
   userId?: string,
 ): UseAIChatReturn {
   const platform = usePlatform();
+  const { addToActiveWatchlist, removeFromActiveWatchlist, activeWatchlist } = useWatchlist();
   const {
     attachedDoc,
     isUploading: isUploadingDoc,
@@ -158,8 +160,8 @@ export function useAIChat(
     setChartTimeframe,
     setChartType: platform.setChartType,
     toggleIndicator: platform.toggleIndicator,
-    addToWatchlist: platform.addToWatchlist,
-    removeFromWatchlist: platform.removeFromWatchlist,
+    addToWatchlist: addToActiveWatchlist,
+    removeFromWatchlist: removeFromActiveWatchlist,
     setRightPanelView: platform.setRightPanelView,
     setLeftTab: platform.setLeftTab,
     collapseChat: () => setIsExpanded(false),
@@ -242,7 +244,7 @@ export function useAIChat(
       chartTimeframe: '',
       chartType: platform.chartType,
       indicators: platform.indicators.map(i => ({ id: i.id, enabled: i.enabled })),
-      watchlist: platform.watchlist,
+      watchlist: activeWatchlist?.items ?? [],
       clocks: platform.clocks,
       rightPanelView: platform.rightPanelView,
       leftTab: platform.leftTab,
@@ -401,7 +403,7 @@ export function useAIChat(
       chartTimeframe: '',
       chartType: platform.chartType,
       indicators: platform.indicators.map(i => ({ id: i.id, enabled: i.enabled })),
-      watchlist: platform.watchlist,
+      watchlist: activeWatchlist?.items ?? [],
       clocks: platform.clocks,
       rightPanelView: platform.rightPanelView,
       leftTab: platform.leftTab,
@@ -582,7 +584,7 @@ export function useAIChat(
         chartTimeframe: '',
         chartType: platform.chartType,
         indicators: platform.indicators.map(i => ({ id: i.id, enabled: i.enabled })),
-        watchlist: platform.watchlist,
+        watchlist: activeWatchlist?.items ?? [],
         clocks: platform.clocks,
         rightPanelView: platform.rightPanelView,
         leftTab: platform.leftTab,

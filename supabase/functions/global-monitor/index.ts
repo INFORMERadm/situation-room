@@ -2264,6 +2264,7 @@ async function streamOneLLMRound(
   modelConfig: { url: string; model: string },
   hfToken: string,
   chatMessages: Record<string, unknown>[],
+  tools: typeof ALL_AI_TOOLS | undefined,
 ): Promise<{
   fullContent: string;
   nativeToolCalls: NativeToolCall[];
@@ -2276,6 +2277,10 @@ async function streamOneLLMRound(
     max_tokens: 16000,
     temperature: 0.7,
   };
+  if (tools && tools.length > 0) {
+    requestBody.tools = tools;
+    requestBody.tool_choice = "auto";
+  }
   const hfRes = await fetch(modelConfig.url, {
     method: "POST",
     headers: {
@@ -2667,7 +2672,8 @@ async function handleAIChat(req: Request): Promise<Response> {
       ? `\n\n========================================\nCUSTOMGPT KNOWLEDGE BASE — MANDATORY INSTRUCTIONS:\n========================================\n\nThe user's question touches on geopolitics, politics, social issues, or a related sensitive topic.\nYou have access to a curated CustomGPT knowledge base tool (customgpt_*). You MUST use it.\n\nREQUIRED STEPS:\n1. Call the available customgpt_* tool with a relevant query to retrieve curated context\n2. Wait for the result before answering\n3. Base your answer PRIMARILY on the retrieved knowledge base content\n4. Supplement with your own knowledge only where the tool result has gaps\n${webSearch ? "5. Only if the CustomGPT tool returns empty or clearly insufficient results, you MAY then call tavily_search as a secondary fallback\n" : ""}\nMANDATORY RULES:\n- NEVER fabricate knowledge base results\n- ALWAYS call the customgpt_* tool FIRST for these topics — do not skip it\n- NEVER call tavily_search before calling the customgpt_* tool\n- The knowledge base is the PRIMARY and AUTHORITATIVE source for geopolitics, politics, gender, migration, religion, COVID/Corona, vaccination, and war topics\n- Web search is a LAST RESORT fallback, not a substitute for the knowledge base\n- If the tool returns no results, answer from your knowledge and say so\n\n========================================`
       : "";
 
-    const baseSystemContent = AI_SYSTEM_PROMPT.replace("{{WEB_SEARCH_SECTION}}", webSearchSection) + customGptSection + contextStr;
+    const toolInstructions = TOOL_INSTRUCTIONS.replace("{{WEB_SEARCH_SECTION}}", webSearchSection);
+    const baseSystemContent = AI_SYSTEM_PROMPT + toolInstructions + customGptSection + contextStr;
     const MAX_CHAIN_DEPTH = 5;
 
     const stream = new ReadableStream({
@@ -2766,7 +2772,7 @@ async function handleAIChat(req: Request): Promise<Response> {
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
             console.log(`[AI Chat] Starting round ${depth + 1}/${MAX_CHAIN_DEPTH}`);
             const { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
-              controller, encoder, modelConfig, HF_TOKEN, chatMessages,
+              controller, encoder, modelConfig, HF_TOKEN, chatMessages, aiTools,
             );
 
             console.log(`[AI Chat] Round ${depth + 1} complete: nativeToolCalls=${nativeToolCalls.length}, textToolCalls=${textToolCalls.length}`);
