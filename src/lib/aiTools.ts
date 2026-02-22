@@ -56,6 +56,7 @@ export function executeToolCall(tc: ToolCall, actions: PlatformActions): string 
       const symbol = (tc.params.symbol as string) || '';
       if (symbol) {
         actions.selectSymbol(symbol.toUpperCase());
+        actions.collapseChat();
         return `Navigated to ${symbol.toUpperCase()}`;
       }
       return 'Missing symbol';
@@ -63,11 +64,13 @@ export function executeToolCall(tc: ToolCall, actions: PlatformActions): string 
     case 'change_timeframe': {
       const tf = (tc.params.timeframe as string) || 'daily';
       actions.setChartTimeframe(tf);
+      actions.collapseChat();
       return `Timeframe set to ${tf}`;
     }
     case 'change_chart_type': {
       const type = (tc.params.type as string) || 'area';
       actions.setChartType(type);
+      actions.collapseChat();
       return `Chart type set to ${type}`;
     }
     case 'toggle_indicator': {
@@ -75,6 +78,7 @@ export function executeToolCall(tc: ToolCall, actions: PlatformActions): string 
       const enabled = tc.params.enabled !== false;
       if (id) {
         actions.toggleIndicator(id, enabled);
+        actions.collapseChat();
         return `${id} ${enabled ? 'enabled' : 'disabled'}`;
       }
       return 'Missing indicator';
