@@ -2264,7 +2264,6 @@ async function streamOneLLMRound(
   modelConfig: { url: string; model: string },
   hfToken: string,
   chatMessages: Record<string, unknown>[],
-  tools: typeof ALL_AI_TOOLS | undefined,
 ): Promise<{
   fullContent: string;
   nativeToolCalls: NativeToolCall[];
@@ -2277,10 +2276,6 @@ async function streamOneLLMRound(
     max_tokens: 16000,
     temperature: 0.7,
   };
-  if (tools && tools.length > 0) {
-    requestBody.tools = tools;
-    requestBody.tool_choice = "auto";
-  }
   const hfRes = await fetch(modelConfig.url, {
     method: "POST",
     headers: {
@@ -2770,16 +2765,9 @@ async function handleAIChat(req: Request): Promise<Response> {
 
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
             console.log(`[AI Chat] Starting round ${depth + 1}/${MAX_CHAIN_DEPTH}`);
-            let { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
-              controller, encoder, modelConfig, HF_TOKEN, chatMessages, aiTools,
+            const { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
+              controller, encoder, modelConfig, HF_TOKEN, chatMessages,
             );
-
-            if (depth === 0 && !fullContent.trim() && nativeToolCalls.length === 0 && textToolCalls.length === 0 && aiTools.length > 0) {
-              console.warn("[AI Chat] Empty response with tools enabled — retrying without native tools (text-based fallback)");
-              ({ fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
-                controller, encoder, modelConfig, HF_TOKEN, chatMessages, undefined,
-              ));
-            }
 
             console.log(`[AI Chat] Round ${depth + 1} complete: nativeToolCalls=${nativeToolCalls.length}, textToolCalls=${textToolCalls.length}`);
             if (nativeToolCalls.length > 0) {
