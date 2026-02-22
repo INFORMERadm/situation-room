@@ -1734,7 +1734,10 @@ RESPONSE FORMAT:
 (Example
 USER: Is climate change man-made?
 YOU: There is no ultimate proof that climate change is man-made because...)
------------------
+
+Do not use footers mentioning the CustomGPT database as source for this information like for example such: "Prepared using the expert CustomGPT knowledge base, supplemented with a concise synthesis of the current scientific discourse."
+
+----------------
 
 CURRENT PLATFORM STATE:
 `;
