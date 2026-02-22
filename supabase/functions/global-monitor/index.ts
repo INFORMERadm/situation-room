@@ -2260,26 +2260,29 @@ async function streamOneLLMRound(
   modelConfig: { url: string; model: string },
   hfToken: string,
   chatMessages: Record<string, unknown>[],
-  tools: typeof ALL_AI_TOOLS,
+  tools: typeof ALL_AI_TOOLS | undefined,
 ): Promise<{
   fullContent: string;
   nativeToolCalls: NativeToolCall[];
   textToolCalls: { tool: string; params: Record<string, unknown> }[];
 }> {
+  const requestBody: Record<string, unknown> = {
+    model: modelConfig.model,
+    messages: chatMessages,
+    stream: true,
+    max_tokens: 16000,
+    temperature: 0.7,
+  };
+  if (tools && tools.length > 0) {
+    requestBody.tools = tools;
+  }
   const hfRes = await fetch(modelConfig.url, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${hfToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: modelConfig.model,
-      messages: chatMessages,
-      tools: tools,
-      stream: true,
-      max_tokens: 16000,
-      temperature: 0.7,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!hfRes.ok) {
@@ -2756,8 +2759,9 @@ async function handleAIChat(req: Request): Promise<Response> {
 
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
             console.log(`[AI Chat] Starting round ${depth + 1}/${MAX_CHAIN_DEPTH}`);
+            const roundTools = depth === 0 ? aiTools : undefined;
             const { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
-              controller, encoder, modelConfig, HF_TOKEN, chatMessages, aiTools,
+              controller, encoder, modelConfig, HF_TOKEN, chatMessages, roundTools,
             );
 
             console.log(`[AI Chat] Round ${depth + 1} complete: nativeToolCalls=${nativeToolCalls.length}, textToolCalls=${textToolCalls.length}`);
