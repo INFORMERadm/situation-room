@@ -32,10 +32,19 @@ const CHART_NAV_TOOLS = new Set([
   'change_timeframe',
   'change_chart_type',
   'toggle_indicator',
+  'add_to_watchlist',
 ]);
 
 export function isChartNavToolCall(tc: ToolCall): boolean {
   return CHART_NAV_TOOLS.has(tc.tool);
+}
+
+export function extractSymbolFromToolCall(tc: ToolCall): string | null {
+  if (tc.tool === 'change_symbol' || tc.tool === 'add_to_watchlist') {
+    const symbol = (tc.params.symbol as string) || '';
+    return symbol ? symbol.toUpperCase() : null;
+  }
+  return null;
 }
 
 export interface PlatformActions {
@@ -88,6 +97,8 @@ export function executeToolCall(tc: ToolCall, actions: PlatformActions): string 
       const name = (tc.params.name as string) || symbol;
       if (symbol) {
         actions.addToWatchlist(symbol.toUpperCase(), name);
+        actions.selectSymbol(symbol.toUpperCase());
+        actions.collapseChat();
         return `Added ${symbol.toUpperCase()} to watchlist`;
       }
       return 'Missing symbol';

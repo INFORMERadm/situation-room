@@ -1719,9 +1719,10 @@ TOOL CALLING - MANDATORY:
 - CRITICAL: After emitting a <tool_call> tag for fetch_fmp_data, STOP generating immediately. Do NOT predict, guess, or fabricate the tool's response. The system will execute the tool and provide real results. Any text you generate after a fetch_fmp_data tool call will be discarded.
 - You may combine multiple tool calls with text explanation
 - When asked about a price or financial data for a specific company, ALWAYS also call change_symbol to navigate to that stock
+- CRITICAL: When adding a symbol to the watchlist, you MUST ALSO call change_symbol for the same symbol so the chart navigates to it. ALWAYS pair add_to_watchlist with change_symbol.
 - When the user asks to ADD a symbol/stock to their watchlist, you MUST call add_to_watchlist with both the symbol and the company name. Example: add_to_watchlist(symbol="BABA", name="Alibaba Group") or <tool_call>{"tool":"add_to_watchlist","params":{"symbol":"BABA","name":"Alibaba Group"}}</tool_call>
 - When the user asks to REMOVE a symbol/stock from their watchlist, you MUST call remove_from_watchlist. Example: <tool_call>{"tool":"remove_from_watchlist","params":{"symbol":"BABA"}}</tool_call>
-- When the user mentions MULTIPLE actions (e.g., "add to watchlist AND show chart"), you MUST call ALL relevant tools, not just one.
+- When the user mentions MULTIPLE actions (e.g., "add to watchlist AND show chart"), you MUST call ALL relevant tools, not just one. Never skip change_symbol when the user refers to a specific stock.
 - Format data in proper markdown tables using pipe (|) delimiters and a separator row. Example:
   | Metric | Value |
   |--------|-------|

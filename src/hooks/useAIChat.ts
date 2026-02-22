@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { streamAIChat, saveAIMessage, loadAIHistory, loadAISessions, fetchWebSearchSources, renameAISession, deleteAISession, deleteAISessions, deleteAllAISessions } from '../lib/api';
 import type { AIMessage } from '../lib/api';
-import { parseAIResponse, executeToolCall, isClientToolCall, isChartNavToolCall, buildContextPayload } from '../lib/aiTools';
+import { parseAIResponse, executeToolCall, isClientToolCall, isChartNavToolCall, extractSymbolFromToolCall, buildContextPayload } from '../lib/aiTools';
 import type { PlatformActions } from '../lib/aiTools';
 import { usePlatform } from '../context/PlatformContext';
 import { useWatchlist } from '../context/WatchlistContext';
@@ -140,6 +140,7 @@ export function useAIChat(
   const abortRef = useRef<AbortController | null>(null);
   const inlineTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const fullTextRef = useRef('');
+  const chartNavDetectedRef = useRef(false);
 
   const platformActionsRef = useRef<PlatformActions>({
     selectSymbol: () => {},
@@ -222,6 +223,7 @@ export function useAIChat(
       setSearchImages([]);
     }
     fullTextRef.current = '';
+    chartNavDetectedRef.current = false;
 
     const title = messages.length === 0 ? messageText.slice(0, 80) : undefined;
     saveAIMessage(sessionId, 'user', messageText, undefined, title, userId).catch(() => {});
@@ -259,6 +261,25 @@ export function useAIChat(
         fullTextRef.current += token;
         setStreamingContent(fullTextRef.current);
 
+        if (!chartNavDetectedRef.current) {
+          const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
+          let tcMatch;
+          while ((tcMatch = toolCallRegex.exec(fullTextRef.current)) !== null) {
+            try {
+              const tc = JSON.parse(tcMatch[1]);
+              if (tc.tool && isChartNavToolCall(tc)) {
+                chartNavDetectedRef.current = true;
+                const sym = extractSymbolFromToolCall(tc);
+                if (sym) {
+                  platformActionsRef.current.selectSymbol(sym);
+                }
+                setIsExpanded(false);
+                break;
+              }
+            } catch { /* skip */ }
+          }
+        }
+
         const { sources, images, progress } = parseSearchTags(fullTextRef.current);
         if (sources.length > 0) {
           setSearchSources(sources);
@@ -281,12 +302,12 @@ export function useAIChat(
         const clientCalls = parsed.toolCalls.filter(isClientToolCall);
         const statuses: string[] = [];
 
+        const hasChartNavCall = clientCalls.some(isChartNavToolCall) || chartNavDetectedRef.current;
+
         for (const tc of clientCalls) {
           const result = executeToolCall(tc, platformActionsRef.current);
           if (result) statuses.push(result);
         }
-
-        const hasChartNavCall = clientCalls.some(isChartNavToolCall);
 
         const hasRichDataContent = !hasChartNavCall && (
           parsed.text.length > 80 ||
@@ -294,12 +315,6 @@ export function useAIChat(
           parsed.text.includes('```') ||
           parsed.text.includes('**')
         );
-
-        if (hasChartNavCall) {
-          setIsExpanded(false);
-        } else if (hasRichDataContent) {
-          setIsExpanded(true);
-        }
 
         if (statuses.length > 0 && !hasRichDataContent) {
           setInlineStatus(statuses.join(' | '));
@@ -317,6 +332,12 @@ export function useAIChat(
           searchImages: images.length > 0 ? images : undefined,
         };
         setMessages(prev => [...prev, assistantMsg]);
+
+        if (hasChartNavCall) {
+          setIsExpanded(false);
+        } else if (hasRichDataContent) {
+          setIsExpanded(true);
+        }
 
         saveAIMessage(
           sessionId,
