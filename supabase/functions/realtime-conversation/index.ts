@@ -361,7 +361,7 @@ When the user asks about a specific stock, ALWAYS call change_symbol to navigate
 
     const sessionConfig: Record<string, unknown> = {
       model: "gpt-4o-realtime-preview",
-      voice: "alloy",
+      voice: "marin",
       modalities: ["text", "audio"],
       instructions: fullInstructions,
       input_audio_transcription: {
@@ -429,7 +429,7 @@ When the user asks about a specific stock, ALWAYS call change_symbol to navigate
 
     const clientSessionConfig: Record<string, unknown> = {
       instructions: fullInstructions,
-      voice: "alloy",
+      voice: "marin",
       modalities: ["text", "audio"],
       input_audio_transcription: { model: "whisper-1" },
       turn_detection: {
