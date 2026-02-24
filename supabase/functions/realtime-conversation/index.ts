@@ -343,6 +343,29 @@ Deno.serve(async (req: Request) => {
       newsContext = formatNewsForContext(news);
     } catch { /* non-fatal */ }
 
+    const fmpToolInstructions = `\n\nFINANCIAL DATA TOOL: You have the fetch_fmp_data tool to retrieve live financial data. Use it whenever the user asks about financial data, fundamentals, or market statistics.
+Parameters: { "endpoint": string, "params": object }
+
+Available endpoints:
+- Quotes & Prices: quote, batch-quote (params: symbol/symbols), stock-price-change, historical-price-eod/full, historical-chart/1min|5min|1hour
+- Financial Statements: income-statement, balance-sheet-statement, cash-flow-statement (params: symbol, period=annual|quarter, limit)
+- TTM Statements: income-statement-ttm, balance-sheet-statement-ttm, cash-flow-statement-ttm (params: symbol)
+- Metrics & Ratios: key-metrics, ratios, key-metrics-ttm, ratios-ttm, financial-scores, enterprise-values (params: symbol, period, limit)
+- Growth: income-statement-growth, balance-sheet-statement-growth, cash-flow-statement-growth, financial-growth (params: symbol, period, limit)
+- Analyst Data: analyst-estimates, ratings-snapshot, price-target-summary, price-target-consensus, grades (params: symbol)
+- Dividends & Earnings: dividends, earnings, earning-calendar, earning-call-transcript (params: symbol, year, quarter)
+- Insider Trading: insider-trading/latest, insider-trading/search, insider-trading/statistics (params: symbol)
+- Institutional: institutional-ownership/symbol-positions-summary (params: symbol, year, quarter)
+- SEC Filings: sec-filings-search/symbol (params: symbol, from, to)
+- Company Info: profile, stock-peers, key-executives, employee-count, market-capitalization (params: symbol)
+- ETF/Funds: etf/holdings, etf/info, etf/sector-weightings (params: symbol)
+- Market Movers: biggest-gainers, biggest-losers, most-active-stocks, sector-performance, company-screener
+- Economics: treasury-rates, economic-indicators (params: name=GDP|CPI etc), market-risk-premium
+- Search: search-symbol, search-name (params: query)
+- News: stock-news (params: limit), news/stock (params: symbols)
+
+ALWAYS use fetch_fmp_data for any financial data request. Never guess or fabricate financial numbers.`;
+
     const clientToolInstructions = `\n\nUI CONTROL TOOLS: You have tools to control the trading dashboard. You MUST call these tools when the user requests these actions — never just describe the action.
 - change_symbol: Navigate chart to a stock. Call when user mentions a ticker or asks to show/open a stock.
 - change_timeframe: Change chart interval (1min, 5min, 15min, 30min, 1hour, daily).
@@ -352,9 +375,10 @@ Deno.serve(async (req: Request) => {
 - remove_from_watchlist: Remove a symbol from the watchlist.
 - switch_right_panel: Switch right panel (news, economic).
 - switch_left_tab: Switch left tab (overview, gainers, losers, active).
-When the user asks about a specific stock, ALWAYS call change_symbol to navigate to it. When adding to watchlist, ALWAYS pair with change_symbol.`;
+When the user asks about a specific stock, ALWAYS call change_symbol to navigate to it. When adding to watchlist, ALWAYS pair with change_symbol.
+When the user asks about financial data (balance sheet, income statement, earnings, etc.), ALWAYS use fetch_fmp_data AND also call change_symbol to navigate to that stock.`;
 
-    let fullInstructions = (systemPrompt || defaultInstructions) + webSearchInstruction + clientToolInstructions + newsContext;
+    let fullInstructions = (systemPrompt || defaultInstructions) + fmpToolInstructions + webSearchInstruction + clientToolInstructions + newsContext;
     if (conversationContext) {
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }
