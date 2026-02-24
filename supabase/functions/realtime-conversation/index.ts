@@ -310,12 +310,15 @@ Deno.serve(async (req: Request) => {
 
     for (const server of mcpServers) {
       try {
+        console.log(`[realtime] Fetching tools from: ${server.url}`);
         const tools = await fetchMCPTools(server);
+        console.log(`[realtime] Got ${tools.length} tools from ${server.url}: ${tools.map(t => t.name).join(', ')}`);
         for (const tool of tools) {
           toolServerMap[tool.name] = server;
         }
         allTools = [...allTools, ...tools];
       } catch (err) {
+        console.error(`[realtime] Failed to fetch tools from ${server.url}:`, err);
         skippedServers.push({
           url: server.url,
           reason: err instanceof Error ? err.message : String(err),
@@ -330,11 +333,34 @@ Deno.serve(async (req: Request) => {
       : allTools.filter(t => t.name !== 'tavily_search');
 
     const realtimeTools = convertMCPToolsToRealtimeFormat(filteredTools);
+    console.log(`[realtime] Final tools for session (${realtimeTools.length}): ${realtimeTools.map(t => t.name).join(', ')}`);
 
-    const defaultInstructions = `You are N4, an advanced AI financial assistant with real-time market intelligence. You have access to live market data, financial analysis tools, and can help with trading decisions, market analysis, portfolio management, and financial research. Be concise, accurate, and proactive in providing market insights. When speaking, keep responses brief and conversational.`;
+    const defaultInstructions = `You are N4, an advanced AI financial assistant with real-time market intelligence. Be concise, accurate, and conversational.
+
+CRITICAL RULES:
+- You MUST call fetch_fmp_data for ANY financial data question (prices, balance sheets, income statements, earnings, ratios, etc.). NEVER guess or make up financial numbers.
+- You MUST call change_symbol when the user mentions any stock ticker or company.
+- NEVER say you "can't access" data or "don't have access" to financial tools. You DO have access via fetch_fmp_data.
+- NEVER hallucinate prices, financial figures, or market data. Always use your tools.
+
+FETCH_FMP_DATA TOOL - use this for ALL financial data:
+  endpoint examples: quote, profile, income-statement, balance-sheet-statement, cash-flow-statement, key-metrics, ratios, analyst-estimates, earnings, dividends, historical-price-eod/full, biggest-gainers, biggest-losers, sector-performance, stock-news, search-symbol
+  params: { symbol, period (annual/quarter), limit, symbols, query, from, to }
+  Example: fetch_fmp_data({ endpoint: "balance-sheet-statement", params: { symbol: "AAPL", period: "annual", limit: "4" } })
+  Example: fetch_fmp_data({ endpoint: "quote", params: { symbol: "BTCUSD" } })
+
+UI TOOLS:
+- change_symbol(symbol): Navigate chart. ALWAYS call when user mentions a stock.
+- change_timeframe(timeframe): 1min, 5min, 15min, 30min, 1hour, daily
+- change_chart_type(type): area, line, bar, candlestick
+- toggle_indicator(indicator, enabled): sma20, sma50, sma100, sma200, ema12, ema26, bollinger, vwap, volume, rsi, macd
+- add_to_watchlist(symbol, name): ALWAYS pair with change_symbol
+- remove_from_watchlist(symbol)
+- switch_right_panel(view): news, economic
+- switch_left_tab(tab): overview, gainers, losers, active`;
 
     const webSearchInstruction = webSearchEnabled
-      ? `\n\nWEB SEARCH: You have web search available via the tavily_search tool. Only use it when the user's question genuinely requires current or real-time information that you cannot answer from your training data — for example, breaking news, live prices, or today's specific events. Do NOT use web search for greetings, general knowledge questions, conversational exchanges, or anything you can answer confidently without it.`
+      ? `\n\ntavily_search: Use ONLY for non-financial current events, breaking news, or information after your training cutoff.`
       : '';
 
     let newsContext = "";
@@ -343,42 +369,7 @@ Deno.serve(async (req: Request) => {
       newsContext = formatNewsForContext(news);
     } catch { /* non-fatal */ }
 
-    const fmpToolInstructions = `\n\nFINANCIAL DATA TOOL: You have the fetch_fmp_data tool to retrieve live financial data. Use it whenever the user asks about financial data, fundamentals, or market statistics.
-Parameters: { "endpoint": string, "params": object }
-
-Available endpoints:
-- Quotes & Prices: quote, batch-quote (params: symbol/symbols), stock-price-change, historical-price-eod/full, historical-chart/1min|5min|1hour
-- Financial Statements: income-statement, balance-sheet-statement, cash-flow-statement (params: symbol, period=annual|quarter, limit)
-- TTM Statements: income-statement-ttm, balance-sheet-statement-ttm, cash-flow-statement-ttm (params: symbol)
-- Metrics & Ratios: key-metrics, ratios, key-metrics-ttm, ratios-ttm, financial-scores, enterprise-values (params: symbol, period, limit)
-- Growth: income-statement-growth, balance-sheet-statement-growth, cash-flow-statement-growth, financial-growth (params: symbol, period, limit)
-- Analyst Data: analyst-estimates, ratings-snapshot, price-target-summary, price-target-consensus, grades (params: symbol)
-- Dividends & Earnings: dividends, earnings, earning-calendar, earning-call-transcript (params: symbol, year, quarter)
-- Insider Trading: insider-trading/latest, insider-trading/search, insider-trading/statistics (params: symbol)
-- Institutional: institutional-ownership/symbol-positions-summary (params: symbol, year, quarter)
-- SEC Filings: sec-filings-search/symbol (params: symbol, from, to)
-- Company Info: profile, stock-peers, key-executives, employee-count, market-capitalization (params: symbol)
-- ETF/Funds: etf/holdings, etf/info, etf/sector-weightings (params: symbol)
-- Market Movers: biggest-gainers, biggest-losers, most-active-stocks, sector-performance, company-screener
-- Economics: treasury-rates, economic-indicators (params: name=GDP|CPI etc), market-risk-premium
-- Search: search-symbol, search-name (params: query)
-- News: stock-news (params: limit), news/stock (params: symbols)
-
-ALWAYS use fetch_fmp_data for any financial data request. Never guess or fabricate financial numbers.`;
-
-    const clientToolInstructions = `\n\nUI CONTROL TOOLS: You have tools to control the trading dashboard. You MUST call these tools when the user requests these actions — never just describe the action.
-- change_symbol: Navigate chart to a stock. Call when user mentions a ticker or asks to show/open a stock.
-- change_timeframe: Change chart interval (1min, 5min, 15min, 30min, 1hour, daily).
-- change_chart_type: Change chart type (area, line, bar, candlestick).
-- toggle_indicator: Toggle technical indicators (sma20, sma50, sma100, sma200, ema12, ema26, bollinger, vwap, volume, rsi, macd).
-- add_to_watchlist: Add a symbol to the watchlist. Requires both symbol and company name. ALWAYS also call change_symbol for the same symbol.
-- remove_from_watchlist: Remove a symbol from the watchlist.
-- switch_right_panel: Switch right panel (news, economic).
-- switch_left_tab: Switch left tab (overview, gainers, losers, active).
-When the user asks about a specific stock, ALWAYS call change_symbol to navigate to it. When adding to watchlist, ALWAYS pair with change_symbol.
-When the user asks about financial data (balance sheet, income statement, earnings, etc.), ALWAYS use fetch_fmp_data AND also call change_symbol to navigate to that stock.`;
-
-    let fullInstructions = (systemPrompt || defaultInstructions) + fmpToolInstructions + webSearchInstruction + clientToolInstructions + newsContext;
+    let fullInstructions = (systemPrompt || defaultInstructions) + webSearchInstruction + newsContext;
     if (conversationContext) {
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }
@@ -431,8 +422,7 @@ When the user asks about financial data (balance sheet, income statement, earnin
       );
     }
 
-    const model = "gpt-4o-realtime-preview-2024-12-17";
-    const sdpResponse = await fetch(`https://api.openai.com/v1/realtime?model=${model}`, {
+    const sdpResponse = await fetch(`https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${ephemeralKey}`,
