@@ -230,6 +230,67 @@ async function fetchMCPTools(server: MCPServerConfig): Promise<MCPTool[]> {
   return tools;
 }
 
+const CUSTOMGPT_BASE_URL = "https://mcp.customgpt.ai/projects/79211/mcp/";
+
+const CUSTOMGPT_TOPICS_RE = new RegExp(
+  [
+    "geopolit",
+    "politics?",
+    "political",
+    "socialist?",
+    "socialism",
+    "communis[mt]",
+    "capitalis[mt]",
+    "israel",
+    "palest",
+    "gaza",
+    "iran",
+    "middle east",
+    "russia",
+    "trump",
+    "woke",
+    "war\\b",
+    "warfare",
+    "gender",
+    "corona",
+    "covid",
+    "vaccin",
+    "climate change",
+    "global warming",
+    "migrat",
+    "refugee",
+    "\\bimmigratio",
+    "far.?right",
+    "far.?left",
+    "authoritar",
+    "dictator",
+    "democracy",
+    "election fraud",
+    "deep state",
+    "propaganda",
+    "censorship",
+    "nato",
+    "ukraine",
+    "hezbollah",
+    "hamas",
+    "terrorism",
+    "extremis",
+    "populis",
+    "liberal",
+    "conservative",
+    "democrat",
+    "republican",
+    "right.?wing",
+    "left.?wing",
+    "customgpt",
+  ].join("|"),
+  "i"
+);
+
+function detectsCustomGPTTopics(context: string): boolean {
+  return CUSTOMGPT_TOPICS_RE.test(context);
+}
+
 function convertMCPToolsToRealtimeFormat(tools: MCPTool[]) {
   return tools.map((tool) => ({
     type: "function",
@@ -304,24 +365,40 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    const hasCustomGPT = mcpServers.some(s => s.url.includes("mcp.customgpt.ai"));
+    if (!hasCustomGPT && conversationContext && detectsCustomGPTTopics(conversationContext)) {
+      console.log("[realtime] CustomGPT topic detected in conversation context, injecting CustomGPT server");
+      mcpServers.push({ url: CUSTOMGPT_BASE_URL });
+    }
+
     const toolServerMap: Record<string, MCPServerConfig> = {};
     let allTools: MCPTool[] = [];
     const skippedServers: Array<{ url: string; reason: string }> = [];
 
-    for (const server of mcpServers) {
-      try {
+    console.log(`[realtime] Fetching tools from ${mcpServers.length} servers in parallel`);
+    const results = await Promise.allSettled(
+      mcpServers.map(async (server) => {
         console.log(`[realtime] Fetching tools from: ${server.url}`);
         const tools = await fetchMCPTools(server);
         console.log(`[realtime] Got ${tools.length} tools from ${server.url}: ${tools.map(t => t.name).join(', ')}`);
+        return { server, tools };
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        const { server, tools } = result.value;
         for (const tool of tools) {
           toolServerMap[tool.name] = server;
         }
         allTools = [...allTools, ...tools];
-      } catch (err) {
-        console.error(`[realtime] Failed to fetch tools from ${server.url}:`, err);
+      } else {
+        const idx = results.indexOf(result);
+        const server = mcpServers[idx];
+        console.error(`[realtime] Failed to fetch tools from ${server.url}:`, result.reason);
         skippedServers.push({
           url: server.url,
-          reason: err instanceof Error ? err.message : String(err),
+          reason: result.reason instanceof Error ? result.reason.message : String(result.reason),
         });
       }
     }
