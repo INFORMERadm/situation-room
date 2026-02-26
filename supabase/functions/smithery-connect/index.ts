@@ -59,6 +59,14 @@ async function smitheryApiCall(
   return fetch(`https://api.smithery.ai${path}`, options);
 }
 
+async function ensureNamespace(): Promise<void> {
+  const res = await smitheryApiCall("PUT", `/namespaces/${NAMESPACE}`);
+  if (!res.ok && res.status !== 409) {
+    const text = await res.text();
+    console.warn("[smithery-connect] Namespace creation returned:", res.status, text);
+  }
+}
+
 async function handleCreate(req: Request): Promise<Response> {
   const { user, supabase } = await authenticateUser(req);
   const { mcpUrl, displayName } = await req.json();
@@ -66,6 +74,8 @@ async function handleCreate(req: Request): Promise<Response> {
   if (!mcpUrl || !displayName) {
     return jsonResponse({ error: "mcpUrl and displayName are required" }, 400);
   }
+
+  await ensureNamespace();
 
   const connectionId = `${user.id}-${Date.now()}`;
 
