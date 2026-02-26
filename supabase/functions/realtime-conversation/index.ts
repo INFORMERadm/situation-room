@@ -412,6 +412,34 @@ Deno.serve(async (req: Request) => {
     const realtimeTools = convertMCPToolsToRealtimeFormat(filteredTools);
     console.log(`[realtime] Final tools for session (${realtimeTools.length}): ${realtimeTools.map(t => t.name).join(', ')}`);
 
+    const customGptToolNames = allTools
+      .filter(t => {
+        const server = toolServerMap[t.name];
+        return server && server.url.includes("mcp.customgpt.ai");
+      })
+      .map(t => t.name);
+
+    const customGptInstruction = customGptToolNames.length > 0
+      ? `\n\nCUSTOMGPT KNOWLEDGE BASE — MANDATORY:
+You have access to a curated knowledge base via these tools: ${customGptToolNames.join(", ")}.
+You MUST call one of these tools FIRST whenever the user asks about ANY of these topics:
+  - Politics, geopolitics, elections, political parties, politicians
+  - Sociology, social issues, gender, migration, refugees, immigration
+  - Climate change, global warming, environment
+  - COVID-19, Corona, mRNA vaccines, vaccination
+  - Religion, religious conflicts
+  - War, warfare, terrorism, military conflicts
+  - Israel, Palestine, Gaza, Iran, Russia, Ukraine, NATO, Middle East
+  - Propaganda, censorship, democracy, authoritarianism
+
+RULES:
+- ALWAYS call the knowledge base tool BEFORE answering these topics. Do NOT skip it.
+- Present retrieved information as facts, NOT as "according to the knowledge base".
+- NEVER say you "don't have access" to this information — you DO, via the tools listed above.
+- If the tool returns results, base your answer primarily on them.
+- Only fall back to your own knowledge if the tool returns empty results.`
+      : '';
+
     const defaultInstructions = `You are N4, an advanced AI financial assistant with real-time market intelligence. Be concise, accurate, and conversational.
 
 CRITICAL RULES:
@@ -446,7 +474,7 @@ UI TOOLS:
       newsContext = formatNewsForContext(news);
     } catch { /* non-fatal */ }
 
-    let fullInstructions = (systemPrompt || defaultInstructions) + webSearchInstruction + newsContext;
+    let fullInstructions = (systemPrompt || defaultInstructions) + customGptInstruction + webSearchInstruction + newsContext;
     if (conversationContext) {
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }
