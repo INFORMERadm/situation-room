@@ -90,14 +90,23 @@ export default function MarketsDashboard() {
   const data = useMarketsDashboard();
   const platform = usePlatform();
   const { user, session } = useAuth();
-  const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id);
+  const smithery = useSmitheryConnections(user?.id);
+
+  const smitheryMcpServers = smithery.connections
+    .filter(c => c.status === 'connected' && c.smithery_connection_id && c.smithery_namespace)
+    .map(c => ({
+      url: c.mcp_url,
+      connectionId: c.smithery_connection_id,
+      namespace: c.smithery_namespace,
+      displayName: c.display_name,
+    }));
+
+  const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id, smitheryMcpServers);
 
   const { addToActiveWatchlist, removeFromActiveWatchlist } = useWatchlist();
 
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
   const [showMCPPanel, setShowMCPPanel] = useState(false);
-
-  const smithery = useSmitheryConnections(user?.id);
 
   const voicePlatformActions: PlatformActions = {
     selectSymbol: data.selectSymbol,
@@ -371,9 +380,11 @@ export default function MarketsDashboard() {
       {showMCPPanel && (
         <MCPConnectionsPanel
           connections={smithery.connections}
+          catalog={smithery.catalog}
           loading={smithery.loading}
-          onAdd={smithery.addConnection}
+          onConnectServer={smithery.connectServer}
           onRemove={smithery.removeConnection}
+          onRetry={smithery.retryConnection}
           onClose={() => setShowMCPPanel(false)}
         />
       )}

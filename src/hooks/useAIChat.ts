@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { streamAIChat, saveAIMessage, loadAIHistory, loadAISessions, fetchWebSearchSources, renameAISession, deleteAISession, deleteAISessions, deleteAllAISessions } from '../lib/api';
-import type { AIMessage } from '../lib/api';
+import type { AIMessage, MCPServerInput } from '../lib/api';
 import { parseAIResponse, executeToolCall, isClientToolCall, isChartNavToolCall, extractSymbolFromToolCall, buildContextPayload } from '../lib/aiTools';
 import type { PlatformActions } from '../lib/aiTools';
 import { usePlatform } from '../context/PlatformContext';
@@ -105,6 +105,7 @@ export function useAIChat(
   selectSymbol: (s: string) => void,
   setChartTimeframe: (tf: string) => void,
   userId?: string,
+  mcpServers?: MCPServerInput[],
 ): UseAIChatReturn {
   const platform = usePlatform();
   const { addToActiveWatchlist, removeFromActiveWatchlist, activeWatchlist } = useWatchlist();
@@ -361,8 +362,9 @@ export function useAIChat(
       selectedModel,
       webSearch,
       searchMode !== 'off' ? searchMode : undefined,
+      mcpServers,
     );
-  }, [messages, isStreaming, sessionId, platform, selectedModel, searchMode, refreshSessions, isSourcesPanelOpen, attachedDoc]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel, searchMode, refreshSessions, isSourcesPanelOpen, attachedDoc, mcpServers]);
 
   const addVoiceMessage = useCallback((role: 'user' | 'assistant', text: string) => {
     if (!text.trim()) return;
@@ -482,8 +484,9 @@ export function useAIChat(
       selectedModel,
       webSearch,
       searchMode !== 'off' ? searchMode : undefined,
+      mcpServers,
     );
-  }, [messages, isStreaming, sessionId, platform, selectedModel, searchMode, refreshSessions]);
+  }, [messages, isStreaming, sessionId, platform, selectedModel, searchMode, refreshSessions, mcpServers]);
 
   const toggleExpand = useCallback(() => {
     setIsExpanded(prev => !prev);
@@ -651,11 +654,12 @@ export function useAIChat(
         selectedModel,
         searchMode !== 'off',
         searchMode !== 'off' ? searchMode : undefined,
+        mcpServers,
       );
 
       return slice;
     });
-  }, [isStreaming, platform, selectedModel, searchMode, sessionId, refreshSessions]);
+  }, [isStreaming, platform, selectedModel, searchMode, sessionId, refreshSessions, mcpServers]);
 
   return {
     messages,

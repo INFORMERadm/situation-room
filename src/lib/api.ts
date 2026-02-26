@@ -201,6 +201,13 @@ export interface AIMessage {
   content: string;
 }
 
+export interface MCPServerInput {
+  url: string;
+  connectionId: string;
+  namespace: string;
+  displayName: string;
+}
+
 export function streamAIChat(
   messages: AIMessage[],
   platformContext: Record<string, unknown>,
@@ -210,6 +217,7 @@ export function streamAIChat(
   model?: string,
   webSearch?: boolean,
   searchMode?: string,
+  mcpServers?: MCPServerInput[],
 ): AbortController {
   const controller = new AbortController();
 
@@ -219,7 +227,7 @@ export function streamAIChat(
       const res = await fetch(`${API_BASE}/global-monitor?feed=ai-chat`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ messages, platformContext, model, webSearch, searchMode }),
+        body: JSON.stringify({ messages, platformContext, model, webSearch, searchMode, mcpServers }),
         signal: controller.signal,
       });
 

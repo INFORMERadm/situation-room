@@ -38,6 +38,21 @@ function getToolInfo(name: string): ToolInfo {
       mcpServer: 'CustomGPT MCP',
     };
   }
+  if (name.startsWith('smithery_')) {
+    const withoutPrefix = name.replace(/^smithery_/, '');
+    const lastUnderscore = withoutPrefix.lastIndexOf('_');
+    const serverPart = lastUnderscore > 0 ? withoutPrefix.substring(0, lastUnderscore) : withoutPrefix;
+    const toolPart = lastUnderscore > 0 ? withoutPrefix.substring(lastUnderscore + 1) : withoutPrefix;
+    const displayServer = serverPart.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    return {
+      tool: name,
+      label: `Running ${toolPart.replace(/_/g, ' ')}`,
+      icon: 'mcp',
+      color: MCP_COLOR,
+      isMcp: true,
+      mcpServer: displayServer,
+    };
+  }
   return TOOL_LABELS[name] ?? { tool: name, label: name, icon: 'data', color: '#aaa' };
 }
 
@@ -53,6 +68,9 @@ function getToolDetail(raw: string): string | null {
     if (parsed.tool === 'change_symbol') return parsed.params?.symbol || null;
     if (parsed.tool?.startsWith('customgpt_')) {
       return parsed.params?.query || parsed.params?.question || null;
+    }
+    if (parsed.tool?.startsWith('smithery_')) {
+      return parsed.params?.query || parsed.params?.search || parsed.params?.name || null;
     }
     return null;
   } catch {

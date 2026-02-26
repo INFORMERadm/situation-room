@@ -1974,6 +1974,195 @@ const ALL_AI_TOOLS = [
 
 const SERVER_TOOLS = new Set(["fetch_fmp_data", "tavily_search", "customgpt_search"]);
 
+interface SmitheryMCPServer {
+  url: string;
+  connectionId: string;
+  namespace: string;
+  displayName: string;
+}
+
+interface SmitheryToolMapping {
+  originalName: string;
+  server: SmitheryMCPServer;
+}
+
+const smitheryToolMap = new Map<string, SmitheryToolMapping>();
+
+async function fetchSmitheryTools(
+  mcpServers: SmitheryMCPServer[]
+): Promise<typeof ALL_AI_TOOLS> {
+  const SMITHERY_API_KEY = Deno.env.get("SMITHERY_API_KEY");
+  if (!SMITHERY_API_KEY || mcpServers.length === 0) return [];
+
+  const allTools: typeof ALL_AI_TOOLS = [];
+
+  for (const server of mcpServers) {
+    try {
+      const targetUrl = `https://api.smithery.ai/connect/${server.namespace}/${server.connectionId}/mcp`;
+      const res = await fetch(targetUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${SMITHERY_API_KEY}`,
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: crypto.randomUUID(),
+          method: "tools/list",
+          params: {},
+        }),
+      });
+
+      if (!res.ok) {
+        console.warn(`[Smithery] tools/list failed for ${server.displayName}: ${res.status}`);
+        continue;
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+      let result: unknown;
+
+      if (contentType.includes("text/event-stream")) {
+        const text = await res.text();
+        for (const line of text.split("\n")) {
+          if (line.startsWith("data: ")) {
+            try {
+              const d = JSON.parse(line.slice(6));
+              if (d.result) result = d.result;
+            } catch { /* skip */ }
+          }
+        }
+      } else {
+        const json = await res.json();
+        result = json.result || json;
+      }
+
+      const tools = (result as { tools?: Array<{ name: string; description?: string; inputSchema?: unknown }> })?.tools || [];
+      const prefix = server.displayName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+
+      for (const t of tools) {
+        const prefixedName = `smithery_${prefix}_${t.name}`;
+        smitheryToolMap.set(prefixedName, { originalName: t.name, server });
+        SERVER_TOOLS.add(prefixedName);
+        allTools.push({
+          type: "function",
+          function: {
+            name: prefixedName,
+            description: `[${server.displayName}] ${t.description || t.name}`,
+            parameters: (t.inputSchema as Record<string, unknown>) ?? { type: "object", properties: {} },
+          },
+        });
+      }
+
+      console.log(`[Smithery] Loaded ${tools.length} tools from ${server.displayName}`);
+    } catch (e) {
+      console.error(`[Smithery] Error loading tools from ${server.displayName}:`, e);
+    }
+  }
+
+  return allTools;
+}
+
+async function callSmitheryTool(
+  prefixedName: string,
+  args: Record<string, unknown>
+): Promise<string> {
+  const mapping = smitheryToolMap.get(prefixedName);
+  if (!mapping) return `Unknown Smithery tool: ${prefixedName}`;
+
+  const SMITHERY_API_KEY = Deno.env.get("SMITHERY_API_KEY");
+  if (!SMITHERY_API_KEY) return "Smithery API key not configured";
+
+  const startTime = Date.now();
+  const { originalName, server } = mapping;
+
+  try {
+    const targetUrl = `https://api.smithery.ai/connect/${server.namespace}/${server.connectionId}/mcp`;
+    const res = await fetch(targetUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SMITHERY_API_KEY}`,
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: crypto.randomUUID(),
+        method: "tools/call",
+        params: { name: originalName, arguments: args },
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Smithery call failed: ${res.status} ${errText.slice(0, 200)}`);
+    }
+
+    const contentType = res.headers.get("content-type") || "";
+    let result: unknown;
+
+    if (contentType.includes("text/event-stream")) {
+      const text = await res.text();
+      for (const line of text.split("\n")) {
+        if (line.startsWith("data: ")) {
+          try {
+            const d = JSON.parse(line.slice(6));
+            if (d.result) result = d.result;
+          } catch { /* skip */ }
+        }
+      }
+    } else {
+      const json = await res.json();
+      result = json.result || json;
+    }
+
+    const content = result as { content?: Array<{ text?: string; type?: string }> };
+    let resultString: string;
+    if (content?.content && Array.isArray(content.content)) {
+      resultString = content.content.map((c) => c.text || JSON.stringify(c)).join("\n");
+    } else {
+      resultString = typeof result === "string" ? result : JSON.stringify(result);
+    }
+
+    const logSupabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    await logSupabase.from("mcp_tool_call_logs").insert({
+      tool_name: originalName,
+      server_url: server.url,
+      server_config: { namespace: server.namespace, connectionId: server.connectionId },
+      arguments: args,
+      status: "success",
+      result: resultString.slice(0, 10000),
+      duration_ms: Date.now() - startTime,
+    });
+
+    return resultString;
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    console.error(`[Smithery] Tool call error for ${originalName}:`, errorMessage);
+
+    try {
+      const logSupabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      await logSupabase.from("mcp_tool_call_logs").insert({
+        tool_name: originalName,
+        server_url: server.url,
+        server_config: { namespace: server.namespace, connectionId: server.connectionId },
+        arguments: args,
+        status: "error",
+        result: errorMessage,
+        duration_ms: Date.now() - startTime,
+      });
+    } catch { /* non-fatal logging error */ }
+
+    return `Error from ${server.displayName}: ${errorMessage}`;
+  }
+}
+
 const CUSTOMGPT_BASE_URL = "https://mcp.customgpt.ai/projects/79211/mcp/";
 let customGptSessionId: string | null = null;
 let customGptToolsCache: typeof ALL_AI_TOOLS | null = null;
@@ -2446,6 +2635,11 @@ async function executeServerTool(
     const result = await callCustomGPTTool(rawToolName, tc.params);
     return result;
   }
+  if (tc.tool.startsWith("smithery_")) {
+    console.log(`[Smithery] Calling tool: ${tc.tool} with params:`, JSON.stringify(tc.params));
+    const result = await callSmitheryTool(tc.tool, tc.params);
+    return result;
+  }
 
   return "Action executed on client.";
 }
@@ -2720,7 +2914,7 @@ async function handleMCPRequest(req: Request): Promise<Response> {
 async function handleAIChat(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const { messages, platformContext, model, webSearch, searchMode } = body;
+    const { messages, platformContext, model, webSearch, searchMode, mcpServers } = body;
     if (!messages || !Array.isArray(messages)) {
       return jsonResponse({ error: "Missing messages array" }, 400);
     }
@@ -2735,6 +2929,19 @@ async function handleAIChat(req: Request): Promise<Response> {
 
     let aiTools = getToolsForRequest(!!webSearch);
     console.log(`[AI Chat] webSearch=${webSearch}, tools count=${aiTools.length}`);
+
+    if (Array.isArray(mcpServers) && mcpServers.length > 0) {
+      console.log(`[AI Chat] Loading Smithery tools from ${mcpServers.length} server(s)`);
+      try {
+        const smitheryTools = await fetchSmitheryTools(mcpServers as SmitheryMCPServer[]);
+        if (smitheryTools.length > 0) {
+          aiTools = [...aiTools, ...smitheryTools];
+          console.log(`[AI Chat] Added ${smitheryTools.length} Smithery tool(s): ${smitheryTools.map(t => t.function.name).join(", ")}`);
+        }
+      } catch (e) {
+        console.error("[AI Chat] Failed to load Smithery tools:", e);
+      }
+    }
 
     const customGptActive = detectsCustomGPTTopics(messages);
     if (customGptActive) {

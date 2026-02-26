@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import OnboardingPage from './pages/OnboardingPage';
 import MarketsDashboard from './pages/MarketsDashboard';
+import SmitheryOAuthCallback from './pages/SmitheryOAuthCallback';
 
 export default function App() {
   return (
@@ -36,6 +37,14 @@ export default function App() {
                 <OnboardingRoute>
                   <OnboardingPage />
                 </OnboardingRoute>
+              }
+            />
+            <Route
+              path="/auth/smithery/callback"
+              element={
+                <ProtectedRoute>
+                  <SmitheryOAuthCallback />
+                </ProtectedRoute>
               }
             />
             <Route
