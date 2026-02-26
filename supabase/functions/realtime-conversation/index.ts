@@ -366,8 +366,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const hasCustomGPT = mcpServers.some(s => s.url.includes("mcp.customgpt.ai"));
-    if (!hasCustomGPT && conversationContext && detectsCustomGPTTopics(conversationContext)) {
-      console.log("[realtime] CustomGPT topic detected in conversation context, injecting CustomGPT server");
+    if (!hasCustomGPT) {
+      console.log("[realtime] Injecting CustomGPT server as default MCP source");
       mcpServers.push({ url: CUSTOMGPT_BASE_URL });
     }
 
