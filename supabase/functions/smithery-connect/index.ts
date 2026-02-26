@@ -8,7 +8,8 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const NAMESPACE = "n4-app";
+const PREFERRED_NAMESPACE = "n4-app";
+let resolvedNamespace: string | null = null;
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -59,12 +60,30 @@ async function smitheryApiCall(
   return fetch(`https://api.smithery.ai${path}`, options);
 }
 
-async function ensureNamespace(): Promise<void> {
-  const res = await smitheryApiCall("PUT", `/namespaces/${NAMESPACE}`);
-  if (!res.ok && res.status !== 409) {
-    const text = await res.text();
-    console.warn("[smithery-connect] Namespace creation returned:", res.status, text);
+async function getNamespace(): Promise<string> {
+  if (resolvedNamespace) return resolvedNamespace;
+
+  const listRes = await smitheryApiCall("GET", "/namespaces");
+  if (listRes.ok) {
+    const data = await listRes.json();
+    const namespaces: Array<{ name: string }> = data.namespaces || [];
+    if (namespaces.length > 0) {
+      resolvedNamespace = namespaces[0].name;
+      console.log("[smithery-connect] Using existing namespace:", resolvedNamespace);
+      return resolvedNamespace;
+    }
   }
+
+  const createRes = await smitheryApiCall("PUT", `/namespaces/${PREFERRED_NAMESPACE}`);
+  if (createRes.ok || createRes.status === 409) {
+    resolvedNamespace = PREFERRED_NAMESPACE;
+    console.log("[smithery-connect] Created namespace:", PREFERRED_NAMESPACE);
+    return resolvedNamespace;
+  }
+
+  const errText = await createRes.text();
+  console.error("[smithery-connect] Failed to create namespace:", createRes.status, errText);
+  throw new Error(`Failed to resolve Smithery namespace: ${errText}`);
 }
 
 async function handleCreate(req: Request): Promise<Response> {
@@ -75,11 +94,11 @@ async function handleCreate(req: Request): Promise<Response> {
     return jsonResponse({ error: "mcpUrl and displayName are required" }, 400);
   }
 
-  await ensureNamespace();
+  const namespace = await getNamespace();
 
   const connectionId = `${user.id}-${Date.now()}`;
 
-  const res = await smitheryApiCall("PUT", `/connect/${NAMESPACE}/${connectionId}`, {
+  const res = await smitheryApiCall("PUT", `/connect/${namespace}/${connectionId}`, {
     mcpUrl,
     name: displayName,
     metadata: { userId: user.id },
@@ -101,7 +120,7 @@ async function handleCreate(req: Request): Promise<Response> {
   await supabase.from("user_smithery_connections").upsert(
     {
       user_id: user.id,
-      smithery_namespace: NAMESPACE,
+      smithery_namespace: namespace,
       smithery_connection_id: connectionId,
       mcp_url: mcpUrl,
       display_name: displayName,
@@ -125,9 +144,10 @@ async function handleList(req: Request): Promise<Response> {
   const smitheryApiKey = getSmitheryApiKey();
   if (smitheryApiKey) {
     try {
+      const namespace = await getNamespace();
       const res = await smitheryApiCall(
         "GET",
-        `/connect/${NAMESPACE}?metadata=${encodeURIComponent(JSON.stringify({ userId: user.id }))}`
+        `/connect/${namespace}?metadata=${encodeURIComponent(JSON.stringify({ userId: user.id }))}`
       );
 
       if (res.ok) {
@@ -178,7 +198,8 @@ async function handleRemove(req: Request): Promise<Response> {
   }
 
   try {
-    await smitheryApiCall("DELETE", `/connect/${NAMESPACE}/${connectionId}`);
+    const namespace = await getNamespace();
+    await smitheryApiCall("DELETE", `/connect/${namespace}/${connectionId}`);
   } catch (e) {
     console.warn("[smithery-connect] Smithery delete failed (non-fatal):", e);
   }
@@ -200,9 +221,10 @@ async function handleRetry(req: Request): Promise<Response> {
     return jsonResponse({ error: "connectionId is required" }, 400);
   }
 
+  const namespace = await getNamespace();
   const res = await smitheryApiCall(
     "GET",
-    `/connect/${NAMESPACE}/${connectionId}`
+    `/connect/${namespace}/${connectionId}`
   );
 
   if (!res.ok) {
@@ -234,12 +256,14 @@ async function handleListTools(req: Request): Promise<Response> {
     return jsonResponse({ error: "SMITHERY_API_KEY is not configured" }, 500);
   }
 
+  const namespace = await getNamespace();
+
   const { data: connections } = await supabase
     .from("user_smithery_connections")
     .select("smithery_connection_id, display_name, mcp_url")
     .eq("user_id", user.id)
     .eq("status", "connected")
-    .eq("smithery_namespace", NAMESPACE);
+    .eq("smithery_namespace", namespace);
 
   if (!connections || connections.length === 0) {
     return jsonResponse({ tools: [], servers: [] });
@@ -262,7 +286,7 @@ async function handleListTools(req: Request): Promise<Response> {
   for (const conn of connections) {
     try {
       const res = await fetch(
-        `https://api.smithery.ai/connect/${NAMESPACE}/${conn.smithery_connection_id}/mcp`,
+        `https://api.smithery.ai/connect/${namespace}/${conn.smithery_connection_id}/mcp`,
         {
           method: "POST",
           headers: {
