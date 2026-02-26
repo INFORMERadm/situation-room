@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.48.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +15,12 @@ function jsonResponse(data: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function getSmitheryApiKey(): string | null {
+  const key = Deno.env.get("SMITHERY_API_KEY");
+  if (!key || key.trim() === "") return null;
+  return key.trim();
 }
 
 async function authenticateUser(req: Request) {
@@ -39,8 +45,8 @@ async function smitheryApiCall(
   path: string,
   body?: unknown
 ): Promise<Response> {
-  const smitheryApiKey = Deno.env.get("SMITHERY_API_KEY");
-  if (!smitheryApiKey) throw new Error("Smithery API key not configured");
+  const smitheryApiKey = getSmitheryApiKey();
+  if (!smitheryApiKey) throw new Error("SMITHERY_API_KEY is not configured as a Supabase secret. Please set it via the Supabase dashboard under Edge Function Secrets.");
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${smitheryApiKey}`,
@@ -54,302 +60,267 @@ async function smitheryApiCall(
 }
 
 async function handleCreate(req: Request): Promise<Response> {
-  try {
-    const { user, supabase } = await authenticateUser(req);
-    const { mcpUrl, displayName } = await req.json();
+  const { user, supabase } = await authenticateUser(req);
+  const { mcpUrl, displayName } = await req.json();
 
-    if (!mcpUrl || !displayName) {
-      return jsonResponse({ error: "mcpUrl and displayName are required" }, 400);
-    }
+  if (!mcpUrl || !displayName) {
+    return jsonResponse({ error: "mcpUrl and displayName are required" }, 400);
+  }
 
-    const connectionId = `${user.id}-${Date.now()}`;
+  const connectionId = `${user.id}-${Date.now()}`;
 
-    const res = await smitheryApiCall("PUT", `/connect/${NAMESPACE}/${connectionId}`, {
-      mcpUrl,
-      name: displayName,
-      metadata: { userId: user.id },
-    });
+  const res = await smitheryApiCall("PUT", `/connect/${NAMESPACE}/${connectionId}`, {
+    mcpUrl,
+    name: displayName,
+    metadata: { userId: user.id },
+  });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("[smithery-connect] Smithery API error:", res.status, errText);
-      return jsonResponse(
-        { error: `Smithery connection failed: ${errText}` },
-        502
-      );
-    }
-
-    const connData = await res.json();
-    const status =
-      connData.status === "auth_required" ? "auth_required" : "connected";
-
-    await supabase.from("user_smithery_connections").upsert(
-      {
-        user_id: user.id,
-        smithery_namespace: NAMESPACE,
-        smithery_connection_id: connectionId,
-        mcp_url: mcpUrl,
-        display_name: displayName,
-        status,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,smithery_connection_id" }
-    );
-
-    return jsonResponse({
-      connectionId,
-      status,
-      authorizationUrl: connData.authorizationUrl || null,
-      serverInfo: connData.serverInfo || null,
-    });
-  } catch (err) {
-    console.error("[smithery-connect] create error:", err);
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("[smithery-connect] Smithery API error:", res.status, errText);
     return jsonResponse(
-      { error: err instanceof Error ? err.message : String(err) },
-      500
+      { error: `Smithery connection failed (${res.status}): ${errText}` },
+      res.status >= 500 ? 502 : res.status
     );
   }
+
+  const connData = await res.json();
+  const status =
+    connData.status === "auth_required" ? "auth_required" : "connected";
+
+  await supabase.from("user_smithery_connections").upsert(
+    {
+      user_id: user.id,
+      smithery_namespace: NAMESPACE,
+      smithery_connection_id: connectionId,
+      mcp_url: mcpUrl,
+      display_name: displayName,
+      status,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,smithery_connection_id" }
+  );
+
+  return jsonResponse({
+    connectionId,
+    status,
+    authorizationUrl: connData.authorizationUrl || null,
+    serverInfo: connData.serverInfo || null,
+  });
 }
 
 async function handleList(req: Request): Promise<Response> {
-  try {
-    const { user, supabase } = await authenticateUser(req);
+  const { user, supabase } = await authenticateUser(req);
 
-    const res = await smitheryApiCall(
-      "GET",
-      `/connect/${NAMESPACE}?metadata=${encodeURIComponent(JSON.stringify({ userId: user.id }))}`
-    );
+  const smitheryApiKey = getSmitheryApiKey();
+  if (smitheryApiKey) {
+    try {
+      const res = await smitheryApiCall(
+        "GET",
+        `/connect/${NAMESPACE}?metadata=${encodeURIComponent(JSON.stringify({ userId: user.id }))}`
+      );
 
-    let smitheryConns: Array<{
-      connectionId: string;
-      status: string;
-      name?: string;
-      mcpUrl?: string;
-      serverInfo?: unknown;
-    }> = [];
+      if (res.ok) {
+        const data = await res.json();
+        const smitheryConns: Array<{
+          connectionId: string;
+          status: string;
+          name?: string;
+          mcpUrl?: string;
+          serverInfo?: unknown;
+        }> = data.data || data || [];
 
-    if (res.ok) {
-      const data = await res.json();
-      smitheryConns = data.data || data || [];
-    } else {
-      console.warn("[smithery-connect] Smithery list failed:", res.status);
-    }
-
-    for (const sc of smitheryConns) {
-      if (sc.connectionId && sc.status) {
-        await supabase
-          .from("user_smithery_connections")
-          .update({
-            status: sc.status === "auth_required" ? "auth_required" : sc.status,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", user.id)
-          .eq("smithery_connection_id", sc.connectionId);
+        for (const sc of smitheryConns) {
+          if (sc.connectionId && sc.status) {
+            await supabase
+              .from("user_smithery_connections")
+              .update({
+                status: sc.status === "auth_required" ? "auth_required" : sc.status,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("user_id", user.id)
+              .eq("smithery_connection_id", sc.connectionId);
+          }
+        }
+      } else {
+        console.warn("[smithery-connect] Smithery list failed:", res.status);
       }
+    } catch (e) {
+      console.warn("[smithery-connect] Smithery list call failed:", e);
     }
-
-    const { data: localConns } = await supabase
-      .from("user_smithery_connections")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    return jsonResponse({ connections: localConns || [] });
-  } catch (err) {
-    console.error("[smithery-connect] list error:", err);
-    return jsonResponse(
-      { error: err instanceof Error ? err.message : String(err) },
-      500
-    );
   }
+
+  const { data: localConns } = await supabase
+    .from("user_smithery_connections")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  return jsonResponse({ connections: localConns || [] });
 }
 
 async function handleRemove(req: Request): Promise<Response> {
-  try {
-    const { user, supabase } = await authenticateUser(req);
-    const { connectionId } = await req.json();
+  const { user, supabase } = await authenticateUser(req);
+  const { connectionId } = await req.json();
 
-    if (!connectionId) {
-      return jsonResponse({ error: "connectionId is required" }, 400);
-    }
-
-    try {
-      await smitheryApiCall("DELETE", `/connect/${NAMESPACE}/${connectionId}`);
-    } catch (e) {
-      console.warn("[smithery-connect] Smithery delete failed (non-fatal):", e);
-    }
-
-    await supabase
-      .from("user_smithery_connections")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("smithery_connection_id", connectionId);
-
-    return jsonResponse({ success: true });
-  } catch (err) {
-    console.error("[smithery-connect] remove error:", err);
-    return jsonResponse(
-      { error: err instanceof Error ? err.message : String(err) },
-      500
-    );
+  if (!connectionId) {
+    return jsonResponse({ error: "connectionId is required" }, 400);
   }
+
+  try {
+    await smitheryApiCall("DELETE", `/connect/${NAMESPACE}/${connectionId}`);
+  } catch (e) {
+    console.warn("[smithery-connect] Smithery delete failed (non-fatal):", e);
+  }
+
+  await supabase
+    .from("user_smithery_connections")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("smithery_connection_id", connectionId);
+
+  return jsonResponse({ success: true });
 }
 
 async function handleRetry(req: Request): Promise<Response> {
-  try {
-    const { user, supabase } = await authenticateUser(req);
-    const { connectionId } = await req.json();
+  const { user, supabase } = await authenticateUser(req);
+  const { connectionId } = await req.json();
 
-    if (!connectionId) {
-      return jsonResponse({ error: "connectionId is required" }, 400);
-    }
-
-    const res = await smitheryApiCall(
-      "GET",
-      `/connect/${NAMESPACE}/${connectionId}`
-    );
-
-    if (!res.ok) {
-      const errText = await res.text();
-      return jsonResponse({ error: `Retry failed: ${errText}` }, 502);
-    }
-
-    const connData = await res.json();
-    const status =
-      connData.status === "auth_required" ? "auth_required" : "connected";
-
-    await supabase
-      .from("user_smithery_connections")
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq("user_id", user.id)
-      .eq("smithery_connection_id", connectionId);
-
-    return jsonResponse({
-      connectionId,
-      status,
-      authorizationUrl: connData.authorizationUrl || null,
-    });
-  } catch (err) {
-    console.error("[smithery-connect] retry error:", err);
-    return jsonResponse(
-      { error: err instanceof Error ? err.message : String(err) },
-      500
-    );
+  if (!connectionId) {
+    return jsonResponse({ error: "connectionId is required" }, 400);
   }
+
+  const res = await smitheryApiCall(
+    "GET",
+    `/connect/${NAMESPACE}/${connectionId}`
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    return jsonResponse({ error: `Retry failed: ${errText}` }, 502);
+  }
+
+  const connData = await res.json();
+  const status =
+    connData.status === "auth_required" ? "auth_required" : "connected";
+
+  await supabase
+    .from("user_smithery_connections")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+    .eq("smithery_connection_id", connectionId);
+
+  return jsonResponse({
+    connectionId,
+    status,
+    authorizationUrl: connData.authorizationUrl || null,
+  });
 }
 
 async function handleListTools(req: Request): Promise<Response> {
-  try {
-    const { user, supabase } = await authenticateUser(req);
-    const smitheryApiKey = Deno.env.get("SMITHERY_API_KEY");
-    if (!smitheryApiKey) {
-      return jsonResponse({ error: "Smithery API key not configured" }, 500);
-    }
-
-    const { data: connections } = await supabase
-      .from("user_smithery_connections")
-      .select("smithery_connection_id, display_name, mcp_url")
-      .eq("user_id", user.id)
-      .eq("status", "connected")
-      .eq("smithery_namespace", NAMESPACE);
-
-    if (!connections || connections.length === 0) {
-      return jsonResponse({ tools: [], servers: [] });
-    }
-
-    const allTools: Array<{
-      name: string;
-      description: string;
-      inputSchema: unknown;
-      serverName: string;
-      connectionId: string;
-    }> = [];
-
-    const servers: Array<{
-      connectionId: string;
-      displayName: string;
-      toolCount: number;
-    }> = [];
-
-    for (const conn of connections) {
-      try {
-        const res = await fetch(
-          `https://api.smithery.ai/connect/${NAMESPACE}/${conn.smithery_connection_id}/mcp`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${smitheryApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: crypto.randomUUID(),
-              method: "tools/list",
-              params: {},
-            }),
-          }
-        );
-
-        if (!res.ok) {
-          console.warn(
-            `[smithery-connect] tools/list failed for ${conn.display_name}:`,
-            res.status
-          );
-          continue;
-        }
-
-        const contentType = res.headers.get("content-type") || "";
-        let result: unknown;
-
-        if (contentType.includes("text/event-stream")) {
-          const text = await res.text();
-          const lines = text.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const d = JSON.parse(line.slice(6));
-                if (d.result) result = d.result;
-              } catch { /* skip */ }
-            }
-          }
-        } else {
-          const json = await res.json();
-          result = json.result || json;
-        }
-
-        const tools = (result as { tools?: Array<{ name: string; description?: string; inputSchema?: unknown }> })?.tools || [];
-
-        for (const t of tools) {
-          allTools.push({
-            name: t.name,
-            description: t.description || t.name,
-            inputSchema: t.inputSchema || { type: "object", properties: {} },
-            serverName: conn.display_name,
-            connectionId: conn.smithery_connection_id,
-          });
-        }
-
-        servers.push({
-          connectionId: conn.smithery_connection_id,
-          displayName: conn.display_name,
-          toolCount: tools.length,
-        });
-      } catch (e) {
-        console.error(
-          `[smithery-connect] Error fetching tools for ${conn.display_name}:`,
-          e
-        );
-      }
-    }
-
-    return jsonResponse({ tools: allTools, servers });
-  } catch (err) {
-    console.error("[smithery-connect] list-tools error:", err);
-    return jsonResponse(
-      { error: err instanceof Error ? err.message : String(err) },
-      500
-    );
+  const { user, supabase } = await authenticateUser(req);
+  const smitheryApiKey = getSmitheryApiKey();
+  if (!smitheryApiKey) {
+    return jsonResponse({ error: "SMITHERY_API_KEY is not configured" }, 500);
   }
+
+  const { data: connections } = await supabase
+    .from("user_smithery_connections")
+    .select("smithery_connection_id, display_name, mcp_url")
+    .eq("user_id", user.id)
+    .eq("status", "connected")
+    .eq("smithery_namespace", NAMESPACE);
+
+  if (!connections || connections.length === 0) {
+    return jsonResponse({ tools: [], servers: [] });
+  }
+
+  const allTools: Array<{
+    name: string;
+    description: string;
+    inputSchema: unknown;
+    serverName: string;
+    connectionId: string;
+  }> = [];
+
+  const servers: Array<{
+    connectionId: string;
+    displayName: string;
+    toolCount: number;
+  }> = [];
+
+  for (const conn of connections) {
+    try {
+      const res = await fetch(
+        `https://api.smithery.ai/connect/${NAMESPACE}/${conn.smithery_connection_id}/mcp`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${smitheryApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: crypto.randomUUID(),
+            method: "tools/list",
+            params: {},
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        console.warn(
+          `[smithery-connect] tools/list failed for ${conn.display_name}:`,
+          res.status
+        );
+        continue;
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+      let result: unknown;
+
+      if (contentType.includes("text/event-stream")) {
+        const text = await res.text();
+        const lines = text.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const d = JSON.parse(line.slice(6));
+              if (d.result) result = d.result;
+            } catch { /* skip */ }
+          }
+        }
+      } else {
+        const json = await res.json();
+        result = json.result || json;
+      }
+
+      const tools = (result as { tools?: Array<{ name: string; description?: string; inputSchema?: unknown }> })?.tools || [];
+
+      for (const t of tools) {
+        allTools.push({
+          name: t.name,
+          description: t.description || t.name,
+          inputSchema: t.inputSchema || { type: "object", properties: {} },
+          serverName: conn.display_name,
+          connectionId: conn.smithery_connection_id,
+        });
+      }
+
+      servers.push({
+        connectionId: conn.smithery_connection_id,
+        displayName: conn.display_name,
+        toolCount: tools.length,
+      });
+    } catch (e) {
+      console.error(
+        `[smithery-connect] Error fetching tools for ${conn.display_name}:`,
+        e
+      );
+    }
+  }
+
+  return jsonResponse({ tools: allTools, servers });
 }
 
 Deno.serve(async (req: Request) => {

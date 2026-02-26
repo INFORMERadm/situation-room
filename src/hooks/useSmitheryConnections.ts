@@ -116,6 +116,13 @@ export function useSmitheryConnections(userId: string | undefined) {
         body: JSON.stringify({ mcpUrl, displayName }),
       });
 
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = `Connection failed (${res.status})`;
+        try { msg = JSON.parse(text).error || msg; } catch {}
+        return { success: false, error: msg };
+      }
+
       const data = await res.json();
 
       if (data.error) {
