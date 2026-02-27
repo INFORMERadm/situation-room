@@ -107,6 +107,7 @@ export default function MarketsDashboard() {
 
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
   const [showMCPPanel, setShowMCPPanel] = useState(false);
+  const [liveTvMuted, setLiveTvMuted] = useState(true);
 
   const voicePlatformActions: PlatformActions = {
     selectSymbol: data.selectSymbol,
@@ -325,12 +326,42 @@ export default function MarketsDashboard() {
 
         <div style={rightStyle}>
           <div style={{ borderBottom: '1px solid #292929', background: '#000', overflow: 'hidden' }}>
-            <div style={{ padding: '8px 12px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' as const, color: '#ffffff', background: '#0a0a0a', borderBottom: '1px solid #292929' }}>
+            <div style={{ padding: '8px 12px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' as const, color: '#ffffff', background: '#0a0a0a', borderBottom: '1px solid #292929', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               Live TV
+              <button
+                onClick={() => setLiveTvMuted(prev => !prev)}
+                title={liveTvMuted ? 'Unmute' : 'Mute'}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: liveTvMuted ? '#666' : '#00c853',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '2px 4px',
+                  borderRadius: 4,
+                  transition: 'color 0.15s',
+                }}
+              >
+                {liveTvMuted ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <line x1="23" y1="9" x2="17" y2="15" />
+                    <line x1="17" y1="9" x2="23" y2="15" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  </svg>
+                )}
+              </button>
             </div>
             <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%' }}>
               <iframe
-                src="https://www.youtube.com/embed/KQp-e_XQnDE?autoplay=1&mute=1&loop=1&playlist=KQp-e_XQnDE&controls=0&modestbranding=1&showinfo=0&rel=0"
+                key={liveTvMuted ? 'muted' : 'unmuted'}
+                src={`https://www.youtube.com/embed/KQp-e_XQnDE?autoplay=1&mute=${liveTvMuted ? 1 : 0}&loop=1&playlist=KQp-e_XQnDE&controls=0&modestbranding=1&showinfo=0&rel=0`}
                 style={{
                   position: 'absolute',
                   top: 0,
