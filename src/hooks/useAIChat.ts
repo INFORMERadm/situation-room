@@ -108,7 +108,7 @@ export function useAIChat(
   mcpServers?: MCPServerInput[],
 ): UseAIChatReturn {
   const platform = usePlatform();
-  const { addToActiveWatchlist, removeFromActiveWatchlist, activeWatchlist } = useWatchlist();
+  const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, activeWatchlist } = useWatchlist();
   const {
     attachedDoc,
     isUploading: isUploadingDoc,
@@ -150,6 +150,7 @@ export function useAIChat(
     toggleIndicator: () => {},
     addToWatchlist: () => {},
     removeFromWatchlist: () => {},
+    createWatchlist: async () => {},
     setRightPanelView: () => {},
     setLeftTab: () => {},
     collapseChat: () => {},
@@ -164,6 +165,7 @@ export function useAIChat(
     toggleIndicator: platform.toggleIndicator,
     addToWatchlist: addToActiveWatchlist,
     removeFromWatchlist: removeFromActiveWatchlist,
+    createWatchlist,
     setRightPanelView: platform.setRightPanelView,
     setLeftTab: platform.setLeftTab,
     collapseChat: () => setIsExpanded(false),

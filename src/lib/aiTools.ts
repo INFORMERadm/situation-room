@@ -54,6 +54,7 @@ export interface PlatformActions {
   toggleIndicator: (id: string, enabled: boolean) => void;
   addToWatchlist: (symbol: string, name: string) => void;
   removeFromWatchlist: (symbol: string) => void;
+  createWatchlist: (name: string) => Promise<void>;
   setRightPanelView: (view: 'news' | 'economic') => void;
   setLeftTab: (tab: string) => void;
   collapseChat: () => void;
@@ -91,6 +92,14 @@ export function executeToolCall(tc: ToolCall, actions: PlatformActions): string 
         return `${id} ${enabled ? 'enabled' : 'disabled'}`;
       }
       return 'Missing indicator';
+    }
+    case 'create_watchlist': {
+      const name = (tc.params.name as string) || '';
+      if (name) {
+        actions.createWatchlist(name);
+        return `Created watchlist "${name}"`;
+      }
+      return 'Missing watchlist name';
     }
     case 'add_to_watchlist': {
       const symbol = (tc.params.symbol as string) || '';

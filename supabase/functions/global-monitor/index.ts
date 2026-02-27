@@ -1703,10 +1703,14 @@ You have access to the following tools:
 7. remove_from_watchlist - Remove symbol from watchlist
    Parameters: { "symbol": string }
 
-8. switch_right_panel - Switch right panel view
+8. create_watchlist - Create a new watchlist and switch to it
+   Parameters: { "name": string }
+   Use this when the user asks to create a new watchlist. After creating, subsequent add_to_watchlist calls will add to this new watchlist.
+
+9. switch_right_panel - Switch right panel view
    Parameters: { "view": "news"|"economic" }
 
-9. switch_left_tab - Switch left sidebar tab
+10. switch_left_tab - Switch left sidebar tab
    Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
 
 {{WEB_SEARCH_SECTION}}
@@ -1720,6 +1724,7 @@ TOOL CALLING - MANDATORY:
 - You may combine multiple tool calls with text explanation
 - When asked about a price or financial data for a specific company, ALWAYS also call change_symbol to navigate to that stock
 - CRITICAL: When adding a symbol to the watchlist, you MUST ALSO call change_symbol for the same symbol so the chart navigates to it. ALWAYS pair add_to_watchlist with change_symbol.
+- When the user asks to CREATE a new watchlist (e.g., "create a watchlist called Uranium"), you MUST call create_watchlist FIRST, THEN call add_to_watchlist for any symbols they want added. The create_watchlist tool creates the watchlist and switches to it, so subsequent add_to_watchlist calls will add to the newly created watchlist. Example: <tool_call>{"tool":"create_watchlist","params":{"name":"Uranium"}}</tool_call> followed by <tool_call>{"tool":"add_to_watchlist","params":{"symbol":"UUUU","name":"Energy Fuels Inc."}}</tool_call>
 - When the user asks to ADD a symbol/stock to their watchlist, you MUST call add_to_watchlist with both the symbol and the company name. Example: add_to_watchlist(symbol="BABA", name="Alibaba Group") or <tool_call>{"tool":"add_to_watchlist","params":{"symbol":"BABA","name":"Alibaba Group"}}</tool_call>
 - When the user asks to REMOVE a symbol/stock from their watchlist, you MUST call remove_from_watchlist. Example: <tool_call>{"tool":"remove_from_watchlist","params":{"symbol":"BABA"}}</tool_call>
 - When the user mentions MULTIPLE actions (e.g., "add to watchlist AND show chart"), you MUST call ALL relevant tools, not just one. Never skip change_symbol when the user refers to a specific stock.
@@ -1939,6 +1944,20 @@ const ALL_AI_TOOLS = [
           symbol: { type: "string" },
         },
         required: ["symbol"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_watchlist",
+      description: "Create a new watchlist and switch to it. Call this BEFORE add_to_watchlist when the user wants to create a new watchlist with symbols.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Name for the new watchlist" },
+        },
+        required: ["name"],
       },
     },
   },
@@ -2734,6 +2753,17 @@ const MCP_TOOLS = [
         symbol: { type: "string", description: "Stock ticker symbol to remove" },
       },
       required: ["symbol"],
+    },
+  },
+  {
+    name: "create_watchlist",
+    description: "Create a new watchlist and switch to it. Call this BEFORE add_to_watchlist when the user wants to create a new watchlist with symbols.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Name for the new watchlist" },
+      },
+      required: ["name"],
     },
   },
   {

@@ -103,7 +103,7 @@ export default function MarketsDashboard() {
 
   const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id, smitheryMcpServers);
 
-  const { addToActiveWatchlist, removeFromActiveWatchlist } = useWatchlist();
+  const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist } = useWatchlist();
 
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
   const [showMCPPanel, setShowMCPPanel] = useState(false);
@@ -115,6 +115,7 @@ export default function MarketsDashboard() {
     toggleIndicator: platform.toggleIndicator,
     addToWatchlist: addToActiveWatchlist,
     removeFromWatchlist: removeFromActiveWatchlist,
+    createWatchlist,
     setRightPanelView: platform.setRightPanelView,
     setLeftTab: platform.setLeftTab,
     collapseChat: ai.collapse,
