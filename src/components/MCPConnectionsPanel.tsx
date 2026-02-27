@@ -4,7 +4,8 @@ import type { SmitheryConnection, CatalogServer } from '../hooks/useSmitheryConn
 interface MCPConnectionsPanelProps {
   connections: SmitheryConnection[];
   catalog: CatalogServer[];
-  loading: boolean;
+  catalogLoading: boolean;
+  connectionsLoading: boolean;
   onConnectServer: (mcpUrl: string, displayName: string) => Promise<{
     success: boolean;
     status?: string;
@@ -473,7 +474,8 @@ function CustomConnectionForm({
 export default function MCPConnectionsPanel({
   connections,
   catalog,
-  loading,
+  catalogLoading,
+  connectionsLoading,
   onConnectServer,
   onRemove,
   onRetry,
@@ -633,24 +635,32 @@ export default function MCPConnectionsPanel({
             </div>
           )}
 
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '32px 0', color: '#484f58', fontSize: 12 }}>
-              Loading...
-            </div>
-          ) : activeTab === 'catalog' ? (
-            <CatalogList
-              catalog={catalog}
-              connections={connections}
-              onConnect={handleCatalogConnect}
-            />
+          {activeTab === 'catalog' ? (
+            catalogLoading ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: '#484f58', fontSize: 12 }}>
+                Loading integrations...
+              </div>
+            ) : (
+              <CatalogList
+                catalog={catalog}
+                connections={connections}
+                onConnect={handleCatalogConnect}
+              />
+            )
           ) : activeTab === 'connections' ? (
-            <ConnectionsList
-              connections={connections}
-              onRemove={onRemove}
-              onRetry={onRetry}
-              removingId={removingId}
-              setRemovingId={setRemovingId}
-            />
+            connectionsLoading ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: '#484f58', fontSize: 12 }}>
+                Loading connections...
+              </div>
+            ) : (
+              <ConnectionsList
+                connections={connections}
+                onRemove={onRemove}
+                onRetry={onRetry}
+                removingId={removingId}
+                setRemovingId={setRemovingId}
+              />
+            )
           ) : (
             <CustomConnectionForm onConnect={handleCustomConnect} />
           )}

@@ -381,7 +381,8 @@ export default function MarketsDashboard() {
         <MCPConnectionsPanel
           connections={smithery.connections}
           catalog={smithery.catalog}
-          loading={smithery.loading}
+          catalogLoading={smithery.catalogLoading}
+          connectionsLoading={smithery.connectionsLoading}
           onConnectServer={smithery.connectServer}
           onRemove={smithery.removeConnection}
           onRetry={smithery.retryConnection}

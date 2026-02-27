@@ -36,17 +36,18 @@ async function getAuthToken(): Promise<string | null> {
 export function useSmitheryConnections(userId: string | undefined) {
   const [connections, setConnections] = useState<SmitheryConnection[]>([]);
   const [catalog, setCatalog] = useState<CatalogServer[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchConnections = useCallback(async () => {
     if (!userId) return;
-    setLoading(true);
+    setConnectionsLoading(true);
     setError(null);
 
     const token = await getAuthToken();
     if (!token) {
-      setLoading(false);
+      setConnectionsLoading(false);
       return;
     }
 
@@ -63,32 +64,42 @@ export function useSmitheryConnections(userId: string | undefined) {
       if (data.connections) {
         setConnections(data.connections);
       }
-    } catch (err) {
-      const { data, error: dbErr } = await supabase
-        .from('user_smithery_connections')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (dbErr) {
-        setError(dbErr.message);
-      } else {
-        setConnections(data || []);
+    } catch {
+      try {
+        const { data, error: dbErr } = await supabase
+          .from('user_smithery_connections')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        if (dbErr) {
+          setError(dbErr.message);
+        } else {
+          setConnections(data || []);
+        }
+      } catch {
+        setError('Failed to load connections');
       }
     }
 
-    setLoading(false);
+    setConnectionsLoading(false);
   }, [userId]);
 
   const fetchCatalog = useCallback(async () => {
-    const { data, error: err } = await supabase
-      .from('mcp_servers')
-      .select('id, slug, name, description, base_url, requires_api_key, requires_oauth, api_key_name, smithery_slug, sort_order')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
+    setCatalogLoading(true);
+    try {
+      const { data, error: err } = await supabase
+        .from('mcp_servers')
+        .select('id, slug, name, description, base_url, requires_api_key, requires_oauth, api_key_name, smithery_slug, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
 
-    if (!err && data) {
-      setCatalog(data as CatalogServer[]);
+      if (!err && data) {
+        setCatalog(data as CatalogServer[]);
+      }
+    } catch {
+      // catalog fetch failed silently
     }
+    setCatalogLoading(false);
   }, []);
 
   useEffect(() => {
@@ -253,7 +264,9 @@ export function useSmitheryConnections(userId: string | undefined) {
   return {
     connections,
     catalog,
-    loading,
+    loading: catalogLoading,
+    connectionsLoading,
+    catalogLoading,
     error,
     fetchConnections,
     fetchCatalog,
