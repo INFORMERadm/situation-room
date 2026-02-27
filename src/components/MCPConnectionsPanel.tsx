@@ -240,7 +240,7 @@ function CatalogList({
 }) {
   const [connectingSlug, setConnectingSlug] = useState<string | null>(null);
 
-  const connectedUrls = new Set(connections.map(c => c.mcp_url));
+  const connectionsByUrl = new Map(connections.map(c => [c.mcp_url, c]));
 
   const handleConnect = async (server: CatalogServer) => {
     setConnectingSlug(server.slug);
@@ -259,7 +259,9 @@ function CatalogList({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {catalog.map(server => {
-        const isConnected = connectedUrls.has(server.base_url);
+        const existingConn = connectionsByUrl.get(server.base_url);
+        const isConnected = existingConn?.status === 'connected';
+        const isAuthRequired = existingConn?.status === 'auth_required';
         const isConnecting = connectingSlug === server.slug;
 
         return (
@@ -328,6 +330,26 @@ function CatalogList({
               }}>
                 Connected
               </div>
+            ) : isAuthRequired ? (
+              <button
+                onClick={() => handleConnect(server)}
+                disabled={isConnecting}
+                style={{
+                  padding: '5px 14px',
+                  background: isConnecting ? '#333' : '#f59e0b18',
+                  border: '1px solid #f59e0b40',
+                  borderRadius: 6,
+                  color: isConnecting ? '#666' : '#f59e0b',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: isConnecting ? 'default' : 'pointer',
+                  fontFamily: 'inherit',
+                  flexShrink: 0,
+                  transition: 'opacity 0.15s',
+                }}
+              >
+                {isConnecting ? 'Connecting...' : 'Authorize'}
+              </button>
             ) : (
               <button
                 onClick={() => handleConnect(server)}
@@ -463,6 +485,18 @@ export default function MCPConnectionsPanel({
 
   const handleCatalogConnect = async (server: CatalogServer) => {
     setConnectError(null);
+
+    const existing = connections.find(c => c.mcp_url === server.base_url && c.status === 'auth_required');
+    if (existing) {
+      const retryResult = await onRetry(existing.smithery_connection_id);
+      if (retryResult.status === 'auth_required' && retryResult.authorizationUrl) {
+        sessionStorage.setItem('smithery_pending_connection', existing.smithery_connection_id);
+        window.location.href = retryResult.authorizationUrl;
+        return;
+      }
+      if (retryResult.status === 'connected') return;
+    }
+
     const result = await onConnectServer(server.base_url, server.name);
     if (!result.success) {
       setConnectError(result.error || 'Connection failed');

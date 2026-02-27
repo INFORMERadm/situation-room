@@ -114,8 +114,35 @@ async function handleCreate(req: Request): Promise<Response> {
   }
 
   const connData = await res.json();
-  const status =
-    connData.status === "auth_required" ? "auth_required" : "connected";
+  console.log("[smithery-connect] Connection response:", JSON.stringify(connData));
+
+  let status = connData.status === "auth_required" ? "auth_required" : "connected";
+  let authorizationUrl = connData.authorizationUrl || null;
+
+  if (status === "connected") {
+    try {
+      const verifyRes = await smitheryApiCall(
+        "POST",
+        `/connect/${namespace}/${connectionId}/mcp`,
+      );
+      const verifyBody = await verifyRes.text();
+      console.log("[smithery-connect] Verify MCP status:", verifyRes.status, verifyBody.slice(0, 200));
+
+      if (!verifyRes.ok) {
+        const getRes = await smitheryApiCall("GET", `/connect/${namespace}/${connectionId}`);
+        if (getRes.ok) {
+          const getConn = await getRes.json();
+          console.log("[smithery-connect] Re-checked connection:", JSON.stringify(getConn));
+          if (getConn.status === "auth_required") {
+            status = "auth_required";
+            authorizationUrl = getConn.authorizationUrl || null;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[smithery-connect] Verify failed (non-fatal):", e);
+    }
+  }
 
   await supabase.from("user_smithery_connections").upsert(
     {
@@ -133,7 +160,7 @@ async function handleCreate(req: Request): Promise<Response> {
   return jsonResponse({
     connectionId,
     status,
-    authorizationUrl: connData.authorizationUrl || null,
+    authorizationUrl,
     serverInfo: connData.serverInfo || null,
   });
 }
@@ -158,14 +185,16 @@ async function handleList(req: Request): Promise<Response> {
           name?: string;
           mcpUrl?: string;
           serverInfo?: unknown;
+          authorizationUrl?: string;
         }> = data.data || data || [];
 
         for (const sc of smitheryConns) {
           if (sc.connectionId && sc.status) {
+            const syncStatus = sc.status === "auth_required" ? "auth_required" : sc.status;
             await supabase
               .from("user_smithery_connections")
               .update({
-                status: sc.status === "auth_required" ? "auth_required" : sc.status,
+                status: syncStatus,
                 updated_at: new Date().toISOString(),
               })
               .eq("user_id", user.id)
@@ -357,6 +386,38 @@ async function handleListTools(req: Request): Promise<Response> {
   return jsonResponse({ tools: allTools, servers });
 }
 
+async function handleVerify(req: Request): Promise<Response> {
+  const { user, supabase } = await authenticateUser(req);
+  const { connectionId } = await req.json();
+
+  if (!connectionId) {
+    return jsonResponse({ error: "connectionId is required" }, 400);
+  }
+
+  const namespace = await getNamespace();
+
+  const getRes = await smitheryApiCall("GET", `/connect/${namespace}/${connectionId}`);
+  if (!getRes.ok) {
+    const errText = await getRes.text();
+    return jsonResponse({ error: `Verify failed: ${errText}` }, 502);
+  }
+
+  const connData = await getRes.json();
+  const status = connData.status === "auth_required" ? "auth_required" : connData.status || "connected";
+
+  await supabase
+    .from("user_smithery_connections")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+    .eq("smithery_connection_id", connectionId);
+
+  return jsonResponse({
+    connectionId,
+    status,
+    authorizationUrl: connData.authorizationUrl || null,
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -375,6 +436,8 @@ Deno.serve(async (req: Request) => {
         return await handleRemove(req);
       case "retry":
         return await handleRetry(req);
+      case "verify":
+        return await handleVerify(req);
       case "list-tools":
         return await handleListTools(req);
       default:
