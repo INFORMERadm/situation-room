@@ -1678,6 +1678,14 @@ You have access to the following tools:
    - ETF/Funds: etf/holdings, etf/info, etf/sector-weightings, etf/country-weightings (params: symbol)
    - Technical: technical-indicators/sma, technical-indicators/ema, technical-indicators/rsi (params: symbol, periodLength, timeframe)
    - Market: biggest-gainers, biggest-losers, most-active-stocks, sector-performance, company-screener
+   - COMPANY SCREENER (company-screener): Use this to find companies matching specific criteria.
+     Parameters: country (2-letter ISO code: "CA"=Canada, "US"=USA, "UK"=UK, etc.),
+     sector ("Energy", "Technology", "Basic Materials", "Healthcare", "Industrials", "Financial Services", "Consumer Cyclical", "Consumer Defensive", "Communication Services", "Real Estate", "Utilities"),
+     industry (specific sub-industry, e.g. "Uranium", "Oil & Gas E&P", "Gold", "Software - Application", "Semiconductors"),
+     marketCapMoreThan/marketCapLowerThan (number as string), exchange ("nyse", "nasdaq", "tsx", "amex"),
+     limit (number as string, default 100). Results are sorted by market cap descending.
+     IMPORTANT: For niche sectors like Uranium, Lithium, Gold mining, use the "industry" parameter (e.g. industry="Uranium"), NOT "sector".
+     Example: company-screener with params {country:"CA", industry:"Uranium", limit:"10"} returns top Canadian uranium companies by market cap.
    - Economics: treasury-rates, economic-indicators (params: name=GDP|CPI etc), market-risk-premium
    - Quotes: quote, batch-quote (params: symbol or symbols), stock-price-change (params: symbol)
    - Search: search-symbol, search-name (params: query)
@@ -1707,13 +1715,40 @@ You have access to the following tools:
    Parameters: { "name": string }
    Use this when the user asks to create a new watchlist. After creating, subsequent add_to_watchlist calls will add to this new watchlist.
 
-9. switch_right_panel - Switch right panel view
+9. switch_watchlist - Switch to an existing watchlist by name
+   Parameters: { "name": string }
+   Use this when the user refers to a specific watchlist (e.g., "add to the Uranium watchlist"). The available watchlist names are in the platform state. After switching, subsequent add_to_watchlist calls will add to the selected watchlist.
+
+10. switch_right_panel - Switch right panel view
    Parameters: { "view": "news"|"economic" }
 
-10. switch_left_tab - Switch left sidebar tab
+11. switch_left_tab - Switch left sidebar tab
    Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
 
 {{WEB_SEARCH_SECTION}}
+
+========================================
+MULTI-STEP RESEARCH-THEN-ACTION WORKFLOWS:
+========================================
+
+When the user asks you to perform actions that require data you do NOT currently have (e.g., "add the top 4 Canadian uranium companies", "create a watchlist of the biggest tech stocks"), you MUST follow this pattern:
+
+STEP 1 (RESEARCH): Call fetch_fmp_data (e.g., with company-screener endpoint) or a search tool to retrieve the actual data. Do NOT call any action tools (add_to_watchlist, create_watchlist, change_symbol) in this step.
+STEP 2 (WAIT): Wait for the tool results to come back. Do NOT guess or fabricate data from your training knowledge.
+STEP 3 (ACT): ONLY after receiving the actual results, call the action tools based on the real data. If the user asked for N items, you MUST emit exactly N add_to_watchlist calls.
+
+CRITICAL RULES:
+- NEVER pre-emptively call add_to_watchlist in the same round as fetch_fmp_data. Wait for the data first.
+- NEVER guess companies from training data when asked about rankings, top companies, or data-dependent lists. ALWAYS fetch real data first.
+- When asked to add MULTIPLE symbols to a watchlist, you MUST call add_to_watchlist ONCE PER SYMBOL. Do NOT stop after one.
+- If the user says "add the top 4", you MUST emit exactly 4 add_to_watchlist calls after receiving the screener results.
+- If the target watchlist is different from the currently active one, call switch_watchlist FIRST, then add_to_watchlist for each symbol.
+
+EXAMPLE - "Add the top 4 Canadian Uranium companies by market cap to the Uranium watchlist":
+  Round 1: Call fetch_fmp_data(endpoint="company-screener", params={country:"CA", industry:"Uranium", limit:"10"})
+  Round 2 (after receiving results): Call switch_watchlist(name="Uranium"), then call add_to_watchlist for each of the top 4 companies from the results.
+
+========================================
 
 TOOL CALLING - MANDATORY:
 - You MUST actually invoke tools by making function calls. NEVER describe, simulate, or role-play a tool's action in text.
@@ -1956,6 +1991,20 @@ const ALL_AI_TOOLS = [
         type: "object",
         properties: {
           name: { type: "string", description: "Name for the new watchlist" },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "switch_watchlist",
+      description: "Switch to an existing watchlist by name. Use this when the user wants to add symbols to a specific watchlist that is not currently active. The available watchlist names are provided in the platform state.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Name of the watchlist to switch to" },
         },
         required: ["name"],
       },
@@ -2767,6 +2816,17 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "switch_watchlist",
+    description: "Switch to an existing watchlist by name. Use this when the user wants to add symbols to a specific watchlist that is not currently active.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Name of the watchlist to switch to" },
+      },
+      required: ["name"],
+    },
+  },
+  {
     name: "switch_right_panel",
     description: "Switch the right panel view between news and economic calendar.",
     inputSchema: {
@@ -3113,11 +3173,14 @@ async function handleAIChat(req: Request): Promise<Response> {
           const systemMsg = { role: "system", content: systemContent };
           let chatMessages: Record<string, unknown>[] = [systemMsg, ...messages];
 
+          let clientOnlyRounds = 0;
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
             console.log(`[AI Chat] Starting round ${depth + 1}/${MAX_CHAIN_DEPTH}`);
             const { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
               controller, encoder, modelConfig, HF_TOKEN, chatMessages, aiTools,
             );
+
+            if (fullContent) sentAnyContent = true;
 
             console.log(`[AI Chat] Round ${depth + 1} complete: nativeToolCalls=${nativeToolCalls.length}, textToolCalls=${textToolCalls.length}`);
             if (nativeToolCalls.length > 0) {
@@ -3160,7 +3223,9 @@ async function handleAIChat(req: Request): Promise<Response> {
             }
 
             const serverCalls = allCalls.filter(tc => SERVER_TOOLS.has(tc.tool));
+            const clientCalls = allCalls.filter(tc => !SERVER_TOOLS.has(tc.tool));
             console.log(`[AI Chat] Server-side tools to execute: ${serverCalls.length} (${serverCalls.map(tc => tc.tool).join(", ") || "none"})`);
+            console.log(`[AI Chat] Client-side tools: ${clientCalls.length} (${clientCalls.map(tc => tc.tool).join(", ") || "none"})`);
 
             const resultMap = new Map<string, string>();
             for (const tc of allCalls) {
@@ -3174,8 +3239,14 @@ async function handleAIChat(req: Request): Promise<Response> {
             }
 
             if (serverCalls.length === 0) {
-              console.log(`[AI Chat] No server tools called in round ${depth + 1}, ending loop`);
-              break;
+              clientOnlyRounds++;
+              if (clientOnlyRounds >= 2) {
+                console.log(`[AI Chat] Two consecutive client-only rounds, ending loop`);
+                break;
+              }
+              console.log(`[AI Chat] Client-only round ${depth + 1}, continuing for summary round`);
+            } else {
+              clientOnlyRounds = 0;
             }
 
             if (usedNative) {
@@ -3202,12 +3273,14 @@ async function handleAIChat(req: Request): Promise<Response> {
               }
             } else {
               const resultParts = Array.from(resultMap.values());
+              const clientResults = clientCalls.map(tc => `${tc.tool}(${JSON.stringify(tc.params)}): Action executed on client.`);
+              const allResults = [...resultParts, ...clientResults];
               chatMessages = [
                 ...chatMessages,
                 { role: "assistant", content: fullContent },
                 {
                   role: "user",
-                  content: `Here are the results:\n${resultParts.join("\n")}\n\nContinue your response. You may make more tool calls if needed.`,
+                  content: `Here are the results:\n${allResults.join("\n")}\n\nContinue your response. You MUST make ALL remaining tool calls if the user requested multiple actions. You may make more tool calls if needed.`,
                 },
               ];
             }

@@ -108,7 +108,7 @@ export function useAIChat(
   mcpServers?: MCPServerInput[],
 ): UseAIChatReturn {
   const platform = usePlatform();
-  const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, activeWatchlist } = useWatchlist();
+  const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, activeWatchlist, watchlists, setActiveWatchlistId } = useWatchlist();
   const {
     attachedDoc,
     isUploading: isUploadingDoc,
@@ -151,6 +151,7 @@ export function useAIChat(
     addToWatchlist: () => {},
     removeFromWatchlist: () => {},
     createWatchlist: async () => {},
+    switchWatchlist: () => 'No watchlists available',
     setRightPanelView: () => {},
     setLeftTab: () => {},
     collapseChat: () => {},
@@ -166,6 +167,14 @@ export function useAIChat(
     addToWatchlist: addToActiveWatchlist,
     removeFromWatchlist: removeFromActiveWatchlist,
     createWatchlist,
+    switchWatchlist: (name: string) => {
+      const match = watchlists.find(w => w.name.toLowerCase() === name.toLowerCase());
+      if (match) {
+        setActiveWatchlistId(match.id);
+        return `Switched to watchlist "${match.name}"`;
+      }
+      return `Watchlist "${name}" not found. Available: ${watchlists.map(w => w.name).join(', ')}`;
+    },
     setRightPanelView: platform.setRightPanelView,
     setLeftTab: platform.setLeftTab,
     collapseChat: () => setIsExpanded(false),
@@ -253,6 +262,8 @@ export function useAIChat(
       clocks: platform.clocks,
       rightPanelView: platform.rightPanelView,
       leftTab: platform.leftTab,
+      activeWatchlistName: activeWatchlist?.name,
+      allWatchlists: watchlists.map(w => ({ name: w.name, symbolCount: w.items.length })),
     });
 
     const webSearch = searchMode !== 'off';
@@ -295,7 +306,7 @@ export function useAIChat(
           setSearchProgress(progress);
         }
       },
-      (finalText) => {
+      async (finalText) => {
         setIsStreaming(false);
         setStreamingContent('');
         setSearchProgress(null);
@@ -308,7 +319,7 @@ export function useAIChat(
         const hasChartNavCall = clientCalls.some(isChartNavToolCall) || chartNavDetectedRef.current;
 
         for (const tc of clientCalls) {
-          const result = executeToolCall(tc, platformActionsRef.current);
+          const result = await executeToolCall(tc, platformActionsRef.current);
           if (result) statuses.push(result);
         }
 
@@ -432,6 +443,8 @@ export function useAIChat(
       clocks: platform.clocks,
       rightPanelView: platform.rightPanelView,
       leftTab: platform.leftTab,
+      activeWatchlistName: activeWatchlist?.name,
+      allWatchlists: watchlists.map(w => ({ name: w.name, symbolCount: w.items.length })),
     });
 
     const webSearch = searchMode !== 'off';
@@ -449,7 +462,7 @@ export function useAIChat(
         }
         if (progress) setSearchProgress(progress);
       },
-      (finalText) => {
+      async (finalText) => {
         setIsStreaming(false);
         setStreamingContent('');
         setSearchProgress(null);
@@ -457,7 +470,7 @@ export function useAIChat(
         const parsed = parseAIResponse(finalText);
         const clientCalls = parsed.toolCalls.filter(isClientToolCall);
         for (const tc of clientCalls) {
-          executeToolCall(tc, platformActionsRef.current);
+          await executeToolCall(tc, platformActionsRef.current);
         }
         const assistantMsg: ChatMessage = {
           id: generateId(),
@@ -614,6 +627,8 @@ export function useAIChat(
         clocks: platform.clocks,
         rightPanelView: platform.rightPanelView,
         leftTab: platform.leftTab,
+        activeWatchlistName: activeWatchlist?.name,
+        allWatchlists: watchlists.map(w => ({ name: w.name, symbolCount: w.items.length })),
       });
 
       abortRef.current = streamAIChat(
@@ -626,14 +641,14 @@ export function useAIChat(
           if (sources.length > 0) { setSearchSources(sources); setSearchImages(images); }
           if (progress) setSearchProgress(progress);
         },
-        (finalText) => {
+        async (finalText) => {
           setIsStreaming(false);
           setStreamingContent('');
           setSearchProgress(null);
           const { sources, images } = parseSearchTags(finalText);
           const parsed = parseAIResponse(finalText);
           const clientCalls = parsed.toolCalls.filter(isClientToolCall);
-          for (const tc of clientCalls) executeToolCall(tc, platformActionsRef.current);
+          for (const tc of clientCalls) await executeToolCall(tc, platformActionsRef.current);
           const assistantMsg: ChatMessage = {
             id: generateId(),
             role: 'assistant',

@@ -103,7 +103,7 @@ export default function MarketsDashboard() {
 
   const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id, smitheryMcpServers);
 
-  const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist } = useWatchlist();
+  const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, watchlists, setActiveWatchlistId } = useWatchlist();
 
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
   const [showMCPPanel, setShowMCPPanel] = useState(false);
@@ -116,14 +116,22 @@ export default function MarketsDashboard() {
     addToWatchlist: addToActiveWatchlist,
     removeFromWatchlist: removeFromActiveWatchlist,
     createWatchlist,
+    switchWatchlist: (name: string) => {
+      const match = watchlists.find(w => w.name.toLowerCase() === name.toLowerCase());
+      if (match) {
+        setActiveWatchlistId(match.id);
+        return `Switched to watchlist "${match.name}"`;
+      }
+      return `Watchlist "${name}" not found`;
+    },
     setRightPanelView: platform.setRightPanelView,
     setLeftTab: platform.setLeftTab,
     collapseChat: ai.collapse,
   };
 
-  const handleClientToolCall = useCallback((toolName: string, args: Record<string, unknown>) => {
+  const handleClientToolCall = useCallback(async (toolName: string, args: Record<string, unknown>) => {
     return execClientTool({ tool: toolName, params: args }, voicePlatformActions);
-  }, [data.selectSymbol, data.setChartTimeframe, platform.setChartType, platform.toggleIndicator, addToActiveWatchlist, removeFromActiveWatchlist, platform.setRightPanelView, platform.setLeftTab, ai.collapse]);
+  }, [data.selectSymbol, data.setChartTimeframe, platform.setChartType, platform.toggleIndicator, addToActiveWatchlist, removeFromActiveWatchlist, watchlists, setActiveWatchlistId, platform.setRightPanelView, platform.setLeftTab, ai.collapse]);
 
   const handleConversationToggle = useCallback(async () => {
     if (isConversationActive()) {

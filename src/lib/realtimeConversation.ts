@@ -20,7 +20,7 @@ export interface ConversationEventHandlers {
   onSpeakingStart?: () => void;
   onSpeakingEnd?: () => void;
   onToolCall?: (toolName: string) => void;
-  onClientToolCall?: (toolName: string, args: Record<string, unknown>) => string;
+  onClientToolCall?: (toolName: string, args: Record<string, unknown>) => string | Promise<string>;
 }
 
 interface MCPServerInput {
@@ -70,6 +70,8 @@ const CLIENT_TOOLS = new Set([
   'toggle_indicator',
   'add_to_watchlist',
   'remove_from_watchlist',
+  'create_watchlist',
+  'switch_watchlist',
   'switch_right_panel',
   'switch_left_tab',
 ]);
@@ -142,7 +144,7 @@ async function processCompletedToolCalls(
     let result: string;
 
     if (CLIENT_TOOLS.has(toolCall.name) && currentSession.handlers.onClientToolCall) {
-      result = currentSession.handlers.onClientToolCall(toolCall.name, toolArgs);
+      result = await currentSession.handlers.onClientToolCall(toolCall.name, toolArgs);
     } else {
       const server = currentSession.toolServerMap[toolCall.name];
       if (server) {

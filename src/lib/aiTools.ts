@@ -55,12 +55,13 @@ export interface PlatformActions {
   addToWatchlist: (symbol: string, name: string) => void;
   removeFromWatchlist: (symbol: string) => void;
   createWatchlist: (name: string) => Promise<void>;
+  switchWatchlist: (name: string) => string;
   setRightPanelView: (view: 'news' | 'economic') => void;
   setLeftTab: (tab: string) => void;
   collapseChat: () => void;
 }
 
-export function executeToolCall(tc: ToolCall, actions: PlatformActions): string {
+export async function executeToolCall(tc: ToolCall, actions: PlatformActions): Promise<string> {
   switch (tc.tool) {
     case 'change_symbol': {
       const symbol = (tc.params.symbol as string) || '';
@@ -96,8 +97,16 @@ export function executeToolCall(tc: ToolCall, actions: PlatformActions): string 
     case 'create_watchlist': {
       const name = (tc.params.name as string) || '';
       if (name) {
-        actions.createWatchlist(name);
+        await actions.createWatchlist(name);
         return `Created watchlist "${name}"`;
+      }
+      return 'Missing watchlist name';
+    }
+    case 'switch_watchlist': {
+      const name = (tc.params.name as string) || '';
+      if (name) {
+        const result = actions.switchWatchlist(name);
+        return result;
       }
       return 'Missing watchlist name';
     }
@@ -150,6 +159,8 @@ export function buildContextPayload(state: {
   clocks: { label: string; zone: string }[];
   rightPanelView: string;
   leftTab: string;
+  activeWatchlistName?: string;
+  allWatchlists?: { name: string; symbolCount: number }[];
 }): Record<string, unknown> {
   return {
     currentSymbol: state.selectedSymbol,
@@ -159,6 +170,8 @@ export function buildContextPayload(state: {
       .filter(i => i.enabled)
       .map(i => i.id),
     watchlistSymbols: state.watchlist.map(w => w.symbol),
+    activeWatchlistName: state.activeWatchlistName || null,
+    allWatchlists: state.allWatchlists || [],
     clockZones: state.clocks.map(c => c.label),
     rightPanel: state.rightPanelView,
     leftTab: state.leftTab,

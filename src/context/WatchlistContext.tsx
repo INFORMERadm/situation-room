@@ -171,7 +171,10 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     init();
   }, [user, authLoading, loadFromSupabase]);
 
+  const activeWatchlistIdRef = useRef<string | null>(null);
+
   const setActiveWatchlistId = useCallback((id: string) => {
+    activeWatchlistIdRef.current = id;
     setActiveWatchlistIdState(id);
     if (user) {
       localStorage.setItem(LOCAL_ACTIVE_KEY + '-' + user.id, id);
@@ -180,9 +183,18 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  useEffect(() => {
+    activeWatchlistIdRef.current = activeWatchlistId;
+  }, [activeWatchlistId]);
+
+  const watchlistsRef = useRef<Watchlist[]>([]);
+  useEffect(() => {
+    watchlistsRef.current = watchlists;
+  }, [watchlists]);
+
   const createWatchlist = useCallback(async (name: string) => {
     if (user) {
-      const maxOrder = watchlists.reduce((m, w) => Math.max(m, w.sort_order), -1);
+      const maxOrder = watchlistsRef.current.reduce((m, w) => Math.max(m, w.sort_order), -1);
       const { data, error } = await supabase
         .from('watchlists')
         .insert({ user_id: user.id, name, sort_order: maxOrder + 1 })
@@ -192,21 +204,23 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
       if (error || !data) return;
       const newList: Watchlist = { ...data, items: [] };
       setWatchlists((prev) => [...prev, newList]);
+      watchlistsRef.current = [...watchlistsRef.current, newList];
       setActiveWatchlistId(newList.id);
     } else {
-      const maxOrder = watchlists.reduce((m, w) => Math.max(m, w.sort_order), -1);
+      const maxOrder = watchlistsRef.current.reduce((m, w) => Math.max(m, w.sort_order), -1);
       const newList: Watchlist = {
         id: genLocalId(),
         name,
         sort_order: maxOrder + 1,
         items: [],
       };
-      const next = [...watchlists, newList];
+      const next = [...watchlistsRef.current, newList];
       setWatchlists(next);
+      watchlistsRef.current = next;
       saveLocalWatchlists(next);
       setActiveWatchlistId(newList.id);
     }
-  }, [user, watchlists, setActiveWatchlistId]);
+  }, [user, setActiveWatchlistId]);
 
   const renameWatchlist = useCallback(async (id: string, name: string) => {
     if (user) {
@@ -242,13 +256,14 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   }, [user, activeWatchlistId]);
 
   const addToActiveWatchlist = useCallback(async (symbol: string, name: string) => {
-    if (!activeWatchlistId) return;
-    const current = watchlists.find((w) => w.id === activeWatchlistId);
+    const currentActiveId = activeWatchlistIdRef.current;
+    if (!currentActiveId) return;
+    const current = watchlistsRef.current.find((w) => w.id === currentActiveId);
     if (!current || current.items.some((i) => i.symbol === symbol)) return;
 
     if (user) {
       const { error } = await supabase.from('watchlist_items').insert({
-        watchlist_id: activeWatchlistId,
+        watchlist_id: currentActiveId,
         symbol,
         name,
         position: current.items.length,
@@ -258,36 +273,39 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
     setWatchlists((prev) => {
       const next = prev.map((w) =>
-        w.id === activeWatchlistId
+        w.id === currentActiveId
           ? { ...w, items: [...w.items, { symbol, name }] }
           : w
       );
       if (!user) saveLocalWatchlists(next);
+      watchlistsRef.current = next;
       return next;
     });
-  }, [user, activeWatchlistId, watchlists]);
+  }, [user]);
 
   const removeFromActiveWatchlist = useCallback(async (symbol: string) => {
-    if (!activeWatchlistId) return;
+    const currentActiveId = activeWatchlistIdRef.current;
+    if (!currentActiveId) return;
 
     if (user) {
       await supabase
         .from('watchlist_items')
         .delete()
-        .eq('watchlist_id', activeWatchlistId)
+        .eq('watchlist_id', currentActiveId)
         .eq('symbol', symbol);
     }
 
     setWatchlists((prev) => {
       const next = prev.map((w) =>
-        w.id === activeWatchlistId
+        w.id === currentActiveId
           ? { ...w, items: w.items.filter((i) => i.symbol !== symbol) }
           : w
       );
       if (!user) saveLocalWatchlists(next);
+      watchlistsRef.current = next;
       return next;
     });
-  }, [user, activeWatchlistId]);
+  }, [user]);
 
   const activeWatchlist = watchlists.find((w) => w.id === activeWatchlistId) ?? null;
 
