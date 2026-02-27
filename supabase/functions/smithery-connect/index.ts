@@ -24,6 +24,27 @@ function getSmitheryApiKey(): string | null {
   return key.trim();
 }
 
+function extractStatus(connData: Record<string, unknown>): {
+  status: string;
+  authorizationUrl: string | null;
+} {
+  const raw = connData.status;
+  if (typeof raw === "object" && raw !== null) {
+    const obj = raw as Record<string, unknown>;
+    return {
+      status: typeof obj.state === "string" ? obj.state : "connected",
+      authorizationUrl: typeof obj.authorizationUrl === "string" ? obj.authorizationUrl : null,
+    };
+  }
+  if (typeof raw === "string") {
+    return {
+      status: raw,
+      authorizationUrl: typeof connData.authorizationUrl === "string" ? connData.authorizationUrl : null,
+    };
+  }
+  return { status: "connected", authorizationUrl: null };
+}
+
 async function authenticateUser(req: Request) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) throw new Error("Missing authorization header");
@@ -116,14 +137,21 @@ async function handleCreate(req: Request): Promise<Response> {
   const connData = await res.json();
   console.log("[smithery-connect] Connection response:", JSON.stringify(connData));
 
-  let status = connData.status === "auth_required" ? "auth_required" : "connected";
-  let authorizationUrl = connData.authorizationUrl || null;
+  const extracted = extractStatus(connData);
+  let status = extracted.status;
+  let authorizationUrl = extracted.authorizationUrl;
 
   if (status === "connected") {
     try {
       const verifyRes = await smitheryApiCall(
         "POST",
         `/connect/${namespace}/${connectionId}/mcp`,
+        {
+          jsonrpc: "2.0",
+          id: crypto.randomUUID(),
+          method: "tools/list",
+          params: {},
+        }
       );
       const verifyBody = await verifyRes.text();
       console.log("[smithery-connect] Verify MCP status:", verifyRes.status, verifyBody.slice(0, 200));
@@ -133,9 +161,10 @@ async function handleCreate(req: Request): Promise<Response> {
         if (getRes.ok) {
           const getConn = await getRes.json();
           console.log("[smithery-connect] Re-checked connection:", JSON.stringify(getConn));
-          if (getConn.status === "auth_required") {
+          const recheck = extractStatus(getConn);
+          if (recheck.status === "auth_required") {
             status = "auth_required";
-            authorizationUrl = getConn.authorizationUrl || null;
+            authorizationUrl = recheck.authorizationUrl;
           }
         }
       }
@@ -179,18 +208,12 @@ async function handleList(req: Request): Promise<Response> {
 
       if (res.ok) {
         const data = await res.json();
-        const smitheryConns: Array<{
-          connectionId: string;
-          status: string;
-          name?: string;
-          mcpUrl?: string;
-          serverInfo?: unknown;
-          authorizationUrl?: string;
-        }> = data.data || data || [];
+        const smitheryConns: Array<Record<string, unknown>> = data.data || data || [];
 
         for (const sc of smitheryConns) {
           if (sc.connectionId && sc.status) {
-            const syncStatus = sc.status === "auth_required" ? "auth_required" : sc.status;
+            const extracted = extractStatus(sc);
+            const syncStatus = extracted.status === "auth_required" ? "auth_required" : extracted.status;
             await supabase
               .from("user_smithery_connections")
               .update({
@@ -262,8 +285,8 @@ async function handleRetry(req: Request): Promise<Response> {
   }
 
   const connData = await res.json();
-  const status =
-    connData.status === "auth_required" ? "auth_required" : "connected";
+  const extracted = extractStatus(connData);
+  const status = extracted.status === "auth_required" ? "auth_required" : "connected";
 
   await supabase
     .from("user_smithery_connections")
@@ -274,7 +297,7 @@ async function handleRetry(req: Request): Promise<Response> {
   return jsonResponse({
     connectionId,
     status,
-    authorizationUrl: connData.authorizationUrl || null,
+    authorizationUrl: extracted.authorizationUrl,
   });
 }
 
@@ -403,7 +426,8 @@ async function handleVerify(req: Request): Promise<Response> {
   }
 
   const connData = await getRes.json();
-  const status = connData.status === "auth_required" ? "auth_required" : connData.status || "connected";
+  const extracted = extractStatus(connData);
+  const status = extracted.status === "auth_required" ? "auth_required" : extracted.status || "connected";
 
   await supabase
     .from("user_smithery_connections")
@@ -414,7 +438,7 @@ async function handleVerify(req: Request): Promise<Response> {
   return jsonResponse({
     connectionId,
     status,
-    authorizationUrl: connData.authorizationUrl || null,
+    authorizationUrl: extracted.authorizationUrl,
   });
 }
 
