@@ -1289,24 +1289,44 @@ export default function AIChatBox({
                   </button>
                 )}
                 {!isStreaming && lastMsgIsAssistant && (
-                  <button
-                    onClick={onRegenerate}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      padding: '5px 14px', background: 'transparent',
-                      border: '1px solid #333', borderRadius: 4,
-                      color: '#999', fontSize: 10, fontWeight: 500,
-                      cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#fb8c00'; e.currentTarget.style.color = '#fb8c00'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#999'; }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="1 4 1 10 7 10" />
-                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                    </svg>
-                    Regenerate
-                  </button>
+                  <>
+                    <button
+                      onClick={onRegenerate}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '5px 14px', background: 'transparent',
+                        border: '1px solid #333', borderRadius: 4,
+                        color: '#999', fontSize: 10, fontWeight: 500,
+                        cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#fb8c00'; e.currentTarget.style.color = '#fb8c00'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#999'; }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="1 4 1 10 7 10" />
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                      </svg>
+                      Regenerate
+                    </button>
+                    <button
+                      onClick={onNewSession}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '5px 14px', background: 'transparent',
+                        border: '1px solid #333', borderRadius: 4,
+                        color: '#999', fontSize: 10, fontWeight: 500,
+                        cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#fb8c00'; e.currentTarget.style.color = '#fb8c00'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#999'; }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      New Chat
+                    </button>
+                  </>
                 )}
               </div>
             )}
