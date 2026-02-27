@@ -101,7 +101,7 @@ async function handleCreate(req: Request): Promise<Response> {
 
   console.log("[smithery-connect] Creating connection:", JSON.stringify({ namespace, connectionId, mcpUrl, displayName }));
 
-  const conn = await smithery.beta.connect.connections.set(connectionId, {
+  const conn = await smithery.connections.set(connectionId, {
     namespace,
     mcpUrl,
     name: displayName,
@@ -116,16 +116,14 @@ async function handleCreate(req: Request): Promise<Response> {
 
   if (status === "connected") {
     try {
-      const verifyResult = await smithery.beta.connect.mcp.call(connectionId, {
+      const verifyResult = await smithery.connections.mcp.call(connectionId, {
         namespace,
-        method: "tools/list",
-        params: {},
       });
-      console.log("[smithery-connect] Verify tools/list OK:", JSON.stringify(verifyResult).slice(0, 200));
+      console.log("[smithery-connect] Verify MCP call OK:", JSON.stringify(verifyResult).slice(0, 200));
     } catch (e: unknown) {
-      console.warn("[smithery-connect] Verify tools/list failed, re-checking status:", e);
+      console.warn("[smithery-connect] Verify MCP failed, re-checking status:", e);
       try {
-        const recheck = await smithery.beta.connect.connections.get(connectionId, { namespace });
+        const recheck = await smithery.connections.get(connectionId, { namespace });
         console.log("[smithery-connect] Re-checked connection:", JSON.stringify(recheck));
         const recheckParsed = parseConnectionStatus(recheck);
         if (recheckParsed.status === "auth_required") {
@@ -167,25 +165,37 @@ async function handleList(req: Request): Promise<Response> {
   try {
     const smithery = getSmitheryClient();
     const namespace = await getNamespace(smithery);
+    const smitheryApiKey = Deno.env.get("SMITHERY_API_KEY")!.trim();
 
-    const listResult = await smithery.beta.connect.connections.list(namespace, {
-      metadata: { userId: user.id },
-    });
-
-    const smitheryConns = listResult.data || [];
-
-    for (const sc of smitheryConns) {
-      if (sc.connectionId && sc.status) {
-        const parsed = parseConnectionStatus(sc);
-        await supabase
-          .from("user_smithery_connections")
-          .update({
-            status: parsed.status,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", user.id)
-          .eq("smithery_connection_id", sc.connectionId);
+    const listRes = await fetch(
+      `https://api.smithery.ai/connect/${namespace}?metadata.userId=${encodeURIComponent(user.id)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${smitheryApiKey}`,
+          "Content-Type": "application/json",
+        },
       }
+    );
+
+    if (listRes.ok) {
+      const data = await listRes.json();
+      const smitheryConns: Array<Record<string, unknown>> = data.connections || data.data || [];
+
+      for (const sc of smitheryConns) {
+        if (sc.connectionId && sc.status) {
+          const parsed = parseConnectionStatus(sc);
+          await supabase
+            .from("user_smithery_connections")
+            .update({
+              status: parsed.status,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("user_id", user.id)
+            .eq("smithery_connection_id", sc.connectionId);
+        }
+      }
+    } else {
+      console.warn("[smithery-connect] Smithery list failed:", listRes.status, await listRes.text());
     }
   } catch (e) {
     console.warn("[smithery-connect] Smithery list sync failed:", e);
@@ -211,7 +221,7 @@ async function handleRemove(req: Request): Promise<Response> {
   try {
     const smithery = getSmitheryClient();
     const namespace = await getNamespace(smithery);
-    await smithery.beta.connect.connections.delete(connectionId, { namespace });
+    await smithery.connections.delete(connectionId, { namespace });
   } catch (e) {
     console.warn("[smithery-connect] Smithery delete failed (non-fatal):", e);
   }
@@ -236,7 +246,7 @@ async function handleRetry(req: Request): Promise<Response> {
   const smithery = getSmitheryClient();
   const namespace = await getNamespace(smithery);
 
-  const conn = await smithery.beta.connect.connections.get(connectionId, { namespace });
+  const conn = await smithery.connections.get(connectionId, { namespace });
   console.log("[smithery-connect] Retry - connection status:", JSON.stringify(conn.status));
 
   const parsed = parseConnectionStatus(conn);
@@ -259,6 +269,7 @@ async function handleListTools(req: Request): Promise<Response> {
 
   const smithery = getSmitheryClient();
   const namespace = await getNamespace(smithery);
+  const smitheryApiKey = Deno.env.get("SMITHERY_API_KEY")!.trim();
 
   const { data: connections } = await supabase
     .from("user_smithery_connections")
@@ -287,11 +298,46 @@ async function handleListTools(req: Request): Promise<Response> {
 
   for (const conn of connections) {
     try {
-      const result = await smithery.beta.connect.mcp.call(conn.smithery_connection_id, {
-        namespace,
-        method: "tools/list",
-        params: {},
-      });
+      const res = await fetch(
+        `https://api.smithery.ai/connect/${namespace}/${conn.smithery_connection_id}/mcp`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${smitheryApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: crypto.randomUUID(),
+            method: "tools/list",
+            params: {},
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        console.warn(`[smithery-connect] tools/list failed for ${conn.display_name}:`, res.status);
+        continue;
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+      let result: unknown;
+
+      if (contentType.includes("text/event-stream")) {
+        const text = await res.text();
+        const lines = text.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const d = JSON.parse(line.slice(6));
+              if (d.result) result = d.result;
+            } catch { /* skip */ }
+          }
+        }
+      } else {
+        const json = await res.json();
+        result = json.result || json;
+      }
 
       const tools = (result as { tools?: Array<{ name: string; description?: string; inputSchema?: unknown }> })?.tools || [];
 
@@ -329,7 +375,7 @@ async function handleVerify(req: Request): Promise<Response> {
   const smithery = getSmitheryClient();
   const namespace = await getNamespace(smithery);
 
-  const conn = await smithery.beta.connect.connections.get(connectionId, { namespace });
+  const conn = await smithery.connections.get(connectionId, { namespace });
   const parsed = parseConnectionStatus(conn);
 
   await supabase
