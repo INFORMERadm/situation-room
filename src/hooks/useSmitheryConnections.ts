@@ -124,23 +124,26 @@ export function useSmitheryConnections(userId: string | undefined) {
       }
 
       const data = await res.json();
+      console.log('[useSmitheryConnections] create response:', JSON.stringify(data));
 
       if (data.error) {
         return { success: false, error: data.error };
       }
 
-      if (data.status === 'auth_required' && data.authorizationUrl) {
-        sessionStorage.setItem('smithery_pending_connection', data.connectionId);
+      if (data.status === 'auth_required') {
+        if (data.connectionId) {
+          sessionStorage.setItem('smithery_pending_connection', data.connectionId);
+        }
         return {
           success: true,
           status: 'auth_required',
-          authorizationUrl: data.authorizationUrl,
+          authorizationUrl: data.authorizationUrl || null,
           connectionId: data.connectionId,
         };
       }
 
       await fetchConnections();
-      return { success: true, status: 'connected', connectionId: data.connectionId };
+      return { success: true, status: data.status || 'connected', connectionId: data.connectionId };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : 'Connection failed' };
     }

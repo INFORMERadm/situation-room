@@ -24,24 +24,38 @@ function getSmitheryApiKey(): string | null {
   return key.trim();
 }
 
+function findAuthUrl(obj: Record<string, unknown>): string | null {
+  for (const key of ["authorizationUrl", "authorization_url", "authUrl", "auth_url"]) {
+    if (typeof obj[key] === "string" && obj[key]) return obj[key] as string;
+  }
+  return null;
+}
+
 function extractStatus(connData: Record<string, unknown>): {
   status: string;
   authorizationUrl: string | null;
 } {
   const raw = connData.status;
+
   if (typeof raw === "object" && raw !== null) {
     const obj = raw as Record<string, unknown>;
+    const state = typeof obj.state === "string" ? obj.state : null;
+    const authUrl = findAuthUrl(obj) || findAuthUrl(connData);
+    console.log("[smithery-connect] extractStatus object:", JSON.stringify({ state, authUrl, rawStatus: raw }));
     return {
-      status: typeof obj.state === "string" ? obj.state : "connected",
-      authorizationUrl: typeof obj.authorizationUrl === "string" ? obj.authorizationUrl : null,
+      status: state || (authUrl ? "auth_required" : "connected"),
+      authorizationUrl: authUrl,
     };
   }
+
   if (typeof raw === "string") {
-    return {
-      status: raw,
-      authorizationUrl: typeof connData.authorizationUrl === "string" ? connData.authorizationUrl : null,
-    };
+    const authUrl = findAuthUrl(connData);
+    return { status: raw, authorizationUrl: authUrl };
   }
+
+  const authUrl = findAuthUrl(connData);
+  if (authUrl) return { status: "auth_required", authorizationUrl: authUrl };
+
   return { status: "connected", authorizationUrl: null };
 }
 
@@ -140,6 +154,7 @@ async function handleCreate(req: Request): Promise<Response> {
   const extracted = extractStatus(connData);
   let status = extracted.status;
   let authorizationUrl = extracted.authorizationUrl;
+  console.log("[smithery-connect] After extractStatus:", JSON.stringify({ status, authorizationUrl }));
 
   if (status === "connected") {
     try {
@@ -186,12 +201,14 @@ async function handleCreate(req: Request): Promise<Response> {
     { onConflict: "user_id,smithery_connection_id" }
   );
 
-  return jsonResponse({
+  const finalResponse = {
     connectionId,
     status,
     authorizationUrl,
     serverInfo: connData.serverInfo || null,
-  });
+  };
+  console.log("[smithery-connect] Final create response:", JSON.stringify(finalResponse));
+  return jsonResponse(finalResponse);
 }
 
 async function handleList(req: Request): Promise<Response> {

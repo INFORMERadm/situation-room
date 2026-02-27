@@ -502,8 +502,12 @@ export default function MCPConnectionsPanel({
       setConnectError(result.error || 'Connection failed');
       return;
     }
-    if (result.status === 'auth_required' && result.authorizationUrl) {
-      window.location.href = result.authorizationUrl;
+    if (result.status === 'auth_required') {
+      if (result.authorizationUrl) {
+        window.location.href = result.authorizationUrl;
+      } else {
+        setConnectError('Authorization is required but no authorization URL was provided. Please try again.');
+      }
     }
   };
 
@@ -514,8 +518,12 @@ export default function MCPConnectionsPanel({
       setConnectError(result.error || 'Connection failed');
       return;
     }
-    if (result.status === 'auth_required' && result.authorizationUrl) {
-      window.location.href = result.authorizationUrl;
+    if (result.status === 'auth_required') {
+      if (result.authorizationUrl) {
+        window.location.href = result.authorizationUrl;
+      } else {
+        setConnectError('Authorization is required but no authorization URL was provided. Please try again.');
+      }
     }
   };
 
