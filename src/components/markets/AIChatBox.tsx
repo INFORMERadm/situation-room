@@ -1080,7 +1080,7 @@ export default function AIChatBox({
                     key={msg.id}
                     style={{ padding: '8px 16px', animation: 'aiFadeIn 0.3s ease-out' }}
                     onMouseEnter={() => setHoveredMsgId(msg.id)}
-                    onMouseLeave={() => { setHoveredMsgId(null); }}
+                    onMouseLeave={() => { if (openMsgMenuId !== msg.id) setHoveredMsgId(null); }}
                   >
                     <div style={{
                       display: 'flex',
@@ -1141,7 +1141,7 @@ export default function AIChatBox({
                           display: 'flex',
                           justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
                           height: showActions ? 'auto' : 0,
-                          overflow: 'hidden',
+                          overflow: showActions ? 'visible' : 'hidden',
                           transition: 'height 0.15s ease',
                           marginTop: showActions ? 3 : 0,
                           position: 'relative',
