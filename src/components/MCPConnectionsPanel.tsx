@@ -10,6 +10,7 @@ interface MCPConnectionsPanelProps {
     success: boolean;
     status?: string;
     authorizationUrl?: string;
+    connectionId?: string;
     error?: string;
   }>;
   onRemove: (id: string) => void;
@@ -115,12 +116,14 @@ function ConnectionsList({
   connections,
   onRemove,
   onRetry,
+  onStartOAuth,
   removingId,
   setRemovingId,
 }: {
   connections: SmitheryConnection[];
   onRemove: (id: string) => void;
   onRetry: (connectionId: string) => Promise<{ success: boolean; status?: string; authorizationUrl?: string }>;
+  onStartOAuth: (authorizationUrl: string, connectionId: string) => void;
   removingId: string | null;
   setRemovingId: (id: string | null) => void;
 }) {
@@ -130,7 +133,8 @@ function ConnectionsList({
     setRetryingId(conn.id);
     const result = await onRetry(conn.smithery_connection_id);
     if (result.status === 'auth_required' && result.authorizationUrl) {
-      window.location.href = result.authorizationUrl;
+      onStartOAuth(result.authorizationUrl, conn.smithery_connection_id);
+      setRetryingId(null);
       return;
     }
     setRetryingId(null);
@@ -234,10 +238,12 @@ function CatalogList({
   catalog,
   connections,
   onConnect,
+  isPollingAuth,
 }: {
   catalog: CatalogServer[];
   connections: SmitheryConnection[];
   onConnect: (server: CatalogServer) => void;
+  isPollingAuth: boolean;
 }) {
   const [connectingSlug, setConnectingSlug] = useState<string | null>(null);
 
@@ -246,7 +252,7 @@ function CatalogList({
   const handleConnect = async (server: CatalogServer) => {
     setConnectingSlug(server.slug);
     await onConnect(server);
-    setConnectingSlug(null);
+    if (!isPollingAuth) setConnectingSlug(null);
   };
 
   if (catalog.length === 0) {
@@ -264,6 +270,7 @@ function CatalogList({
         const isConnected = existingConn?.status === 'connected';
         const isAuthRequired = existingConn?.status === 'auth_required';
         const isConnecting = connectingSlug === server.slug;
+        const isWaitingAuth = isConnecting && isPollingAuth;
 
         return (
           <div key={server.id} style={{
@@ -330,6 +337,19 @@ function CatalogList({
                 flexShrink: 0,
               }}>
                 Connected
+              </div>
+            ) : isWaitingAuth ? (
+              <div style={{
+                padding: '5px 12px',
+                background: '#4285f412',
+                border: '1px solid #4285f430',
+                borderRadius: 6,
+                color: '#4285f4',
+                fontSize: 11,
+                fontWeight: 600,
+                flexShrink: 0,
+              }}>
+                Waiting for auth...
               </div>
             ) : isAuthRequired ? (
               <button
@@ -484,6 +504,57 @@ export default function MCPConnectionsPanel({
   const [activeTab, setActiveTab] = useState<Tab>('catalog');
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [pollingConnectionId, setPollingConnectionId] = useState<string | null>(null);
+
+  const startOAuthFlow = (authorizationUrl: string, connectionId: string) => {
+    const w = 600;
+    const h = 700;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+    const popup = window.open(
+      authorizationUrl,
+      'smithery_oauth',
+      `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=yes,status=no`
+    );
+
+    setPollingConnectionId(connectionId);
+    setConnectError(null);
+
+    let attempts = 0;
+    const maxAttempts = 120;
+    const interval = setInterval(async () => {
+      attempts++;
+
+      if (popup && popup.closed) {
+        clearInterval(interval);
+        const finalCheck = await onRetry(connectionId);
+        if (finalCheck.status === 'connected') {
+          setPollingConnectionId(null);
+        } else {
+          setPollingConnectionId(null);
+          setConnectError('Authorization window was closed. Click Connect to try again.');
+        }
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        if (popup && !popup.closed) popup.close();
+        setPollingConnectionId(null);
+        setConnectError('Authorization timed out. Please try again.');
+        return;
+      }
+
+      if (attempts % 3 === 0) {
+        const check = await onRetry(connectionId);
+        if (check.status === 'connected') {
+          clearInterval(interval);
+          if (popup && !popup.closed) popup.close();
+          setPollingConnectionId(null);
+        }
+      }
+    }, 2000);
+  };
 
   const handleCatalogConnect = async (server: CatalogServer) => {
     setConnectError(null);
@@ -492,8 +563,7 @@ export default function MCPConnectionsPanel({
     if (existing) {
       const retryResult = await onRetry(existing.smithery_connection_id);
       if (retryResult.status === 'auth_required' && retryResult.authorizationUrl) {
-        sessionStorage.setItem('smithery_pending_connection', existing.smithery_connection_id);
-        window.location.href = retryResult.authorizationUrl;
+        startOAuthFlow(retryResult.authorizationUrl, existing.smithery_connection_id);
         return;
       }
       if (retryResult.status === 'connected') return;
@@ -505,8 +575,8 @@ export default function MCPConnectionsPanel({
       return;
     }
     if (result.status === 'auth_required') {
-      if (result.authorizationUrl) {
-        window.location.href = result.authorizationUrl;
+      if (result.authorizationUrl && result.connectionId) {
+        startOAuthFlow(result.authorizationUrl, result.connectionId);
       } else {
         setConnectError('Authorization is required but no authorization URL was provided. Please try again.');
       }
@@ -521,8 +591,8 @@ export default function MCPConnectionsPanel({
       return;
     }
     if (result.status === 'auth_required') {
-      if (result.authorizationUrl) {
-        window.location.href = result.authorizationUrl;
+      if (result.authorizationUrl && result.connectionId) {
+        startOAuthFlow(result.authorizationUrl, result.connectionId);
       } else {
         setConnectError('Authorization is required but no authorization URL was provided. Please try again.');
       }
@@ -645,6 +715,7 @@ export default function MCPConnectionsPanel({
                 catalog={catalog}
                 connections={connections}
                 onConnect={handleCatalogConnect}
+                isPollingAuth={!!pollingConnectionId}
               />
             )
           ) : activeTab === 'connections' ? (
@@ -657,6 +728,7 @@ export default function MCPConnectionsPanel({
                 connections={connections}
                 onRemove={onRemove}
                 onRetry={onRetry}
+                onStartOAuth={startOAuthFlow}
                 removingId={removingId}
                 setRemovingId={setRemovingId}
               />
