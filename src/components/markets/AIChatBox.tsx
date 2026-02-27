@@ -241,12 +241,7 @@ export default function AIChatBox({
     if (!msg) return;
     switch (action) {
       case 'copy':
-        navigator.clipboard.writeText(msg.content).then(() => {
-          setCopiedMsgId(id);
-          setTimeout(() => setCopiedMsgId(null), 1500);
-        }).catch(() => {});
-        break;
-      case 'copy-markdown':
+      case 'copy-formatted':
         navigator.clipboard.writeText(msg.content).then(() => {
           setCopiedMsgId(id);
           setTimeout(() => setCopiedMsgId(null), 1500);
@@ -265,6 +260,15 @@ export default function AIChatBox({
         break;
       case 'show-raw':
         setRawMsgId(prev => prev === id ? null : id);
+        break;
+      case 'fork-chat':
+        onRegenerateFrom(id);
+        break;
+      case 'pin':
+      case 'play':
+      case 'edit-canvas':
+      case 'exclude-context':
+      case 'select-mode':
         break;
     }
   }, [messages, onDeleteMessage, onRegenerateFrom]);
