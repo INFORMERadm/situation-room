@@ -30,14 +30,16 @@ function getSmitheryClient(): Smithery {
 function parseConnectionStatus(conn: { status?: unknown }): {
   status: string;
   authorizationUrl: string | null;
+  errorMessage: string | null;
 } {
   const raw = conn.status as Record<string, unknown> | undefined;
-  if (!raw || typeof raw !== "object") return { status: "connected", authorizationUrl: null };
+  if (!raw || typeof raw !== "object") return { status: "connected", authorizationUrl: null, errorMessage: null };
 
   const state = typeof raw.state === "string" ? raw.state : "connected";
   const authUrl = typeof raw.authorizationUrl === "string" ? raw.authorizationUrl : null;
-  console.log("[smithery-connect] parseConnectionStatus:", JSON.stringify({ state, authUrl }));
-  return { status: state, authorizationUrl: authUrl };
+  const errorMsg = typeof raw.message === "string" ? raw.message : null;
+  console.log("[smithery-connect] parseConnectionStatus:", JSON.stringify({ state, authUrl, errorMsg }));
+  return { status: state, authorizationUrl: authUrl, errorMessage: errorMsg };
 }
 
 async function authenticateUser(req: Request) {
@@ -97,38 +99,169 @@ async function handleCreate(req: Request): Promise<Response> {
 
   const smithery = getSmitheryClient();
   const namespace = await getNamespace(smithery);
-  const connectionId = `${user.id}-${Date.now()}`;
+  const smitheryApiKey = Deno.env.get("SMITHERY_API_KEY")!.trim();
+
+  const { data: existing } = await supabase
+    .from("user_smithery_connections")
+    .select("smithery_connection_id")
+    .eq("user_id", user.id)
+    .eq("mcp_url", mcpUrl)
+    .limit(1);
+
+  const connectionId = existing && existing.length > 0
+    ? existing[0].smithery_connection_id
+    : `${user.id}-${Date.now()}`;
 
   console.log("[smithery-connect] Creating connection:", JSON.stringify({ namespace, connectionId, mcpUrl, displayName }));
 
-  const conn = await smithery.connections.set(connectionId, {
-    namespace,
-    mcpUrl,
-    name: displayName,
-    metadata: { userId: user.id },
-  });
+  const createRes = await fetch(
+    `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(connectionId)}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${smitheryApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        mcpUrl,
+        name: displayName,
+        metadata: { userId: user.id },
+      }),
+    }
+  );
 
-  console.log("[smithery-connect] SDK response:", JSON.stringify(conn));
+  const createBody = await createRes.text();
+  console.log("[smithery-connect] Smithery PUT response:", createRes.status, createBody);
 
+  if (!createRes.ok) {
+    if (createRes.status === 409) {
+      try {
+        await fetch(
+          `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(connectionId)}`,
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${smitheryApiKey}` },
+          }
+        );
+      } catch { /* ignore */ }
+
+      const newConnectionId = `${user.id}-${Date.now()}`;
+      const retryRes = await fetch(
+        `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(newConnectionId)}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${smitheryApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            mcpUrl,
+            name: displayName,
+            metadata: { userId: user.id },
+          }),
+        }
+      );
+
+      if (!retryRes.ok) {
+        const retryBody = await retryRes.text();
+        console.error("[smithery-connect] Retry after 409 also failed:", retryRes.status, retryBody);
+        return jsonResponse({ error: `Connection failed: ${retryBody}` }, 500);
+      }
+
+      const retryConn = await retryRes.json();
+      const retryParsed = parseConnectionStatus(retryConn);
+
+      await supabase.from("user_smithery_connections").upsert(
+        {
+          user_id: user.id,
+          smithery_namespace: namespace,
+          smithery_connection_id: newConnectionId,
+          mcp_url: mcpUrl,
+          display_name: displayName,
+          status: retryParsed.status,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,smithery_connection_id" }
+      );
+
+      return jsonResponse({
+        connectionId: newConnectionId,
+        status: retryParsed.status,
+        authorizationUrl: retryParsed.authorizationUrl,
+        serverInfo: retryConn.serverInfo || null,
+      });
+    }
+
+    return jsonResponse({ error: `Smithery API error (${createRes.status}): ${createBody}` }, 500);
+  }
+
+  const conn = JSON.parse(createBody);
   const parsed = parseConnectionStatus(conn);
   let status = parsed.status;
   let authorizationUrl = parsed.authorizationUrl;
 
+  if (status === "error") {
+    const errMsg = parsed.errorMessage || "Connection failed on the remote server";
+    console.error("[smithery-connect] Smithery returned error status:", errMsg);
+
+    await supabase.from("user_smithery_connections").upsert(
+      {
+        user_id: user.id,
+        smithery_namespace: namespace,
+        smithery_connection_id: connectionId,
+        mcp_url: mcpUrl,
+        display_name: displayName,
+        status: "error",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,smithery_connection_id" }
+    );
+
+    return jsonResponse({
+      connectionId,
+      status: "error",
+      error: errMsg,
+      authorizationUrl: null,
+      serverInfo: conn.serverInfo || null,
+    });
+  }
+
   if (status === "connected") {
     try {
-      const verifyResult = await smithery.connections.mcp.call(connectionId, {
-        namespace,
-      });
-      console.log("[smithery-connect] Verify MCP call OK:", JSON.stringify(verifyResult).slice(0, 200));
+      const verifyRes = await fetch(
+        `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(connectionId)}/mcp`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${smitheryApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: crypto.randomUUID(),
+            method: "tools/list",
+            params: {},
+          }),
+        }
+      );
+      console.log("[smithery-connect] Verify MCP call status:", verifyRes.status);
     } catch (e: unknown) {
       console.warn("[smithery-connect] Verify MCP failed, re-checking status:", e);
       try {
-        const recheck = await smithery.connections.get(connectionId, { namespace });
-        console.log("[smithery-connect] Re-checked connection:", JSON.stringify(recheck));
-        const recheckParsed = parseConnectionStatus(recheck);
-        if (recheckParsed.status === "auth_required") {
-          status = "auth_required";
-          authorizationUrl = recheckParsed.authorizationUrl;
+        const recheckRes = await fetch(
+          `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(connectionId)}`,
+          {
+            headers: { Authorization: `Bearer ${smitheryApiKey}` },
+          }
+        );
+        if (recheckRes.ok) {
+          const recheck = await recheckRes.json();
+          console.log("[smithery-connect] Re-checked connection:", JSON.stringify(recheck));
+          const recheckParsed = parseConnectionStatus(recheck);
+          if (recheckParsed.status === "auth_required") {
+            status = "auth_required";
+            authorizationUrl = recheckParsed.authorizationUrl;
+          }
         }
       } catch (e2) {
         console.warn("[smithery-connect] Re-check also failed:", e2);
@@ -221,7 +354,14 @@ async function handleRemove(req: Request): Promise<Response> {
   try {
     const smithery = getSmitheryClient();
     const namespace = await getNamespace(smithery);
-    await smithery.connections.delete(connectionId, { namespace });
+    const smitheryApiKey = Deno.env.get("SMITHERY_API_KEY")!.trim();
+    await fetch(
+      `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(connectionId)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${smitheryApiKey}` },
+      }
+    );
   } catch (e) {
     console.warn("[smithery-connect] Smithery delete failed (non-fatal):", e);
   }
@@ -245,8 +385,22 @@ async function handleRetry(req: Request): Promise<Response> {
 
   const smithery = getSmitheryClient();
   const namespace = await getNamespace(smithery);
+  const smitheryApiKey = Deno.env.get("SMITHERY_API_KEY")!.trim();
 
-  const conn = await smithery.connections.get(connectionId, { namespace });
+  const getRes = await fetch(
+    `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(connectionId)}`,
+    {
+      headers: { Authorization: `Bearer ${smitheryApiKey}` },
+    }
+  );
+
+  if (!getRes.ok) {
+    const body = await getRes.text();
+    console.error("[smithery-connect] Retry GET failed:", getRes.status, body);
+    return jsonResponse({ error: `Failed to check connection status: ${body}` }, 500);
+  }
+
+  const conn = await getRes.json();
   console.log("[smithery-connect] Retry - connection status:", JSON.stringify(conn.status));
 
   const parsed = parseConnectionStatus(conn);
@@ -374,8 +528,22 @@ async function handleVerify(req: Request): Promise<Response> {
 
   const smithery = getSmitheryClient();
   const namespace = await getNamespace(smithery);
+  const smitheryApiKey = Deno.env.get("SMITHERY_API_KEY")!.trim();
 
-  const conn = await smithery.connections.get(connectionId, { namespace });
+  const getRes = await fetch(
+    `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(connectionId)}`,
+    {
+      headers: { Authorization: `Bearer ${smitheryApiKey}` },
+    }
+  );
+
+  if (!getRes.ok) {
+    const body = await getRes.text();
+    console.error("[smithery-connect] Verify GET failed:", getRes.status, body);
+    return jsonResponse({ error: `Failed to verify connection: ${body}` }, 500);
+  }
+
+  const conn = await getRes.json();
   const parsed = parseConnectionStatus(conn);
 
   await supabase
