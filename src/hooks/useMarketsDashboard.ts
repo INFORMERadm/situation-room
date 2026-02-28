@@ -38,6 +38,7 @@ export interface MarketsDashboardData {
   earnings: EarningsEvent[];
   economic: EconomicEvent[];
   news: MarketNewsItem[];
+  newNewsUrls: Set<string>;
   selectedSymbol: string;
   chartTimeframe: string;
   loading: Record<string, boolean>;
@@ -55,12 +56,16 @@ export function useMarketsDashboard(): MarketsDashboardData {
   const [earnings, setEarnings] = useState<EarningsEvent[]>([]);
   const [economic, setEconomic] = useState<EconomicEvent[]>([]);
   const [news, setNews] = useState<MarketNewsItem[]>([]);
+  const [newNewsUrls, setNewNewsUrls] = useState<Set<string>>(new Set());
   const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
   const [chartTimeframe, setChartTimeframeState] = useState('daily');
   const [loading, setLoading] = useState<Record<string, boolean>>({});
 
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const mountedRef = useRef(true);
+  const isInitialNewsLoadRef = useRef(true);
+  const newsUrlSetRef = useRef<Set<string>>(new Set());
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setLoad = useCallback((key: string, val: boolean) => {
     setLoading(prev => ({ ...prev, [key]: val }));
@@ -117,10 +122,46 @@ export function useMarketsDashboard(): MarketsDashboardData {
     }
   }, []);
 
+  const MAX_NEWS_ITEMS = 100;
+
   const loadNews = useCallback(async () => {
     try {
       const data = await fetchMarketNews();
-      if (mountedRef.current) setNews(data);
+      if (!mountedRef.current) return;
+
+      const fetchedUrls = new Set<string>(data.map((item: MarketNewsItem) => item.url));
+
+      if (isInitialNewsLoadRef.current) {
+        if (data.length > 0) {
+          isInitialNewsLoadRef.current = false;
+        }
+        newsUrlSetRef.current = fetchedUrls;
+        setNews(data);
+        return;
+      }
+
+      const freshItems = data.filter((item: MarketNewsItem) => !newsUrlSetRef.current.has(item.url));
+
+      if (freshItems.length === 0) {
+        newsUrlSetRef.current = fetchedUrls;
+        return;
+      }
+
+      const freshUrlSet = new Set<string>(freshItems.map((item: MarketNewsItem) => item.url));
+
+      setNews(prev => {
+        const merged = [...freshItems, ...prev];
+        return merged.slice(0, MAX_NEWS_ITEMS);
+      });
+
+      setNewNewsUrls(freshUrlSet);
+
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = setTimeout(() => {
+        if (mountedRef.current) setNewNewsUrls(new Set<string>());
+      }, 6000);
+
+      newsUrlSetRef.current = new Set<string>([...fetchedUrls, ...newsUrlSetRef.current]);
     } catch (err) {
       console.error('[Dashboard] news load failed:', err);
     }
@@ -201,6 +242,7 @@ export function useMarketsDashboard(): MarketsDashboardData {
     return () => {
       mountedRef.current = false;
       clearTimeout(retryTimer);
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
       intervalsRef.current.forEach(clearInterval);
     };
   }, [loadOverview, loadMovers, loadSectors, loadEarnings, loadEconomic, loadNews, loadSymbolData, refreshQuote]);
@@ -215,6 +257,7 @@ export function useMarketsDashboard(): MarketsDashboardData {
     earnings,
     economic,
     news,
+    newNewsUrls,
     selectedSymbol,
     chartTimeframe,
     loading,

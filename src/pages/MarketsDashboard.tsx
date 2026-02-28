@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Header from '../components/Header';
 import TickerStrip from '../components/markets/TickerStrip';
 import MarketSearch from '../components/markets/MarketSearch';
@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWatchlist } from '../context/WatchlistContext';
 import { executeToolCall as execClientTool } from '../lib/aiTools';
 import type { PlatformActions } from '../lib/aiTools';
+import { playNewsAlarm } from '../lib/alarmSound';
 import {
   startConversationSession,
   stopConversationSession,
@@ -108,6 +109,23 @@ export default function MarketsDashboard() {
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
   const [showMCPPanel, setShowMCPPanel] = useState(false);
   const [liveTvMuted, setLiveTvMuted] = useState(true);
+  const [newsAlarmMuted, setNewsAlarmMuted] = useState(() => {
+    try { return localStorage.getItem('newsAlarmMuted') === 'true'; } catch { return false; }
+  });
+
+  const toggleNewsAlarmMute = useCallback(() => {
+    setNewsAlarmMuted(prev => {
+      const next = !prev;
+      try { localStorage.setItem('newsAlarmMuted', String(next)); } catch { /* noop */ }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (data.newNewsUrls.size > 0 && !newsAlarmMuted) {
+      playNewsAlarm();
+    }
+  }, [data.newNewsUrls, newsAlarmMuted]);
 
   const voicePlatformActions: PlatformActions = {
     selectSymbol: data.selectSymbol,
@@ -401,6 +419,9 @@ export default function MarketsDashboard() {
               {platform.rightPanelView === 'news' ? (
                 <MarketNews
                   news={data.news}
+                  newItemUrls={data.newNewsUrls}
+                  alarmMuted={newsAlarmMuted}
+                  onToggleMute={toggleNewsAlarmMute}
                   onSelectSymbol={data.selectSymbol}
                   onExplain={(headline) => {
                     ai.sendMessage(`Explain this news headline and its market impact: "${headline}"`);
