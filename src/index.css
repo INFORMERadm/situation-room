@@ -147,3 +147,8 @@ div:hover > div > .ai-explain-btn {
   border-left: 2px solid #ff4757;
   animation: newsNewHighlight 6s ease-out forwards;
 }
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px 2px rgba(229,57,53,0.5); }
+  50% { opacity: 0.5; box-shadow: 0 0 2px 1px rgba(229,57,53,0.2); }
+}
