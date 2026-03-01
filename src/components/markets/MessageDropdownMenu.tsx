@@ -1,4 +1,5 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export type MessageMenuAction =
   | 'pin'
@@ -126,38 +127,60 @@ const ASSISTANT_ITEMS: MenuItem[] = [
 
 interface Props {
   role: 'user' | 'assistant';
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
   onAction: (action: MessageMenuAction) => void;
   onClose: () => void;
 }
 
-export default function MessageDropdownMenu({ role, onAction, onClose }: Props) {
+export default function MessageDropdownMenu({ role, anchorRef, onAction, onClose }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
   const items = role === 'user' ? USER_ITEMS : ASSISTANT_ITEMS;
+  const [pos, setPos] = useState<{ top: number; left: number; openUp: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const menuHeight = items.length * 36 + 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < menuHeight + 8;
+
+    setPos({
+      top: openUp ? rect.top : rect.bottom + 4,
+      left: role === 'user' ? rect.right - 200 : rect.left,
+      openUp,
+    });
+  }, [anchorRef, items.length, role]);
 
   useEffect(() => {
     const handle = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        anchorRef.current && !anchorRef.current.contains(e.target as Node)
+      ) {
         onClose();
       }
     };
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
-  }, [onClose]);
+  }, [onClose, anchorRef]);
 
-  return (
+  if (!pos) return null;
+
+  const menu = (
     <div
       ref={menuRef}
       style={{
-        position: 'absolute',
-        top: '100%',
-        right: 0,
-        marginTop: 4,
+        position: 'fixed',
+        ...(pos.openUp
+          ? { bottom: window.innerHeight - pos.top + 4 }
+          : { top: pos.top }),
+        left: Math.max(8, pos.left),
         background: '#141414',
         border: '1px solid #2a2a2a',
         borderRadius: 8,
         padding: '4px 0',
         minWidth: 200,
-        zIndex: 500,
+        zIndex: 10000,
         boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
         animation: 'aiFadeIn 0.12s ease-out',
       }}
@@ -199,4 +222,6 @@ export default function MessageDropdownMenu({ role, onAction, onClose }: Props) 
       ))}
     </div>
   );
+
+  return createPortal(menu, document.body);
 }

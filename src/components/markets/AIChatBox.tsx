@@ -167,6 +167,7 @@ export default function AIChatBox({
   const [openMsgMenuId, setOpenMsgMenuId] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [rawMsgId, setRawMsgId] = useState<string | null>(null);
+  const menuBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [stickyToolCalls, setStickyToolCalls] = useState<{ name: string; detail: string | null }[]>([]);
   const stickyTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const searchMenuRef = useRef<HTMLDivElement>(null);
@@ -1151,8 +1152,9 @@ export default function AIChatBox({
                           position: 'relative',
                         }}>
                           {showActions && (
-                            <div style={{ position: 'relative', display: 'inline-flex' }}>
+                            <div style={{ display: 'inline-flex' }}>
                               <button
+                                ref={(el) => { if (el) menuBtnRefs.current.set(msg.id, el); else menuBtnRefs.current.delete(msg.id); }}
                                 onClick={(e) => { e.stopPropagation(); setOpenMsgMenuId(menuOpen ? null : msg.id); }}
                                 title="Message options"
                                 style={{
@@ -1179,6 +1181,7 @@ export default function AIChatBox({
                               {menuOpen && (
                                 <MessageDropdownMenu
                                   role={msg.role}
+                                  anchorRef={{ current: menuBtnRefs.current.get(msg.id) || null }}
                                   onAction={(action) => handleMessageAction(msg.id, action)}
                                   onClose={() => setOpenMsgMenuId(null)}
                                 />
