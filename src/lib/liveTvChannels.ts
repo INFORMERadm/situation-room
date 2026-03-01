@@ -7,8 +7,7 @@ export interface LiveTvChannel {
 
 export const LIVE_TV_CHANNELS: LiveTvChannel[] = [
   { id: 'bloomberg', label: 'BLOOMBERG', youtubeVideoId: 'iEpJwprxDdk' },
-  { id: 'skynews', label: 'SKYNEWS', youtubeChannelId: 'UCoMdktPbSTixAyNGwb-UYkQ' },
-  { id: 'euronews', label: 'EURONEWS', youtubeChannelId: 'UC1acIHAGvEJTmV1S-gIiVLg' },
+  { id: 'skynews', label: 'SKYNEWS', youtubeVideoId: 'YDvsBbKfLPA' },
   { id: 'dw', label: 'DW', youtubeChannelId: 'UCknLrEdhRCp1aegoMqRaCZg' },
   { id: 'cnbc', label: 'CNBC', youtubeVideoId: '9NyxcX3rhQs' },
   { id: 'france24en', label: 'FRANCE24 EN', youtubeChannelId: 'UCQfwfsi5VrQ8yKZ-UWmAEFg' },
