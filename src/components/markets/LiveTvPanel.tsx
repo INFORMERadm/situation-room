@@ -47,7 +47,7 @@ export default function LiveTvPanel({ userId }: Props) {
   }, [dropdownOpen]);
 
   return (
-    <div style={{ borderBottom: '1px solid #292929', background: '#000', overflow: 'hidden' }}>
+    <div style={{ borderBottom: '1px solid #292929', background: '#000' }}>
       <div style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={liveDotStyle} />
@@ -143,6 +143,8 @@ const headerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 0,
+  position: 'relative',
+  zIndex: 10,
 };
 
 const titleStyle: React.CSSProperties = {
@@ -202,7 +204,7 @@ const dropdownMenuStyle: React.CSSProperties = {
   border: '1px solid #333',
   borderRadius: 4,
   padding: '2px 0',
-  zIndex: 100,
+  zIndex: 9999,
   maxHeight: 240,
   overflowY: 'auto',
   boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
