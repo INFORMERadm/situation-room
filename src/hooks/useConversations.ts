@@ -252,6 +252,25 @@ export function useConversations(userId: string | undefined) {
     await loadConversations();
   }, [userId, loadConversations]);
 
+  const deleteConversation = useCallback(async (conversationId: string) => {
+    if (!userId) return;
+    const conv = conversations.find(c => c.id === conversationId);
+    if (!conv) return;
+
+    if (conv.type === 'group' && conv.created_by !== userId) return;
+
+    await supabase
+      .from('messaging_conversations')
+      .delete()
+      .eq('id', conversationId);
+
+    setConversations(prev => prev.filter(c => c.id !== conversationId));
+    if (selectedId === conversationId) {
+      setSelectedId(null);
+      setView('list');
+    }
+  }, [userId, conversations, selectedId]);
+
   const markRead = useCallback(async (conversationId: string) => {
     if (!userId) return;
     await supabase
@@ -295,6 +314,7 @@ export function useConversations(userId: string | undefined) {
     createDirectChat,
     createGroupChat,
     addParticipant,
+    deleteConversation,
     markRead,
     searchUsers,
     refresh: loadConversations,

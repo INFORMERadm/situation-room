@@ -88,6 +88,7 @@ export default function ChatSidebar({ userId }: Props) {
             conversation={convs.selected}
             userId={userId}
             onBack={handleBackToList}
+            onDelete={convs.deleteConversation}
           />
         )}
 

@@ -16,6 +16,7 @@ interface Props {
   conversation: Conversation;
   userId: string;
   onBack: () => void;
+  onDelete: (conversationId: string) => void;
 }
 
 const headerStyle: React.CSSProperties = {
@@ -61,7 +62,18 @@ const lockBannerStyle: React.CSSProperties = {
   letterSpacing: 0.3,
 };
 
-export default function ConversationThread({ conversation, userId, onBack }: Props) {
+const headerBtnStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: 4,
+  display: 'flex',
+  alignItems: 'center',
+  color: '#888',
+  transition: 'color 0.15s',
+};
+
+export default function ConversationThread({ conversation, userId, onBack, onDelete }: Props) {
   const messaging = useMessaging(conversation.id, userId);
   const fileTransfer = useFileTransfer(conversation.id, userId);
   const linkPreview = useLinkPreview();
@@ -130,6 +142,46 @@ export default function ConversationThread({ conversation, userId, onBack }: Pro
     });
   }, [stt, handleSend]);
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const canDelete = conversation.type === 'direct' || conversation.created_by === userId;
+
+  const handleSaveChat = useCallback(() => {
+    const lines = messaging.messages.map(msg => {
+      const time = new Date(msg.created_at).toLocaleString();
+      let sender = 'Unknown';
+      if (msg.message_type === 'system') sender = 'System';
+      else if (msg.message_type === 'ai') sender = 'Hypermind 6.5';
+      else if (msg.sender_id === userId) sender = 'You';
+      else if (msg.senderProfile) {
+        sender = msg.senderProfile.display_name || `${msg.senderProfile.first_name} ${msg.senderProfile.last_name}`;
+      }
+      return `[${time}] ${sender}: ${msg.content}`;
+    });
+
+    const text = lines.join('\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(conversation.name || 'chat').replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
+  }, [messaging.messages, userId, conversation.name]);
+
+  const handleDelete = useCallback(() => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    onDelete(conversation.id);
+  }, [confirmDelete, onDelete, conversation.id]);
+
   const convName = conversation.name || 'Chat';
   const memberCount = conversation.participants.length;
   const isInVoice = voice.participants.includes(userId);
@@ -150,6 +202,40 @@ export default function ConversationThread({ conversation, userId, onBack }: Pro
             {conversation.type === 'group' ? `${memberCount} members` : 'E2E encrypted'}
           </div>
         </div>
+
+        <button
+          style={headerBtnStyle}
+          onClick={handleSaveChat}
+          title="Save chat as text file"
+          onMouseEnter={e => (e.currentTarget.style.color = '#4caf50')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#888')}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </button>
+
+        {canDelete && (
+          <button
+            style={{ ...headerBtnStyle, color: confirmDelete ? '#f44336' : '#888' }}
+            onClick={handleDelete}
+            onBlur={() => setConfirmDelete(false)}
+            title={confirmDelete ? 'Click again to confirm delete' : 'Delete conversation'}
+            onMouseEnter={e => (e.currentTarget.style.color = '#f44336')}
+            onMouseLeave={e => { if (!confirmDelete) e.currentTarget.style.color = '#888'; }}
+          >
+            {confirmDelete ? (
+              <span style={{ fontSize: 9, fontWeight: 600, color: '#f44336' }}>Confirm?</span>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
 
       <div style={lockBannerStyle}>
