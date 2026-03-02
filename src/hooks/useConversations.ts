@@ -163,7 +163,11 @@ export function useConversations(userId: string | undefined) {
       { conversation_id: conv.id, user_id: otherUserId, role: 'member' },
     ]);
 
-    await createConversationKey(conv.id, [userId, otherUserId]);
+    try {
+      await createConversationKey(conv.id, [userId, otherUserId]);
+    } catch {
+      // key distribution may partially fail; keys distributed on next access
+    }
     await loadConversations();
     setSelectedId(conv.id);
     setView('thread');
@@ -189,7 +193,12 @@ export function useConversations(userId: string | undefined) {
     }));
 
     await supabase.from('messaging_participants').insert(participantRows);
-    await createConversationKey(conv.id, allMembers);
+
+    try {
+      await createConversationKey(conv.id, allMembers);
+    } catch {
+      // key distribution may partially fail; keys distributed on next access
+    }
 
     if (inviteAI) {
       await supabase.from('messaging_messages').insert({

@@ -137,13 +137,17 @@ export async function createConversationKey(
 
   if (bundles) {
     for (const bundle of bundles) {
-      const pubKey = await importPublicKey(bundle.identity_public_key);
-      const wrapped = await wrapAESKey(aesKey, pubKey);
-      await supabase
-        .from('messaging_participants')
-        .update({ encrypted_conversation_key: wrapped })
-        .eq('conversation_id', conversationId)
-        .eq('user_id', bundle.user_id);
+      try {
+        const pubKey = await importPublicKey(bundle.identity_public_key);
+        const wrapped = await wrapAESKey(aesKey, pubKey);
+        await supabase
+          .from('messaging_participants')
+          .update({ encrypted_conversation_key: wrapped })
+          .eq('conversation_id', conversationId)
+          .eq('user_id', bundle.user_id);
+      } catch {
+        // key distribution to this participant will be retried later
+      }
     }
   }
 
