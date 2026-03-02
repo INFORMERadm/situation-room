@@ -16,6 +16,7 @@ import MCPConnectionsPanel from '../components/MCPConnectionsPanel';
 import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
 import { useAIChat } from '../hooks/useAIChat';
 import { useSmitheryConnections } from '../hooks/useSmitheryConnections';
+import { useMessageNotifications } from '../hooks/useMessageNotifications';
 import { usePlatform } from '../context/PlatformContext';
 import { useAuth } from '../context/AuthContext';
 import { useWatchlist } from '../context/WatchlistContext';
@@ -105,6 +106,8 @@ export default function MarketsDashboard() {
     }));
 
   const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id, smitheryMcpServers);
+
+  useMessageNotifications({ userId: user?.id, chatSidebarOpen: platform.chatSidebarOpen });
 
   const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, watchlists, setActiveWatchlistId } = useWatchlist();
 

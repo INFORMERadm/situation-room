@@ -48,3 +48,28 @@ export function playNewsAlarm() {
     osc.stop(start + 0.07);
   }
 }
+
+export function playChatNotification() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+
+  const freqs = [523, 659, 784];
+  freqs.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    const start = now + i * 0.12;
+    gain.gain.setValueAtTime(0.1, start);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.15);
+
+    osc.start(start);
+    osc.stop(start + 0.16);
+  });
+}
