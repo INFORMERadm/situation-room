@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { ChatUserProfile } from '../../types/chat';
 
 interface Props {
-  onCreateGroup: (name: string, memberIds: string[], inviteAI: boolean) => void;
+  onCreateGroup: (name: string, memberIds: string[], inviteAI: boolean) => Promise<void> | void;
   onBack: () => void;
   searchUsers: (query: string) => Promise<ChatUserProfile[]>;
 }
@@ -125,6 +125,7 @@ export default function CreateGroup({ onCreateGroup, onBack, searchUsers }: Prop
   const [results, setResults] = useState<ChatUserProfile[]>([]);
   const [selected, setSelected] = useState<ChatUserProfile[]>([]);
   const [inviteAI, setInviteAI] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const handleSearch = useCallback(async (q: string) => {
     setQuery(q);
@@ -143,9 +144,16 @@ export default function CreateGroup({ onCreateGroup, onBack, searchUsers }: Prop
     setSelected(prev => prev.filter(u => u.id !== id));
   };
 
-  const handleCreate = () => {
-    if (!name.trim() || selected.length === 0) return;
-    onCreateGroup(name.trim(), selected.map(u => u.id), inviteAI);
+  const handleCreate = async () => {
+    if (!name.trim() || selected.length === 0 || creating) return;
+    setCreating(true);
+    try {
+      await onCreateGroup(name.trim(), selected.map(u => u.id), inviteAI);
+    } catch (e) {
+      console.error('[chat] Create group failed:', e);
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -243,11 +251,11 @@ export default function CreateGroup({ onCreateGroup, onBack, searchUsers }: Prop
 
         <div style={{ padding: '12px' }}>
           <button
-            style={{ ...createBtnStyle, opacity: (!name.trim() || selected.length === 0) ? 0.4 : 1 }}
+            style={{ ...createBtnStyle, opacity: (!name.trim() || selected.length === 0 || creating) ? 0.4 : 1 }}
             onClick={handleCreate}
-            disabled={!name.trim() || selected.length === 0}
+            disabled={!name.trim() || selected.length === 0 || creating}
           >
-            Create Group
+            {creating ? 'Creating...' : 'Create Group'}
           </button>
         </div>
       </div>

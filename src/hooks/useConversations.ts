@@ -118,7 +118,8 @@ export function useConversations(userId: string | undefined) {
   useEffect(() => {
     if (!userId || initializedRef.current) return;
     initializedRef.current = true;
-    ensureKeys().then(loadConversations);
+    ensureKeys().catch(e => console.error('[chat] ensureKeys error:', e));
+    loadConversations();
   }, [userId, ensureKeys, loadConversations]);
 
   useEffect(() => {
@@ -137,84 +138,107 @@ export function useConversations(userId: string | undefined) {
   }, [userId, loadConversations]);
 
   const createDirectChat = useCallback(async (otherUserId: string) => {
-    if (!userId) return null;
-
-    const existing = conversations.find(c =>
-      c.type === 'direct' &&
-      c.participants.length === 2 &&
-      c.participants.some(p => p.user_id === otherUserId)
-    );
-    if (existing) {
-      setSelectedId(existing.id);
-      setView('thread');
-      return existing.id;
+    if (!userId) {
+      console.error('[chat] createDirectChat: no userId');
+      return null;
     }
-
-    const { data: conv, error } = await supabase
-      .from('messaging_conversations')
-      .insert({ type: 'direct', created_by: userId })
-      .select()
-      .single();
-
-    if (error || !conv) return null;
-
-    await supabase.from('messaging_participants').insert([
-      { conversation_id: conv.id, user_id: userId, role: 'admin' },
-      { conversation_id: conv.id, user_id: otherUserId, role: 'member' },
-    ]);
 
     try {
-      await createConversationKey(conv.id, [userId, otherUserId]);
-    } catch {
-      // key distribution may partially fail; keys distributed on next access
+      const existing = conversations.find(c =>
+        c.type === 'direct' &&
+        c.participants.length === 2 &&
+        c.participants.some(p => p.user_id === otherUserId)
+      );
+      if (existing) {
+        setSelectedId(existing.id);
+        setView('thread');
+        return existing.id;
+      }
+
+      const { data: conv, error } = await supabase
+        .from('messaging_conversations')
+        .insert({ type: 'direct', created_by: userId })
+        .select()
+        .single();
+
+      if (error || !conv) {
+        console.error('[chat] Failed to create direct conversation:', error);
+        return null;
+      }
+
+      const { error: partErr } = await supabase.from('messaging_participants').insert([
+        { conversation_id: conv.id, user_id: userId, role: 'admin' },
+        { conversation_id: conv.id, user_id: otherUserId, role: 'member' },
+      ]);
+      if (partErr) console.error('[chat] Failed to insert participants:', partErr);
+
+      createConversationKey(conv.id, [userId, otherUserId]).catch(e =>
+        console.error('[chat] Key distribution error (non-fatal):', e)
+      );
+
+      await loadConversations();
+      setSelectedId(conv.id);
+      setView('thread');
+      return conv.id;
+    } catch (e) {
+      console.error('[chat] createDirectChat error:', e);
+      return null;
     }
-    await loadConversations();
-    setSelectedId(conv.id);
-    setView('thread');
-    return conv.id;
   }, [userId, conversations, loadConversations]);
 
   const createGroupChat = useCallback(async (name: string, memberIds: string[], inviteAI: boolean) => {
-    if (!userId) return null;
-
-    const { data: conv, error } = await supabase
-      .from('messaging_conversations')
-      .insert({ type: 'group', name, created_by: userId })
-      .select()
-      .single();
-
-    if (error || !conv) return null;
-
-    const allMembers = [userId, ...memberIds];
-    const participantRows = allMembers.map((uid) => ({
-      conversation_id: conv.id,
-      user_id: uid,
-      role: uid === userId ? 'admin' : 'member',
-    }));
-
-    await supabase.from('messaging_participants').insert(participantRows);
+    if (!userId) {
+      console.error('[chat] createGroupChat: no userId');
+      return null;
+    }
 
     try {
-      await createConversationKey(conv.id, allMembers);
-    } catch {
-      // key distribution may partially fail; keys distributed on next access
-    }
+      const { data: conv, error } = await supabase
+        .from('messaging_conversations')
+        .insert({ type: 'group', name, created_by: userId })
+        .select()
+        .single();
 
-    if (inviteAI) {
-      await supabase.from('messaging_messages').insert({
+      if (error || !conv) {
+        console.error('[chat] Failed to create group conversation:', error);
+        return null;
+      }
+
+      const allMembers = [userId, ...memberIds];
+      const participantRows = allMembers.map((uid) => ({
         conversation_id: conv.id,
-        sender_id: userId,
-        encrypted_content: '',
-        iv: '',
-        message_type: 'system',
-        metadata: { text: 'Hypermind 6.5 has been invited to this chat. Mention @hypermind to interact.' },
-      });
-    }
+        user_id: uid,
+        role: uid === userId ? 'admin' : 'member',
+      }));
 
-    await loadConversations();
-    setSelectedId(conv.id);
-    setView('thread');
-    return conv.id;
+      const { error: partErr } = await supabase.from('messaging_participants').insert(participantRows);
+      if (partErr) console.error('[chat] Failed to insert participants:', partErr);
+
+      createConversationKey(conv.id, allMembers).catch(e =>
+        console.error('[chat] Key distribution error (non-fatal):', e)
+      );
+
+      if (inviteAI) {
+        supabase.from('messaging_messages').insert({
+          conversation_id: conv.id,
+          sender_id: userId,
+          encrypted_content: '',
+          iv: '',
+          message_type: 'system',
+          metadata: { text: 'Hypermind 6.5 has been invited to this chat. Mention @hypermind to interact.' },
+        }).then(({ error: msgErr }) => {
+          if (msgErr) console.error('[chat] Failed to insert AI invite message:', msgErr);
+        });
+      }
+
+      await loadConversations();
+      setSelectedId(conv.id);
+      setView('thread');
+      return conv.id;
+    } catch (e) {
+      console.error('[chat] createGroupChat error:', e);
+      return null;
+    }
   }, [userId, loadConversations]);
 
   const addParticipant = useCallback(async (conversationId: string, newUserId: string) => {
