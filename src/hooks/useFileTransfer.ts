@@ -130,16 +130,19 @@ export function useFileTransfer(conversationId: string | null, userId: string | 
 
       const arrayBuffer = await data.arrayBuffer();
       const decrypted = await decryptFile(arrayBuffer, metadata.fileIv, key);
-      const blob = new Blob([decrypted], { type: metadata.mimeType || 'application/octet-stream' });
+      const blob = new Blob([decrypted], { type: 'application/octet-stream' });
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = metadata.fileName || 'download';
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 1000);
     } catch {
       // silently fail
     }
