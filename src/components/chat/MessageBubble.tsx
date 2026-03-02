@@ -82,7 +82,7 @@ export default function MessageBubble({ message, isOwn, speakingId, onSpeak, onD
     maxWidth: '85%',
     padding: '8px 12px',
     borderRadius: isOwn ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-    background: isAI ? '#1a1a2e' : isOwn ? '#1a3a1a' : '#1a1a1a',
+    background: isAI ? '#1a1a2e' : isOwn ? '#393939' : '#1a1a1a',
     border: isAI ? '1px solid #333366' : '1px solid #292929',
     alignSelf: isOwn ? 'flex-end' : 'flex-start',
   };
