@@ -151,7 +151,7 @@ export default function ChatInput({
         value={displayText}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={sttListening ? 'Listening...' : 'Type a message... (@hypermind for AI)'}
+        placeholder={sttListening ? 'Listening...' : 'Message...'}
         rows={1}
       />
 
