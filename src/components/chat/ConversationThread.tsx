@@ -161,6 +161,7 @@ export default function ConversationThread({ conversation, userId, onBack }: Pro
         {messaging.messages.map(msg => {
           const urls = linkPreview.extractUrls(msg.content);
           const preview = urls.length > 0 ? linkPreview.getPreview(urls[0]) : null;
+          const meta = msg.metadata as { fileIv?: string; fileName?: string; mimeType?: string };
 
           return (
             <MessageBubble
@@ -169,6 +170,7 @@ export default function ConversationThread({ conversation, userId, onBack }: Pro
               isOwn={msg.sender_id === userId}
               speakingId={tts.speakingMessageId}
               onSpeak={tts.speak}
+              onDownloadFile={msg.message_type === 'file' ? () => fileTransfer.downloadFile(msg.id, meta) : undefined}
               linkPreview={preview}
             />
           );
