@@ -13,7 +13,7 @@ function showDesktopNotification(title: string, body: string) {
     try {
       new Notification(title, {
         body,
-        icon: '/Black_Transparent.png',
+        icon: '/icon_orange.png',
         tag: 'n4-chat-' + Date.now(),
       });
     } catch {
