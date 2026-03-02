@@ -11,6 +11,7 @@ import EconomicCalendar from '../components/markets/EconomicCalendar';
 import AIChatBox from '../components/markets/AIChatBox';
 import LiveTvPanel from '../components/markets/LiveTvPanel';
 import ModeSidebar from '../components/ModeSidebar';
+import ChatSidebar from '../components/chat/ChatSidebar';
 import MCPConnectionsPanel from '../components/MCPConnectionsPanel';
 import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
 import { useAIChat } from '../hooks/useAIChat';
@@ -37,12 +38,12 @@ const pageStyle: React.CSSProperties = {
   gap: 0,
 };
 
-const mainStyle: React.CSSProperties = {
+const mainStyleBase: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '300px 1fr 320px 48px',
   gap: 0,
   minHeight: 0,
   overflow: 'hidden',
+  transition: 'grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
 };
 
 const sidebarStyle: React.CSSProperties = {
@@ -252,7 +253,12 @@ export default function MarketsDashboard() {
       />
       <TickerStrip items={data.overview} onSelect={data.selectSymbol} />
 
-      <div style={mainStyle}>
+      <div style={{
+        ...mainStyleBase,
+        gridTemplateColumns: platform.chatSidebarOpen
+          ? '280px 1fr 320px 380px 48px'
+          : '300px 1fr 320px 48px',
+      }}>
         <div style={sidebarStyle}>
           <MarketSearch onSelect={data.selectSymbol} currentSymbol={data.selectedSymbol} />
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -385,6 +391,7 @@ export default function MarketsDashboard() {
             </div>
           </div>
         </div>
+        {platform.chatSidebarOpen && <ChatSidebar userId={user?.id} />}
         <ModeSidebar />
       </div>
 

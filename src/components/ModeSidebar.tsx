@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePlatform } from '../context/PlatformContext';
 
 type Mode = 'markets' | 'news' | 'pa' | 'law' | 'chat' | 'mail';
 
@@ -84,6 +85,16 @@ const ICON_MAP: Record<Mode, (props: { active: boolean }) => JSX.Element> = {
 export default function ModeSidebar() {
   const [activeMode, setActiveMode] = useState<Mode>('markets');
   const [hoveredMode, setHoveredMode] = useState<Mode | null>(null);
+  const platform = usePlatform();
+
+  const handleModeClick = (mode: Mode) => {
+    if (mode === 'chat') {
+      platform.toggleChatSidebar();
+    } else {
+      platform.setChatSidebarOpen(false);
+    }
+    setActiveMode(mode);
+  };
 
   return (
     <div style={{
@@ -98,7 +109,7 @@ export default function ModeSidebar() {
     }}>
       {MODES.map(m => {
         const Icon = ICON_MAP[m.key];
-        const isActive = activeMode === m.key;
+        const isActive = m.key === 'chat' ? platform.chatSidebarOpen : activeMode === m.key;
         const isHovered = hoveredMode === m.key;
         return (
           <>{m.key === 'chat' && (
@@ -108,7 +119,7 @@ export default function ModeSidebar() {
           )}
           <button
             key={m.key}
-            onClick={() => setActiveMode(m.key)}
+            onClick={() => handleModeClick(m.key)}
             onMouseEnter={() => setHoveredMode(m.key)}
             onMouseLeave={() => setHoveredMode(null)}
             title={m.label}

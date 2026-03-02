@@ -49,6 +49,7 @@ export interface PlatformState {
   clocks: ClockEntry[];
   rightPanelView: 'news' | 'economic' | 'earnings';
   leftTab: string;
+  chatSidebarOpen: boolean;
   setChartType: (type: string) => void;
   toggleIndicator: (id: string, enabled?: boolean) => void;
   setIndicators: (inds: IndicatorConfig[]) => void;
@@ -60,6 +61,8 @@ export interface PlatformState {
   setClocks: (list: ClockEntry[]) => void;
   setRightPanelView: (view: 'news' | 'economic' | 'earnings') => void;
   setLeftTab: (tab: string) => void;
+  setChatSidebarOpen: (open: boolean) => void;
+  toggleChatSidebar: () => void;
 }
 
 const PlatformContext = createContext<PlatformState | null>(null);
@@ -92,6 +95,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [clocks, setClocksState] = useState<ClockEntry[]>(loadClocks);
   const [rightPanelView, setRightPanelView] = useState<'news' | 'economic' | 'earnings'>('news');
   const [leftTab, setLeftTab] = useState('overview');
+  const [chatSidebarOpen, setChatSidebarOpen] = useState(false);
+
+  const toggleChatSidebar = useCallback(() => {
+    setChatSidebarOpen(prev => !prev);
+  }, []);
 
   const watchlistRef = useRef(watchlist);
   watchlistRef.current = watchlist;
@@ -165,6 +173,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     clocks,
     rightPanelView,
     leftTab,
+    chatSidebarOpen,
     setChartType,
     toggleIndicator,
     setIndicators,
@@ -176,6 +185,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setClocks,
     setRightPanelView,
     setLeftTab,
+    setChatSidebarOpen,
+    toggleChatSidebar,
   };
 
   return (
