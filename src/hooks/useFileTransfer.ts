@@ -103,36 +103,39 @@ export function useFileTransfer(conversationId: string | null, userId: string | 
   const downloadFile = useCallback(async (messageId: string, metadata: { fileIv?: string; fileName?: string; mimeType?: string }) => {
     if (!conversationId || !userId) return;
 
-    const key = await getConversationKey(conversationId, userId);
-    if (!key) return;
+    try {
+      const key = await getConversationKey(conversationId, userId);
+      if (!key) return;
 
-    const { data: transfer } = await supabase
-      .from('messaging_file_transfers')
-      .select('encrypted_file_url')
-      .eq('message_id', messageId)
-      .maybeSingle();
+      const { data: transfer, error: ftError } = await supabase
+        .from('messaging_file_transfers')
+        .select('encrypted_file_url')
+        .eq('message_id', messageId)
+        .maybeSingle();
 
-    if (!transfer?.encrypted_file_url) return;
-    if (!metadata.fileIv) return;
+      if (ftError || !transfer?.encrypted_file_url || !metadata.fileIv) return;
 
-    const { data, error } = await supabase.storage
-      .from('messaging-files')
-      .download(transfer.encrypted_file_url);
+      const { data, error } = await supabase.storage
+        .from('messaging-files')
+        .download(transfer.encrypted_file_url);
 
-    if (error || !data) return;
+      if (error || !data) return;
 
-    const arrayBuffer = await data.arrayBuffer();
-    const decrypted = await decryptFile(arrayBuffer, metadata.fileIv, key);
-    const blob = new Blob([decrypted], { type: metadata.mimeType || 'application/octet-stream' });
+      const arrayBuffer = await data.arrayBuffer();
+      const decrypted = await decryptFile(arrayBuffer, metadata.fileIv, key);
+      const blob = new Blob([decrypted], { type: metadata.mimeType || 'application/octet-stream' });
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = metadata.fileName || 'download';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = metadata.fileName || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail
+    }
   }, [conversationId, userId]);
 
   return { uploadFile, downloadFile };
