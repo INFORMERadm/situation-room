@@ -59,6 +59,7 @@ export function useFileTransfer(conversationId: string | null, userId: string | 
       fileSize: file.size,
       mimeType: file.type,
       thumbnail: thumbnail || undefined,
+      encryptedFileUrl: filePath,
     };
 
     const { ciphertext, iv: msgIv } = await encryptAES(
@@ -100,24 +101,30 @@ export function useFileTransfer(conversationId: string | null, userId: string | 
     return msg.id;
   }, [conversationId, userId]);
 
-  const downloadFile = useCallback(async (messageId: string, metadata: { fileIv?: string; fileName?: string; mimeType?: string }) => {
-    if (!conversationId || !userId) return;
+  const downloadFile = useCallback(async (messageId: string, metadata: { fileIv?: string; fileName?: string; mimeType?: string; encryptedFileUrl?: string }) => {
+    if (!conversationId || !userId || !metadata.fileIv) return;
 
     try {
       const key = await getConversationKey(conversationId, userId);
       if (!key) return;
 
-      const { data: transfer, error: ftError } = await supabase
-        .from('messaging_file_transfers')
-        .select('encrypted_file_url')
-        .eq('message_id', messageId)
-        .maybeSingle();
+      let fileUrl = metadata.encryptedFileUrl;
 
-      if (ftError || !transfer?.encrypted_file_url || !metadata.fileIv) return;
+      if (!fileUrl) {
+        const { data: transfer } = await supabase
+          .from('messaging_file_transfers')
+          .select('encrypted_file_url')
+          .eq('message_id', messageId)
+          .maybeSingle();
+
+        fileUrl = transfer?.encrypted_file_url;
+      }
+
+      if (!fileUrl) return;
 
       const { data, error } = await supabase.storage
         .from('messaging-files')
-        .download(transfer.encrypted_file_url);
+        .download(fileUrl);
 
       if (error || !data) return;
 

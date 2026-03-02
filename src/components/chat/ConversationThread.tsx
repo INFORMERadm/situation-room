@@ -161,7 +161,7 @@ export default function ConversationThread({ conversation, userId, onBack }: Pro
         {messaging.messages.map(msg => {
           const urls = linkPreview.extractUrls(msg.content);
           const preview = urls.length > 0 ? linkPreview.getPreview(urls[0]) : null;
-          const meta = msg.metadata as { fileIv?: string; fileName?: string; mimeType?: string };
+          const meta = msg.metadata as { fileIv?: string; fileName?: string; mimeType?: string; encryptedFileUrl?: string };
 
           return (
             <MessageBubble
