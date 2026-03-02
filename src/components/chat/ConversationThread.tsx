@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useMessaging } from '../../hooks/useMessaging';
 import { useFileTransfer } from '../../hooks/useFileTransfer';
 import { useLinkPreview } from '../../hooks/useLinkPreview';
@@ -6,6 +6,7 @@ import { useAIChatParticipant } from '../../hooks/useAIChatParticipant';
 import { useGroupVoiceChat } from '../../hooks/useGroupVoiceChat';
 import { useChatTTS } from '../../hooks/useChatTTS';
 import { useChatSTT } from '../../hooks/useChatSTT';
+import { supabase } from '../../lib/supabase';
 import type { Conversation } from '../../types/chat';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
@@ -69,6 +70,34 @@ export default function ConversationThread({ conversation, userId, onBack }: Pro
   const tts = useChatTTS();
   const stt = useChatSTT();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fileMessages = messaging.messages.filter(
+      m => m.message_type === 'file' && !thumbnails[m.id]
+    );
+    if (fileMessages.length === 0) return;
+
+    const ids = fileMessages.map(m => m.id);
+    supabase
+      .from('messaging_file_transfers')
+      .select('message_id, thumbnail_url')
+      .in('message_id', ids)
+      .then(({ data }) => {
+        if (!data) return;
+        setThumbnails(prev => {
+          const next = { ...prev };
+          let changed = false;
+          data.forEach(row => {
+            if (row.thumbnail_url && !next[row.message_id]) {
+              next[row.message_id] = row.thumbnail_url;
+              changed = true;
+            }
+          });
+          return changed ? next : prev;
+        });
+      });
+  }, [messaging.messages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -162,6 +191,7 @@ export default function ConversationThread({ conversation, userId, onBack }: Pro
           const urls = linkPreview.extractUrls(msg.content);
           const preview = urls.length > 0 ? linkPreview.getPreview(urls[0]) : null;
           const meta = msg.metadata as { fileIv?: string; fileName?: string; mimeType?: string; encryptedFileUrl?: string };
+          const thumb = (msg.metadata as { thumbnail?: string }).thumbnail || thumbnails[msg.id] || undefined;
 
           return (
             <MessageBubble
@@ -172,6 +202,7 @@ export default function ConversationThread({ conversation, userId, onBack }: Pro
               onSpeak={tts.speak}
               onDownloadFile={msg.message_type === 'file' ? () => fileTransfer.downloadFile(msg.id, meta) : undefined}
               linkPreview={preview}
+              thumbnail={thumb}
             />
           );
         })}

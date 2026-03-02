@@ -9,6 +9,7 @@ interface Props {
   onSpeak: (text: string, id: string) => void;
   onDownloadFile?: () => void;
   linkPreview?: LinkPreview | null;
+  thumbnail?: string;
 }
 
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
@@ -42,7 +43,7 @@ function renderTextWithLinks(text: string) {
   return result;
 }
 
-export default function MessageBubble({ message, isOwn, speakingId, onSpeak, onDownloadFile, linkPreview }: Props) {
+export default function MessageBubble({ message, isOwn, speakingId, onSpeak, onDownloadFile, linkPreview, thumbnail }: Props) {
   const isSystem = message.message_type === 'system';
   const isAI = message.message_type === 'ai';
   const isFile = message.message_type === 'file';
@@ -51,7 +52,6 @@ export default function MessageBubble({ message, isOwn, speakingId, onSpeak, onD
     fileName?: string;
     fileSize?: number;
     mimeType?: string;
-    thumbnail?: string;
     text?: string;
   };
 
@@ -106,10 +106,10 @@ export default function MessageBubble({ message, isOwn, speakingId, onSpeak, onD
       <div style={bubbleStyle}>
         {!isOwn && <div style={nameStyle}>{senderName}</div>}
 
-        {isFile && meta.thumbnail && (
+        {isFile && thumbnail && (
           <div style={{ marginBottom: 6 }}>
             <img
-              src={meta.thumbnail}
+              src={thumbnail}
               alt={meta.fileName || 'file'}
               style={{ maxWidth: '100%', maxHeight: 120, borderRadius: 4 }}
             />

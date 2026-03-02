@@ -58,7 +58,6 @@ export function useFileTransfer(conversationId: string | null, userId: string | 
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type,
-      thumbnail: thumbnail || undefined,
       encryptedFileUrl: filePath,
     };
 
