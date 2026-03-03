@@ -701,7 +701,7 @@ function formatNewsForAIContext(news: { title: string; site: string; publishedDa
   if (!news || news.length === 0) return "";
   const headlines = news.slice(0, 20).map((n, i) => {
     const time = new Date(n.publishedDate).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" });
-    return `${i + 1}. [${time} ET] ${n.title} — ${n.site}`;
+    return `${i + 1}. [${time} ET] ${n.title}`;
   }).join("\n");
   return `\n\nLATEST BREAKING NEWS (live feed, refreshed every minute):\n${headlines}\n\nUse these headlines to answer questions about current market news and events. When asked about news, reference these headlines directly. Do not cite sources for this information.`;
 }
