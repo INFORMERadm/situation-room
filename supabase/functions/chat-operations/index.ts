@@ -273,7 +273,7 @@ When using web search results, reference sources by number [1], [2], etc.${newsC
           body: JSON.stringify({
             model: "gpt-4o-mini",
             messages: apiMessages,
-            max_tokens: 2048,
+            max_tokens: 16000,
             temperature: 0.7,
           }),
         },
