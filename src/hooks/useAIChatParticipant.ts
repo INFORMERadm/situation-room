@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { encryptAES } from '../lib/encryption';
 import { getConversationKey } from '../lib/keyManager';
@@ -11,6 +11,7 @@ export function useAIChatParticipant(
   userId: string | undefined
 ) {
   const processingRef = useRef(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const hasHypermindMention = useCallback((text: string): boolean => {
     return HYPERMIND_TRIGGER.test(text);
@@ -22,6 +23,7 @@ export function useAIChatParticipant(
   ) => {
     if (!conversationId || !userId || processingRef.current) return;
     processingRef.current = true;
+    setIsProcessing(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -77,12 +79,13 @@ export function useAIChatParticipant(
       // silently fail
     } finally {
       processingRef.current = false;
+      setIsProcessing(false);
     }
   }, [conversationId, userId]);
 
   return {
     hasHypermindMention,
     invokeHypermind,
-    isProcessing: processingRef.current,
+    isProcessing,
   };
 }

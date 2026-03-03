@@ -152,3 +152,8 @@ div:hover > div > .ai-explain-btn {
   0%, 100% { opacity: 1; box-shadow: 0 0 6px 2px rgba(229,57,53,0.5); }
   50% { opacity: 0.5; box-shadow: 0 0 2px 1px rgba(229,57,53,0.2); }
 }
+
+@keyframes chatPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}

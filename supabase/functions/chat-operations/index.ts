@@ -8,10 +8,66 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY") ?? "";
+
 interface NewsItem {
   title: string;
   site: string;
   publishedDate: string;
+}
+
+interface TavilyResult {
+  title: string;
+  url: string;
+  content: string;
+}
+
+interface TavilyResponse {
+  answer?: string;
+  results?: TavilyResult[];
+}
+
+async function callTavilySearch(query: string): Promise<TavilyResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: TAVILY_API_KEY,
+        query,
+        search_depth: "advanced",
+        max_results: 8,
+        include_answer: true,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`Tavily API: ${res.status}`);
+    return await res.json() as TavilyResponse;
+  } catch (e) {
+    clearTimeout(timeout);
+    console.error("Tavily search error:", e);
+    return {};
+  }
+}
+
+function formatTavilyContext(result: TavilyResponse): string {
+  if (!result.results || result.results.length === 0) return "";
+  const sources = result.results
+    .slice(0, 8)
+    .map(
+      (r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}\n${r.content}`,
+    )
+    .join("\n\n");
+  let ctx = `\n\nWEB SEARCH RESULTS:\n${sources}`;
+  if (result.answer) {
+    ctx += `\n\nSEARCH SUMMARY: ${result.answer}`;
+  }
+  ctx +=
+    "\n\nUse these web search results to provide accurate, up-to-date information. Reference sources by number when citing. Do not fabricate information beyond what is provided.";
+  return ctx;
 }
 
 function errorResponse(message: string, status: number) {
@@ -154,8 +210,14 @@ Deno.serve(async (req: Request) => {
       );
       if (!isParticipant) return errorResponse("Not a participant", 403);
 
-      const newsItems = await fetchNewsFromCache(serviceClient);
+      const [newsItems, tavilyResult] = await Promise.all([
+        fetchNewsFromCache(serviceClient),
+        TAVILY_API_KEY
+          ? callTavilySearch(userMessage.replace(/@hypermind\s*/i, ""))
+          : Promise.resolve({} as TavilyResponse),
+      ]);
       const newsContext = formatNewsForContext(newsItems);
+      const webSearchContext = formatTavilyContext(tavilyResult);
 
       const today = new Date().toLocaleDateString("en-US", {
         weekday: "long",
@@ -167,7 +229,7 @@ Deno.serve(async (req: Request) => {
       const systemPrompt =
         `You are Hypermind 6.5, an advanced AI assistant participating in a group chat on the N4 platform. Today is ${today}.
 
-You have access to real-time breaking news data provided below. Never say you cannot access current information.
+You have access to real-time breaking news AND live web search results provided below. You CAN search the web and access current information. Never say you cannot access current information or search the web.
 
 Format your responses with clear structure using markdown:
 - Use ## for section headings
@@ -178,7 +240,8 @@ Format your responses with clear structure using markdown:
 - Add blank lines between sections for readability
 - Keep responses informative but concise for a chat context
 
-When asked about breaking news or news updates, give priority to the provided news context and do not cite sources when using this information.${newsContext}`;
+When asked about breaking news or news updates, give priority to the provided news context and do not cite sources when using this information.
+When using web search results, reference sources by number [1], [2], etc.${newsContext}${webSearchContext}`;
 
       const contextMessages = Array.isArray(messages)
         ? messages.slice(-20)
@@ -210,7 +273,7 @@ When asked about breaking news or news updates, give priority to the provided ne
           body: JSON.stringify({
             model: "gpt-4o-mini",
             messages: apiMessages,
-            max_tokens: 1024,
+            max_tokens: 2048,
             temperature: 0.7,
           }),
         },

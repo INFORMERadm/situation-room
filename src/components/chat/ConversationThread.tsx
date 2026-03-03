@@ -292,6 +292,45 @@ export default function ConversationThread({ conversation, userId, onBack, onDel
             />
           );
         })}
+
+        {aiChat.isProcessing && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 16px',
+            alignSelf: 'flex-start',
+          }}>
+            <div style={{
+              padding: '6px 12px',
+              borderRadius: '12px 12px 12px 2px',
+              background: '#1a1a2e',
+              border: '1px solid #333366',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: '#bb86fc', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                Hypermind 6.5
+              </span>
+              <div style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    background: '#bb86fc',
+                    animation: `chatPulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+                  }} />
+                ))}
+              </div>
+              <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>
+                Searching & thinking...
+              </span>
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
