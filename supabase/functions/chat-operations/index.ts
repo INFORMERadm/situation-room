@@ -106,7 +106,7 @@ function formatNewsForContext(news: NewsItem[]): string {
         minute: "2-digit",
         timeZone: "America/New_York",
       });
-      return `${i + 1}. [${time} ET] ${n.title} — ${n.site}`;
+      return `${i + 1}. [${time} ET] ${n.title}`;
     })
     .join("\n");
   return `\n\nLATEST BREAKING NEWS (live feed):\n${headlines}\n\nUse these headlines to answer questions about current news and events. When asked about news, reference these headlines directly. Do not cite sources for this information.`;
