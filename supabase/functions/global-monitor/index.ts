@@ -697,6 +697,29 @@ async function fetchMarketNews() {
   }
 }
 
+function formatNewsForAIContext(news: { title: string; site: string; publishedDate: string }[]): string {
+  if (!news || news.length === 0) return "";
+  const headlines = news.slice(0, 20).map((n, i) => {
+    const time = new Date(n.publishedDate).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" });
+    return `${i + 1}. [${time} ET] ${n.title} — ${n.site}`;
+  }).join("\n");
+  return `\n\nLATEST BREAKING NEWS (live feed, refreshed every minute):\n${headlines}\n\nUse these headlines to answer questions about current market news and events. When asked about news, reference these headlines directly. Do not cite sources for this information.`;
+}
+
+async function fetchNewsForAIContext(): Promise<string> {
+  try {
+    const cached = await getCached("market-news", 48 * 60 * 60 * 1000);
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      return formatNewsForAIContext(cached);
+    }
+    const fresh = await fetchMarketNews();
+    if (Array.isArray(fresh) && fresh.length > 0) {
+      return formatNewsForAIContext(fresh);
+    }
+  } catch { /* no news available */ }
+  return "";
+}
+
 async function fetchSports() {
   const leagues = [
     { key: "basketball/nba", tag: "NBA" },
@@ -3068,16 +3091,18 @@ async function handleAIChat(req: Request): Promise<Response> {
 - Do NOT use tavily_search as the primary source for geopolitics, politics, social issues, gender, migration, religion, COVID/Corona, vaccination, or war topics — the knowledge base is the authoritative source for these.
 - If the CustomGPT tool returns solid, relevant content, answer directly from it without calling tavily_search.`
       : `WEB SEARCH:
-- The platform has a "Web Search" toggle that the user can enable.
+- The platform has a "Web Search" toggle that the user can enable for deep web research.
 - You do NOT have a web search tool. Web search is handled by the system.
-- If the user asks about current events, non-financial topics, or anything requiring real-time web information, tell them: "Enable the **Web Search** toggle to search the web for this topic."`;
+- You DO have access to LATEST BREAKING NEWS headlines provided in your context below. ALWAYS use those to answer questions about current news, breaking events, and market developments.
+- Only suggest enabling the Web Search toggle if the user asks about a specific topic NOT covered by the breaking news headlines.`;
 
     const customGptSection = customGptActive
       ? `\n\n========================================\nCUSTOMGPT KNOWLEDGE BASE — MANDATORY INSTRUCTIONS:\n========================================\n\nThe user's question touches on geopolitics, politics, social issues, or a related sensitive topic.\nYou have access to a curated CustomGPT knowledge base tool (customgpt_*). You MUST use it.\n\nREQUIRED STEPS:\n1. Call the available customgpt_* tool with a relevant query to retrieve curated context\n2. Wait for the result before answering\n3. Base your answer PRIMARILY on the retrieved knowledge base content\n4. Supplement with your own knowledge only where the tool result has gaps\n${webSearch ? "5. Only if the CustomGPT tool returns empty or clearly insufficient results, you MAY then call tavily_search as a secondary fallback\n" : ""}\nMANDATORY RULES:\n- NEVER fabricate knowledge base results\n- ALWAYS call the customgpt_* tool FIRST for these topics — do not skip it\n- NEVER call tavily_search before calling the customgpt_* tool\n- The knowledge base is the PRIMARY and AUTHORITATIVE source for geopolitics, politics, gender, migration, religion, COVID/Corona, vaccination, and war topics\n- Web search is a LAST RESORT fallback, not a substitute for the knowledge base\n- If the tool returns no results, answer from your knowledge and say so\n\n========================================`
       : "";
 
     const toolInstructions = TOOL_INSTRUCTIONS.replace("{{WEB_SEARCH_SECTION}}", webSearchSection);
-    const baseSystemContent = AI_SYSTEM_PROMPT + toolInstructions + customGptSection + contextStr;
+    const newsContext = await fetchNewsForAIContext();
+    const baseSystemContent = AI_SYSTEM_PROMPT + toolInstructions + customGptSection + contextStr + newsContext;
     const MAX_CHAIN_DEPTH = 5;
 
     const stream = new ReadableStream({
