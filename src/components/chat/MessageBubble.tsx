@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { DecryptedMessage, LinkPreview } from '../../types/chat';
 import LinkPreviewCard from './LinkPreviewCard';
+import AIMessageRenderer from '../markets/AIMessageRenderer';
 
 interface Props {
   message: DecryptedMessage;
@@ -140,6 +141,8 @@ export default function MessageBubble({ message, isOwn, speakingId, onSpeak, onD
               )}
             </div>
           </div>
+        ) : isAI ? (
+          <AIMessageRenderer content={message.content} />
         ) : (
           <div style={{ fontSize: 12, color: '#e0e0e0', lineHeight: '18px', wordBreak: 'break-word' }}>
             {renderTextWithLinks(message.content)}
