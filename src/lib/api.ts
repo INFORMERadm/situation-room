@@ -415,9 +415,15 @@ export async function getSessionDocument(sessionId: string): Promise<ChatDocumen
   return data as ChatDocument | null;
 }
 
-export async function fetchLiveFlights(bounds: string, limit = 1500) {
+export async function fetchLiveFlights(bounds: { lamin: number; lamax: number; lomin: number; lomax: number }) {
   const headers = await getAuthHeaders();
-  const qs = new URLSearchParams({ feed: 'fr24-live', bounds, limit: String(limit) });
+  const qs = new URLSearchParams({
+    feed: 'fr24-live',
+    lamin: String(bounds.lamin),
+    lamax: String(bounds.lamax),
+    lomin: String(bounds.lomin),
+    lomax: String(bounds.lomax),
+  });
   const res = await fetchWithRetry(`${API_BASE}/global-monitor?${qs.toString()}`, { headers });
   if (!res.ok) throw new Error(`Live flights failed: ${res.status}`);
   const json = await res.json();
@@ -433,17 +439,6 @@ export async function fetchFlightDetail(flightId: string) {
   if (!res.ok) throw new Error(`Flight detail failed: ${res.status}`);
   const json = await res.json();
   return json.detail ?? null;
-}
-
-export async function fetchFlightTracks(flightId: string) {
-  const headers = await getAuthHeaders();
-  const res = await fetchWithRetry(
-    `${API_BASE}/global-monitor?feed=fr24-flight-tracks&flightId=${encodeURIComponent(flightId)}`,
-    { headers },
-  );
-  if (!res.ok) throw new Error(`Flight tracks failed: ${res.status}`);
-  const json = await res.json();
-  return json.tracks ?? [];
 }
 
 export async function fetchWebSearchSources(sessionId: string) {

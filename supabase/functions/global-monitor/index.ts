@@ -848,183 +848,126 @@ async function fetchFlights() {
   }
 }
 
-const FR24_API_TOKEN = Deno.env.get("FR24_API_TOKEN") ?? "";
-const FR24_API_BASE = "https://fr24api.flightradar24.com/api/v1";
-
-interface FR24Flight {
-  flight_id?: string;
-  callsign?: string;
-  live?: {
-    latitude?: number;
-    longitude?: number;
-    altitude?: number;
-    ground_speed?: number;
-    heading?: number;
-    vertical_speed?: number;
-    squawk?: string;
-  };
-  airline?: { name?: string; icao?: string };
-  flight_number?: string;
-  registration?: string;
-  aircraft?: { model?: string; icao?: string };
-  origin?: { iata?: string; name?: string; city?: string; country?: string; latitude?: number; longitude?: number };
-  destination?: { iata?: string; name?: string; city?: string; country?: string; latitude?: number; longitude?: number };
-  status?: string;
-  departure_time?: string;
-  arrival_time?: string;
-}
-
-function mapFR24Flight(f: FR24Flight) {
-  return {
-    flightId: f.flight_id ?? "",
-    callsign: f.callsign ?? "",
-    airline: f.airline?.name ?? "",
-    airlineIcao: f.airline?.icao ?? "",
-    flightNumber: f.flight_number ?? "",
-    registration: f.registration ?? "",
-    aircraftType: f.aircraft?.model ?? "",
-    aircraftIcao: f.aircraft?.icao ?? "",
-    lat: f.live?.latitude ?? 0,
-    lon: f.live?.longitude ?? 0,
-    altitude: f.live?.altitude ?? 0,
-    speed: f.live?.ground_speed ?? 0,
-    heading: f.live?.heading ?? 0,
-    verticalSpeed: f.live?.vertical_speed ?? 0,
-    origin: f.origin?.iata ?? "",
-    originName: f.origin?.name ?? "",
-    destination: f.destination?.iata ?? "",
-    destinationName: f.destination?.name ?? "",
-    status: f.status ?? "",
-    squawk: f.live?.squawk ?? "",
-  };
-}
-
-async function fetchFR24Live(bounds: string, limit: number) {
+async function fetchOpenSkyLive(lamin: number, lamax: number, lomin: number, lomax: number) {
   try {
-    const params = new URLSearchParams({ bounds, limit: String(limit) });
-    const res = await fetch(`${FR24_API_BASE}/live/flight-positions/full?${params}`, {
-      headers: {
-        "Authorization": `Bearer ${FR24_API_TOKEN}`,
-        "Accept": "application/json",
-      },
+    const params = new URLSearchParams({
+      lamin: String(lamin),
+      lamax: String(lamax),
+      lomin: String(lomin),
+      lomax: String(lomax),
     });
+    const res = await fetch(`https://opensky-network.org/api/states/all?${params}`);
     if (!res.ok) {
       const txt = await res.text();
-      return { flights: [], error: `FR24 API ${res.status}: ${txt}` };
+      return { flights: [], error: `OpenSky ${res.status}: ${txt}` };
     }
     const json = await res.json();
-    const flights = (json.data ?? json ?? []) as FR24Flight[];
-    return { flights: flights.map(mapFR24Flight) };
+    const states: (string | number | boolean | null)[][] = json.states ?? [];
+    const flights = states
+      .filter((s) => s[5] != null && s[6] != null)
+      .map((s) => {
+        const icao24 = (s[0] as string) ?? "";
+        const callsign = ((s[1] as string) ?? "").trim();
+        const originCountry = (s[2] as string) ?? "";
+        const lon = s[5] as number;
+        const lat = s[6] as number;
+        const baroAlt = (s[7] as number) ?? 0;
+        const onGround = s[8] as boolean;
+        const velocity = (s[9] as number) ?? 0;
+        const heading = (s[10] as number) ?? 0;
+        const vertRate = (s[11] as number) ?? 0;
+        const squawk = (s[14] as string) ?? "";
+
+        return {
+          flightId: icao24,
+          callsign,
+          airline: "",
+          airlineIcao: "",
+          flightNumber: callsign,
+          registration: "",
+          aircraftType: "",
+          aircraftIcao: icao24.toUpperCase(),
+          lat,
+          lon,
+          altitude: onGround ? 0 : baroAlt,
+          speed: velocity,
+          heading: heading ?? 0,
+          verticalSpeed: vertRate,
+          origin: originCountry,
+          originName: originCountry,
+          destination: "",
+          destinationName: "",
+          status: onGround ? "On Ground" : "En Route",
+          squawk,
+        };
+      });
+    return { flights };
   } catch (e) {
-    return { flights: [], error: e instanceof Error ? e.message : "FR24 live error" };
+    return { flights: [], error: e instanceof Error ? e.message : "OpenSky error" };
   }
 }
 
-async function fetchFR24FlightDetail(flightId: string) {
+async function fetchOpenSkyFlightDetail(icao24: string) {
   try {
-    const res = await fetch(`${FR24_API_BASE}/flight-summary/full?flight_ids=${encodeURIComponent(flightId)}`, {
-      headers: {
-        "Authorization": `Bearer ${FR24_API_TOKEN}`,
-        "Accept": "application/json",
-      },
-    });
-    if (!res.ok) {
-      return { detail: null, error: `FR24 API ${res.status}` };
-    }
+    const res = await fetch(`https://opensky-network.org/api/states/all?icao24=${icao24.toLowerCase()}`);
+    if (!res.ok) return { detail: null, error: `OpenSky ${res.status}` };
     const json = await res.json();
-    const items = (json.data ?? json ?? []) as FR24Flight[];
-    if (items.length === 0) return { detail: null };
-    const f = items[0];
+    const states: (string | number | boolean | null)[][] = json.states ?? [];
+    if (states.length === 0) return { detail: null };
+    const s = states[0];
 
-    let distanceKm = 0;
-    let progressPct = 0;
-    if (f.origin?.latitude && f.origin?.longitude && f.destination?.latitude && f.destination?.longitude) {
-      const toRad = (d: number) => d * Math.PI / 180;
-      const lat1 = toRad(f.origin.latitude);
-      const lat2 = toRad(f.destination.latitude);
-      const dLat = lat2 - lat1;
-      const dLon = toRad(f.destination.longitude - f.origin.longitude);
-      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-      distanceKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-      if (f.live?.latitude && f.live?.longitude && distanceKm > 0) {
-        const curLat = toRad(f.live.latitude);
-        const dLatC = curLat - lat1;
-        const dLonC = toRad(f.live.longitude - f.origin.longitude);
-        const aC = Math.sin(dLatC / 2) ** 2 + Math.cos(lat1) * Math.cos(curLat) * Math.sin(dLonC / 2) ** 2;
-        const traveled = 6371 * 2 * Math.atan2(Math.sqrt(aC), Math.sqrt(1 - aC));
-        progressPct = Math.min(100, Math.max(0, (traveled / distanceKm) * 100));
-      }
-    }
+    const callsign = ((s[1] as string) ?? "").trim();
+    const originCountry = (s[2] as string) ?? "";
+    const lon = (s[5] as number) ?? 0;
+    const lat = (s[6] as number) ?? 0;
+    const baroAlt = (s[7] as number) ?? 0;
+    const onGround = s[8] as boolean;
+    const velocity = (s[9] as number) ?? 0;
+    const heading = (s[10] as number) ?? 0;
+    const vertRate = (s[11] as number) ?? 0;
+    const geoAlt = (s[13] as number) ?? 0;
+    const squawk = (s[14] as string) ?? "";
 
     return {
       detail: {
-        flightId: f.flight_id ?? "",
-        callsign: f.callsign ?? "",
-        airline: f.airline?.name ?? "",
-        airlineIcao: f.airline?.icao ?? "",
-        flightNumber: f.flight_number ?? "",
-        registration: f.registration ?? "",
-        aircraftType: f.aircraft?.model ?? "",
-        aircraftIcao: f.aircraft?.icao ?? "",
-        origin: f.origin?.iata ?? "",
-        originName: f.origin?.name ?? "",
-        originCity: f.origin?.city ?? "",
-        originCountry: f.origin?.country ?? "",
-        originLat: f.origin?.latitude ?? 0,
-        originLon: f.origin?.longitude ?? 0,
-        destination: f.destination?.iata ?? "",
-        destinationName: f.destination?.name ?? "",
-        destinationCity: f.destination?.city ?? "",
-        destinationCountry: f.destination?.country ?? "",
-        destinationLat: f.destination?.latitude ?? 0,
-        destinationLon: f.destination?.longitude ?? 0,
-        departureTime: f.departure_time ?? "",
-        arrivalTime: f.arrival_time ?? "",
-        altitude: f.live?.altitude ?? 0,
-        speed: f.live?.ground_speed ?? 0,
-        heading: f.live?.heading ?? 0,
-        verticalSpeed: f.live?.vertical_speed ?? 0,
-        lat: f.live?.latitude ?? 0,
-        lon: f.live?.longitude ?? 0,
-        status: f.status ?? "",
-        squawk: f.live?.squawk ?? "",
-        distanceKm: Math.round(distanceKm),
-        progressPct: Math.round(progressPct),
+        flightId: icao24,
+        callsign,
+        airline: "",
+        airlineIcao: "",
+        flightNumber: callsign,
+        registration: "",
+        aircraftType: "",
+        aircraftIcao: icao24.toUpperCase(),
+        origin: originCountry,
+        originName: originCountry,
+        originCity: "",
+        originCountry,
+        originLat: 0,
+        originLon: 0,
+        destination: "",
+        destinationName: "",
+        destinationCity: "",
+        destinationCountry: "",
+        destinationLat: 0,
+        destinationLon: 0,
+        departureTime: "",
+        arrivalTime: "",
+        altitude: onGround ? 0 : baroAlt,
+        geoAltitude: geoAlt,
+        speed: velocity,
+        heading: heading ?? 0,
+        verticalSpeed: vertRate,
+        lat,
+        lon,
+        status: onGround ? "On Ground" : "En Route",
+        squawk,
+        distanceKm: 0,
+        progressPct: 0,
+        onGround,
       },
     };
   } catch (e) {
-    return { detail: null, error: e instanceof Error ? e.message : "FR24 detail error" };
-  }
-}
-
-async function fetchFR24FlightTracks(flightId: string) {
-  try {
-    const res = await fetch(`${FR24_API_BASE}/flight-tracks?flight_ids=${encodeURIComponent(flightId)}`, {
-      headers: {
-        "Authorization": `Bearer ${FR24_API_TOKEN}`,
-        "Accept": "application/json",
-      },
-    });
-    if (!res.ok) {
-      return { tracks: [], error: `FR24 API ${res.status}` };
-    }
-    const json = await res.json();
-    const data = json.data ?? json ?? [];
-    const flightData = data[0];
-    const points = (flightData?.tracks ?? flightData?.track ?? []).map(
-      (p: { latitude?: number; longitude?: number; altitude?: number; ground_speed?: number; heading?: number; timestamp?: number }) => ({
-        lat: p.latitude ?? 0,
-        lon: p.longitude ?? 0,
-        altitude: p.altitude ?? 0,
-        speed: p.ground_speed ?? 0,
-        heading: p.heading ?? 0,
-        timestamp: p.timestamp ?? 0,
-      })
-    );
-    return { tracks: points };
-  } catch (e) {
-    return { tracks: [], error: e instanceof Error ? e.message : "FR24 tracks error" };
+    return { detail: null, error: e instanceof Error ? e.message : "OpenSky detail error" };
   }
 }
 
@@ -3563,19 +3506,16 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ flights });
       }
       case "fr24-live": {
-        const bounds = url.searchParams.get("bounds") ?? "72,-65,-180,180";
-        const limit = parseInt(url.searchParams.get("limit") ?? "1500", 10);
-        const result = await fetchFR24Live(bounds, limit);
+        const lamin = parseFloat(url.searchParams.get("lamin") ?? "-90");
+        const lamax = parseFloat(url.searchParams.get("lamax") ?? "90");
+        const lomin = parseFloat(url.searchParams.get("lomin") ?? "-180");
+        const lomax = parseFloat(url.searchParams.get("lomax") ?? "180");
+        const result = await fetchOpenSkyLive(lamin, lamax, lomin, lomax);
         return jsonResponse(result);
       }
       case "fr24-flight-detail": {
         const flightId = url.searchParams.get("flightId") ?? "";
-        const result = await fetchFR24FlightDetail(flightId);
-        return jsonResponse(result);
-      }
-      case "fr24-flight-tracks": {
-        const flightId = url.searchParams.get("flightId") ?? "";
-        const result = await fetchFR24FlightTracks(flightId);
+        const result = await fetchOpenSkyFlightDetail(flightId);
         return jsonResponse(result);
       }
       case "pizza": {

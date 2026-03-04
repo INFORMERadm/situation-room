@@ -234,13 +234,6 @@ export interface FlightDetail {
   squawk: string;
   distanceKm: number;
   progressPct: number;
-}
-
-export interface FlightTrackPoint {
-  lat: number;
-  lon: number;
-  altitude: number;
-  speed: number;
-  heading: number;
-  timestamp: number;
+  onGround?: boolean;
+  geoAltitude?: number;
 }
