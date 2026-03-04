@@ -141,7 +141,7 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
           {item.description && (
             <div style={{
               fontSize: 11,
-              color: '#8a8a8a',
+              color: '#afafaf',
               lineHeight: 1.3,
               marginTop: 3,
               overflow: 'hidden',
