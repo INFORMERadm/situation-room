@@ -1,14 +1,15 @@
 import { useEffect, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import type { LiveFlight } from '../../types';
+import type { LiveFlight, FlightTrackPoint } from '../../types';
 
 import 'leaflet/dist/leaflet.css';
 
 interface Props {
   flights: LiveFlight[];
   selectedFlightId: string | null;
-  onBoundsChange: (bounds: { lamin: number; lamax: number; lomin: number; lomax: number }) => void;
+  flightTracks: FlightTrackPoint[];
+  onBoundsChange: (bounds: string) => void;
   onSelectFlight: (flightId: string) => void;
 }
 
@@ -24,16 +25,12 @@ function createPlaneIcon(heading: number, isSelected: boolean): L.DivIcon {
   });
 }
 
-function BoundsWatcher({ onBoundsChange }: { onBoundsChange: Props['onBoundsChange'] }) {
+function BoundsWatcher({ onBoundsChange }: { onBoundsChange: (bounds: string) => void }) {
   const map = useMapEvents({
     moveend: () => {
       const b = map.getBounds();
-      onBoundsChange({
-        lamin: b.getSouth(),
-        lamax: b.getNorth(),
-        lomin: b.getWest(),
-        lomax: b.getEast(),
-      });
+      const bounds = `${b.getNorth().toFixed(2)},${b.getSouth().toFixed(2)},${b.getWest().toFixed(2)},${b.getEast().toFixed(2)}`;
+      onBoundsChange(bounds);
     },
   });
   return null;
@@ -53,10 +50,15 @@ function FlyToFlight({ lat, lon }: { lat: number; lon: number }) {
   return null;
 }
 
-export default function FlightMap({ flights, selectedFlightId, onBoundsChange, onSelectFlight }: Props) {
+export default function FlightMap({ flights, selectedFlightId, flightTracks, onBoundsChange, onSelectFlight }: Props) {
   const selectedFlight = useMemo(
     () => flights.find(f => f.flightId === selectedFlightId),
     [flights, selectedFlightId]
+  );
+
+  const trackPositions = useMemo(
+    () => flightTracks.map(t => [t.lat, t.lon] as [number, number]),
+    [flightTracks]
   );
 
   return (
@@ -88,6 +90,13 @@ export default function FlightMap({ flights, selectedFlightId, onBoundsChange, o
 
         {selectedFlight && (
           <FlyToFlight lat={selectedFlight.lat} lon={selectedFlight.lon} />
+        )}
+
+        {trackPositions.length > 1 && (
+          <Polyline
+            positions={trackPositions}
+            pathOptions={{ color: '#ff9800', weight: 2, opacity: 0.7, dashArray: '6 4' }}
+          />
         )}
 
         {flights.map(f => (

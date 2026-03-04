@@ -69,6 +69,7 @@ export default function FlightsDashboard() {
         <FlightMap
           flights={fd.filteredFlights}
           selectedFlightId={fd.selectedFlightId}
+          flightTracks={fd.flightTracks}
           onBoundsChange={fd.setBounds}
           onSelectFlight={fd.selectFlight}
         />
