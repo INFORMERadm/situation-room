@@ -14,6 +14,7 @@ import ModeSidebar from '../components/ModeSidebar';
 import ChatSidebar from '../components/chat/ChatSidebar';
 import MCPConnectionsPanel from '../components/MCPConnectionsPanel';
 import NewsDeckPanel from '../components/news/NewsDeckPanel';
+import FlightsDashboard from '../components/flights/FlightsDashboard';
 import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
 import { useAIChat } from '../hooks/useAIChat';
 import { useSmitheryConnections } from '../hooks/useSmitheryConnections';
@@ -326,6 +327,8 @@ export default function MarketsDashboard() {
                 onRefreshFeed={newsDeck.refreshFeedItems}
               />
             )
+          ) : platform.activeWorkspace === 'flights' ? (
+            !ai.isExpanded && <FlightsDashboard />
           ) : (
             !ai.isExpanded && (
               <div style={{
