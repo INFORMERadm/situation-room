@@ -45,6 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!error && data) {
       setProfile(data as UserProfile);
+    } else {
+      setProfile(null);
     }
   }, []);
 
@@ -59,23 +61,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
-
-      if (event === 'SIGNED_OUT') {
-        setProfile(null);
-        return;
-      }
-
-      if (event === 'TOKEN_REFRESHED') {
-        return;
-      }
-
       if (s?.user) {
         (async () => {
           await fetchProfile(s.user.id);
         })();
+      } else {
+        setProfile(null);
       }
     });
 
