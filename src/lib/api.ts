@@ -1,22 +1,6 @@
 import { supabase } from './supabase';
-import type { Session } from '@supabase/supabase-js';
 
 const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
-
-let pendingRefresh: Promise<Session | null> | null = null;
-
-async function safeRefreshSession(): Promise<Session | null> {
-  if (pendingRefresh) return pendingRefresh;
-
-  pendingRefresh = supabase.auth.refreshSession().then(({ data, error }) => {
-    if (error || !data?.session) return null;
-    return data.session;
-  }).finally(() => {
-    pendingRefresh = null;
-  });
-
-  return pendingRefresh;
-}
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
@@ -34,15 +18,15 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     const bufferSeconds = 60;
 
     if (expiresAt - bufferSeconds < now) {
-      const refreshed = await safeRefreshSession();
-      if (!refreshed) {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData?.session) {
         return {
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         };
       }
       return {
-        Authorization: `Bearer ${refreshed.access_token}`,
+        Authorization: `Bearer ${refreshData.session.access_token}`,
         'Content-Type': 'application/json',
       };
     }
@@ -70,8 +54,8 @@ async function fetchWithRetry(
       const res = await fetch(url, options);
       if (res.ok || attempt === retries) return res;
       if (res.status === 401) {
-        const refreshed = await safeRefreshSession();
-        const token = refreshed?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const { data } = await supabase.auth.refreshSession();
+        const token = data?.session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
         options = {
           ...options,
           headers: {
@@ -431,15 +415,9 @@ export async function getSessionDocument(sessionId: string): Promise<ChatDocumen
   return data as ChatDocument | null;
 }
 
-export async function fetchLiveFlights(bounds: { lamin: number; lamax: number; lomin: number; lomax: number }) {
+export async function fetchLiveFlights(bounds: string, limit = 1500) {
   const headers = await getAuthHeaders();
-  const qs = new URLSearchParams({
-    feed: 'fr24-live',
-    lamin: String(bounds.lamin),
-    lamax: String(bounds.lamax),
-    lomin: String(bounds.lomin),
-    lomax: String(bounds.lomax),
-  });
+  const qs = new URLSearchParams({ feed: 'fr24-live', bounds, limit: String(limit) });
   const res = await fetchWithRetry(`${API_BASE}/global-monitor?${qs.toString()}`, { headers });
   if (!res.ok) throw new Error(`Live flights failed: ${res.status}`);
   const json = await res.json();
@@ -455,6 +433,17 @@ export async function fetchFlightDetail(flightId: string) {
   if (!res.ok) throw new Error(`Flight detail failed: ${res.status}`);
   const json = await res.json();
   return json.detail ?? null;
+}
+
+export async function fetchFlightTracks(flightId: string) {
+  const headers = await getAuthHeaders();
+  const res = await fetchWithRetry(
+    `${API_BASE}/global-monitor?feed=fr24-flight-tracks&flightId=${encodeURIComponent(flightId)}`,
+    { headers },
+  );
+  if (!res.ok) throw new Error(`Flight tracks failed: ${res.status}`);
+  const json = await res.json();
+  return json.tracks ?? [];
 }
 
 export async function fetchWebSearchSources(sessionId: string) {
