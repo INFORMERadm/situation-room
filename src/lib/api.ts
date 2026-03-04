@@ -2,6 +2,26 @@ import { supabase } from './supabase';
 
 const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
+let refreshPromise: Promise<string | null> | null = null;
+
+async function safeRefreshSession(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error || !data?.session) return null;
+      return data.session.access_token;
+    } catch {
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
@@ -18,15 +38,9 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     const bufferSeconds = 60;
 
     if (expiresAt - bufferSeconds < now) {
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshData?.session) {
-        return {
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        };
-      }
+      const token = await safeRefreshSession();
       return {
-        Authorization: `Bearer ${refreshData.session.access_token}`,
+        Authorization: `Bearer ${token ?? import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
       };
     }
@@ -54,15 +68,16 @@ async function fetchWithRetry(
       const res = await fetch(url, options);
       if (res.ok || attempt === retries) return res;
       if (res.status === 401) {
-        const { data } = await supabase.auth.refreshSession();
-        const token = data?.session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
-        options = {
-          ...options,
-          headers: {
-            ...(options.headers as Record<string, string>),
-            Authorization: `Bearer ${token}`,
-          },
-        };
+        const token = await safeRefreshSession();
+        if (token) {
+          options = {
+            ...options,
+            headers: {
+              ...(options.headers as Record<string, string>),
+              Authorization: `Bearer ${token}`,
+            },
+          };
+        }
       }
     } catch (err) {
       if (attempt === retries) throw err;
