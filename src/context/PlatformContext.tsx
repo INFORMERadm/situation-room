@@ -42,7 +42,7 @@ export interface ClockEntry {
   zone: string;
 }
 
-export type Workspace = 'markets' | 'news' | 'pa' | 'law' | 'flights';
+export type Workspace = 'markets' | 'news' | 'pa' | 'law';
 
 export interface PlatformState {
   activeWorkspace: Workspace;

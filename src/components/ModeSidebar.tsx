@@ -2,16 +2,15 @@ import { useState } from 'react';
 import { usePlatform } from '../context/PlatformContext';
 import type { Workspace } from '../context/PlatformContext';
 
-type Mode = 'markets' | 'news' | 'pa' | 'law' | 'flights' | 'chat' | 'mail';
+type Mode = 'markets' | 'news' | 'pa' | 'law' | 'chat' | 'mail';
 
-const WORKSPACE_MODES: Set<string> = new Set(['markets', 'news', 'pa', 'law', 'flights']);
+const WORKSPACE_MODES: Set<string> = new Set(['markets', 'news', 'pa', 'law']);
 
 const MODES: { key: Mode; label: string }[] = [
   { key: 'markets', label: 'Markets' },
   { key: 'news', label: 'News' },
   { key: 'pa', label: 'PA' },
   { key: 'law', label: 'Law' },
-  { key: 'flights', label: 'Flights' },
   { key: 'chat', label: 'Chat' },
   { key: 'mail', label: 'Mail' },
 ];
@@ -60,15 +59,6 @@ function LawIcon({ active }: { active: boolean }) {
   );
 }
 
-function FlightsIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#ff9800' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 2L11 13" />
-      <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-    </svg>
-  );
-}
-
 function ChatIcon({ active }: { active: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#ff9800' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -91,7 +81,6 @@ const ICON_MAP: Record<Mode, (props: { active: boolean }) => JSX.Element> = {
   news: NewsIcon,
   pa: PAIcon,
   law: LawIcon,
-  flights: FlightsIcon,
   chat: ChatIcon,
   mail: MailIcon,
 };
