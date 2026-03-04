@@ -128,7 +128,7 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
           <div style={{
             fontSize: 12,
             fontWeight: 600,
-            color: hovered ? '#ff9800' : '#e0e0e0',
+            color: hovered ? '#ff9800' : '#f0f0f0',
             lineHeight: 1.35,
             overflow: 'hidden',
             display: '-webkit-box',
@@ -141,7 +141,7 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
           {item.description && (
             <div style={{
               fontSize: 11,
-              color: '#777',
+              color: '#999',
               lineHeight: 1.3,
               marginTop: 3,
               overflow: 'hidden',
@@ -158,9 +158,9 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
             gap: 6,
             marginTop: 4,
             fontSize: 10,
-            color: '#555',
+            color: '#777',
           }}>
-            <span style={{ color: '#888' }}>{item.source}</span>
+            <span style={{ color: '#aaa' }}>{item.source}</span>
             <span>-</span>
             <span>{timeAgo(item.publishedAt)}</span>
           </div>
@@ -308,13 +308,85 @@ function FeedSourceHeader({ feed, onRemove, onRefresh }: { feed: NewsFeed; onRem
   );
 }
 
+function FeedSourceChip({ feed, onRemove, onRefresh }: { feed: NewsFeed; onRemove: (id: string) => void; onRefresh: (id: string) => void }) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '3px 8px',
+        background: hovered ? '#1e1e1e' : '#151515',
+        border: '1px solid #2a2a2a',
+        borderRadius: 3,
+        fontSize: 10,
+        color: '#bbb',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <div style={{
+        width: 5,
+        height: 5,
+        borderRadius: '50%',
+        background: '#ff9800',
+        flexShrink: 0,
+      }} />
+      <span style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {feed.display_name}
+      </span>
+      {hovered && (
+        <>
+          <button
+            onClick={() => onRefresh(feed.id)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#888',
+              cursor: 'pointer',
+              fontSize: 10,
+              padding: 0,
+              lineHeight: 1,
+            }}
+            title="Refresh"
+          >
+            &#8635;
+          </button>
+          <button
+            onClick={() => onRemove(feed.id)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#888',
+              cursor: 'pointer',
+              fontSize: 11,
+              padding: 0,
+              lineHeight: 1,
+            }}
+            title="Remove"
+          >
+            x
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, onRemove, onRefresh }: Props) {
   const emptyInfo = EMPTY_MESSAGES[feedType];
 
-  const allItems: { feed: NewsFeed; items: FeedItem[] }[] = feeds.map(f => ({
-    feed: f,
-    items: feedItems[f.id] || [],
-  }));
+  const mergedItems: FeedItem[] = feedType === 'rss'
+    ? feeds
+        .flatMap(f => feedItems[f.id] || [])
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+    : [];
+
+  const hasAnyRssItems = mergedItems.length > 0;
+  const rssLoading = feedType === 'rss' && feeds.length > 0 && !hasAnyRssItems;
 
   return (
     <div style={columnStyle}>
@@ -324,6 +396,23 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, o
           +
         </button>
       </div>
+
+      {feedType === 'rss' && feeds.length > 0 && (
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 4,
+          padding: '6px 10px',
+          borderBottom: '1px solid #1a1a1a',
+          background: '#0d0d0d',
+          flexShrink: 0,
+        }}>
+          {feeds.map(f => (
+            <FeedSourceChip key={f.id} feed={f} onRemove={onRemove} onRefresh={onRefresh} />
+          ))}
+        </div>
+      )}
+
       <div style={scrollAreaStyle}>
         {feeds.length === 0 ? (
           <div style={emptyStyle}>
@@ -337,12 +426,12 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, o
               justifyContent: 'center',
               fontSize: 14,
               fontWeight: 800,
-              color: '#444',
+              color: '#555',
               border: '1px dashed #333',
             }}>
               {emptyInfo.icon}
             </div>
-            <span style={{ fontSize: 11, color: '#555', maxWidth: 180 }}>{emptyInfo.text}</span>
+            <span style={{ fontSize: 11, color: '#777', maxWidth: 180 }}>{emptyInfo.text}</span>
             <button
               onClick={onAdd}
               style={{
@@ -362,19 +451,30 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, o
           </div>
         ) : feedType === 'linkedin' ? (
           feeds.map(f => <LinkedInFeedCard key={f.id} feed={f} onRemove={onRemove} />)
-        ) : (
-          allItems.map(({ feed, items }) => (
-            <div key={feed.id}>
-              <FeedSourceHeader feed={feed} onRemove={onRemove} onRefresh={onRefresh} />
-              {items.length === 0 ? (
-                <div style={{ padding: '12px', fontSize: 11, color: '#444', textAlign: 'center' }}>
-                  Loading feed...
-                </div>
-              ) : (
-                items.map(item => <FeedItemCard key={item.id} item={item} feedType={feedType} />)
-              )}
+        ) : feedType === 'rss' ? (
+          rssLoading ? (
+            <div style={{ padding: '12px', fontSize: 11, color: '#666', textAlign: 'center' }}>
+              Loading feeds...
             </div>
-          ))
+          ) : (
+            mergedItems.map(item => <FeedItemCard key={item.id} item={item} feedType={feedType} />)
+          )
+        ) : (
+          feeds.map(feed => {
+            const items = feedItems[feed.id] || [];
+            return (
+              <div key={feed.id}>
+                <FeedSourceHeader feed={feed} onRemove={onRemove} onRefresh={onRefresh} />
+                {items.length === 0 ? (
+                  <div style={{ padding: '12px', fontSize: 11, color: '#666', textAlign: 'center' }}>
+                    Loading feed...
+                  </div>
+                ) : (
+                  items.map(item => <FeedItemCard key={item.id} item={item} feedType={feedType} />)
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>
