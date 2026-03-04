@@ -128,7 +128,7 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
           <div style={{
             fontSize: 12,
             fontWeight: 600,
-            color: hovered ? '#ff9800' : '#f0f0f0',
+            color: hovered ? '#ff9800' : '#afafaf',
             lineHeight: 1.35,
             overflow: 'hidden',
             display: '-webkit-box',
@@ -141,7 +141,7 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
           {item.description && (
             <div style={{
               fontSize: 11,
-              color: '#999',
+              color: '#8a8a8a',
               lineHeight: 1.3,
               marginTop: 3,
               overflow: 'hidden',
