@@ -7,6 +7,68 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+async function resolveYoutubeUrl(feedUrl: string): Promise<string> {
+  const parsed = new URL(feedUrl);
+  if (
+    parsed.hostname !== "www.youtube.com" &&
+    parsed.hostname !== "youtube.com"
+  ) {
+    return feedUrl;
+  }
+
+  const channelMatch = parsed.pathname.match(/^\/channel\/([a-zA-Z0-9_-]+)/);
+  if (channelMatch) {
+    return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelMatch[1]}`;
+  }
+
+  const handleMatch = parsed.pathname.match(/^\/@([a-zA-Z0-9_.-]+)/);
+  if (handleMatch) {
+    const pageRes = await fetch(`https://www.youtube.com/@${handleMatch[1]}`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html",
+      },
+      signal: AbortSignal.timeout(8000),
+      redirect: "follow",
+    });
+
+    if (pageRes.ok) {
+      const html = await pageRes.text();
+
+      const externalIdMatch = html.match(
+        /"externalId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/
+      );
+      if (externalIdMatch) {
+        return `https://www.youtube.com/feeds/videos.xml?channel_id=${externalIdMatch[1]}`;
+      }
+
+      const browseIdMatch = html.match(
+        /"browseId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/
+      );
+      if (browseIdMatch) {
+        return `https://www.youtube.com/feeds/videos.xml?channel_id=${browseIdMatch[1]}`;
+      }
+
+      const channelIdMeta = html.match(
+        /channel_id=([a-zA-Z0-9_-]+)/
+      );
+      if (channelIdMeta) {
+        return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelIdMeta[1]}`;
+      }
+
+      const rssLinkMatch = html.match(
+        /<link[^>]+type="application\/rss\+xml"[^>]+href="([^"]+)"/
+      );
+      if (rssLinkMatch) {
+        return rssLinkMatch[1];
+      }
+    }
+  }
+
+  return feedUrl;
+}
+
 Deno.serve(async (req: Request) => {
   try {
     if (req.method === "OPTIONS") {
@@ -50,7 +112,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const res = await fetch(feedUrl, {
+    const resolvedUrl = await resolveYoutubeUrl(feedUrl);
+
+    const res = await fetch(resolvedUrl, {
       headers: {
         "User-Agent": "N4-RSS-Proxy/1.0",
         Accept:

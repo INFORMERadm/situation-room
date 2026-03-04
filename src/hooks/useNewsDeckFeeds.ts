@@ -35,14 +35,6 @@ interface UseNewsDeckFeedsReturn {
   refreshFeedItems: (feedId: string) => Promise<void>;
 }
 
-function extractYoutubeChannelId(url: string): string | null {
-  const channelMatch = url.match(/youtube\.com\/channel\/([a-zA-Z0-9_-]+)/);
-  if (channelMatch) return channelMatch[1];
-  const atMatch = url.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/);
-  if (atMatch) return null;
-  return null;
-}
-
 function parseRssXml(xml: string, feedId: string, source: string): FeedItem[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
@@ -139,13 +131,8 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
   }, []);
 
   const fetchYoutubeFeed = useCallback(async (feed: NewsFeed) => {
-    const channelId = extractYoutubeChannelId(feed.url);
-    const feedUrl = channelId
-      ? `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
-      : feed.url;
-
     try {
-      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rss-proxy?url=${encodeURIComponent(feedUrl)}`;
+      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rss-proxy?url=${encodeURIComponent(feed.url)}`;
       const res = await fetch(proxyUrl, {
         headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
       });
