@@ -2,6 +2,24 @@ import { supabase } from './supabase';
 
 const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshTokenOnce(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error || !data?.session) return null;
+      return data.session.access_token;
+    } catch {
+      return null;
+    } finally {
+      setTimeout(() => { refreshPromise = null; }, 5000);
+    }
+  })();
+  return refreshPromise;
+}
+
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
@@ -15,18 +33,11 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = session.expires_at ?? 0;
-    const bufferSeconds = 60;
 
-    if (expiresAt - bufferSeconds < now) {
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshData?.session) {
-        return {
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        };
-      }
+    if (expiresAt - 60 < now) {
+      const token = await refreshTokenOnce();
       return {
-        Authorization: `Bearer ${refreshData.session.access_token}`,
+        Authorization: `Bearer ${token ?? session.access_token}`,
         'Content-Type': 'application/json',
       };
     }
@@ -46,28 +57,29 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
-  retries = 2,
-  delay = 1000,
+  retries = 1,
+  delay = 1500,
 ): Promise<Response> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(url, options);
       if (res.ok || attempt === retries) return res;
       if (res.status === 401) {
-        const { data } = await supabase.auth.refreshSession();
-        const token = data?.session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
-        options = {
-          ...options,
-          headers: {
-            ...(options.headers as Record<string, string>),
-            Authorization: `Bearer ${token}`,
-          },
-        };
+        const token = await refreshTokenOnce();
+        if (token) {
+          options = {
+            ...options,
+            headers: {
+              ...(options.headers as Record<string, string>),
+              Authorization: `Bearer ${token}`,
+            },
+          };
+        }
       }
     } catch (err) {
       if (attempt === retries) throw err;
     }
-    await new Promise(r => setTimeout(r, delay * (attempt + 1)));
+    await new Promise(r => setTimeout(r, delay));
   }
   return fetch(url, options);
 }
