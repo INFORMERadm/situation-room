@@ -228,17 +228,20 @@ export function useMarketsDashboard(): MarketsDashboardData {
 
     loadAll();
 
-    const i1 = setInterval(loadOverview, 15_000);
+    const retryTimer = setTimeout(loadAll, 5_000);
+
+    const i1 = setInterval(loadOverview, 3_000);
     const i2 = setInterval(loadMovers, 60_000);
     const i3 = setInterval(loadSectors, 60_000);
     const i4 = setInterval(loadNews, 120_000);
     const i5 = setInterval(loadEarnings, 300_000);
     const i6 = setInterval(loadEconomic, 300_000);
-    const i7 = setInterval(refreshQuote, 10_000);
+    const i7 = setInterval(refreshQuote, 3_000);
 
     intervalsRef.current = [i1, i2, i3, i4, i5, i6, i7];
     return () => {
       mountedRef.current = false;
+      clearTimeout(retryTimer);
       if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
       intervalsRef.current.forEach(clearInterval);
     };
