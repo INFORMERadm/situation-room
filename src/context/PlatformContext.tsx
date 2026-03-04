@@ -42,7 +42,10 @@ export interface ClockEntry {
   zone: string;
 }
 
+export type Workspace = 'markets' | 'news' | 'pa' | 'law';
+
 export interface PlatformState {
+  activeWorkspace: Workspace;
   chartType: string;
   indicators: IndicatorConfig[];
   watchlist: WatchlistEntry[];
@@ -50,6 +53,7 @@ export interface PlatformState {
   rightPanelView: 'news' | 'economic' | 'earnings';
   leftTab: string;
   chatSidebarOpen: boolean;
+  setActiveWorkspace: (ws: Workspace) => void;
   setChartType: (type: string) => void;
   toggleIndicator: (id: string, enabled?: boolean) => void;
   setIndicators: (inds: IndicatorConfig[]) => void;
@@ -95,6 +99,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [clocks, setClocksState] = useState<ClockEntry[]>(loadClocks);
   const [rightPanelView, setRightPanelView] = useState<'news' | 'economic' | 'earnings'>('news');
   const [leftTab, setLeftTab] = useState('overview');
+  const [activeWorkspace, setActiveWorkspace] = useState<Workspace>('markets');
   const [chatSidebarOpen, setChatSidebarOpen] = useState(false);
 
   const toggleChatSidebar = useCallback(() => {
@@ -167,6 +172,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value: PlatformState = {
+    activeWorkspace,
     chartType,
     indicators,
     watchlist,
@@ -174,6 +180,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     rightPanelView,
     leftTab,
     chatSidebarOpen,
+    setActiveWorkspace,
     setChartType,
     toggleIndicator,
     setIndicators,

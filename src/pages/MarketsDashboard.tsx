@@ -13,10 +13,12 @@ import LiveTvPanel from '../components/markets/LiveTvPanel';
 import ModeSidebar from '../components/ModeSidebar';
 import ChatSidebar from '../components/chat/ChatSidebar';
 import MCPConnectionsPanel from '../components/MCPConnectionsPanel';
+import NewsDeckPanel from '../components/news/NewsDeckPanel';
 import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
 import { useAIChat } from '../hooks/useAIChat';
 import { useSmitheryConnections } from '../hooks/useSmitheryConnections';
 import { useMessageNotifications } from '../hooks/useMessageNotifications';
+import { useNewsDeckFeeds } from '../hooks/useNewsDeckFeeds';
 import { usePlatform } from '../context/PlatformContext';
 import { useAuth } from '../context/AuthContext';
 import { useWatchlist } from '../context/WatchlistContext';
@@ -108,6 +110,8 @@ export default function MarketsDashboard() {
   const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id, smitheryMcpServers);
 
   useMessageNotifications({ userId: user?.id, chatSidebarOpen: platform.chatSidebarOpen });
+
+  const newsDeck = useNewsDeckFeeds(user?.id);
 
   const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, watchlists, setActiveWatchlistId } = useWatchlist();
 
@@ -283,30 +287,58 @@ export default function MarketsDashboard() {
           overflow: 'hidden',
           background: '#0a0a0a',
         }}>
-          {!ai.isExpanded && (
+          {platform.activeWorkspace === 'markets' ? (
             <>
-              <div style={panelDivider}>
-                <CompanyProfile
-                  profile={data.profile}
-                  quote={data.quote}
-                  loading={!!data.loading['profile']}
-                />
-              </div>
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                <PriceChart
-                  data={data.chart}
-                  symbol={data.selectedSymbol}
-                  timeframe={data.chartTimeframe}
-                  onTimeframeChange={data.setChartTimeframe}
-                  loading={!!data.loading['chart']}
-                  livePrice={data.quote?.price}
-                  externalChartType={platform.chartType}
-                  onChartTypeChange={platform.setChartType}
-                  externalIndicators={platform.indicators}
-                  onToggleIndicator={handleToggleIndicator}
-                />
-              </div>
+              {!ai.isExpanded && (
+                <>
+                  <div style={panelDivider}>
+                    <CompanyProfile
+                      profile={data.profile}
+                      quote={data.quote}
+                      loading={!!data.loading['profile']}
+                    />
+                  </div>
+                  <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                    <PriceChart
+                      data={data.chart}
+                      symbol={data.selectedSymbol}
+                      timeframe={data.chartTimeframe}
+                      onTimeframeChange={data.setChartTimeframe}
+                      loading={!!data.loading['chart']}
+                      livePrice={data.quote?.price}
+                      externalChartType={platform.chartType}
+                      onChartTypeChange={platform.setChartType}
+                      externalIndicators={platform.indicators}
+                      onToggleIndicator={handleToggleIndicator}
+                    />
+                  </div>
+                </>
+              )}
             </>
+          ) : platform.activeWorkspace === 'news' ? (
+            !ai.isExpanded && (
+              <NewsDeckPanel
+                feeds={newsDeck.feeds}
+                feedItems={newsDeck.feedItems}
+                loading={newsDeck.loading}
+                onAddFeed={newsDeck.addFeed}
+                onRemoveFeed={newsDeck.removeFeed}
+                onRefreshFeed={newsDeck.refreshFeedItems}
+              />
+            )
+          ) : (
+            !ai.isExpanded && (
+              <div style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#555',
+                fontSize: 13,
+              }}>
+                {platform.activeWorkspace.toUpperCase()} workspace coming soon
+              </div>
+            )
           )}
           <div style={{ flex: ai.isExpanded ? 1 : undefined, minHeight: ai.isExpanded ? 0 : undefined }}>
             <AIChatBox

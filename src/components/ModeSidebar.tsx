@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { usePlatform } from '../context/PlatformContext';
+import type { Workspace } from '../context/PlatformContext';
 
 type Mode = 'markets' | 'news' | 'pa' | 'law' | 'chat' | 'mail';
+
+const WORKSPACE_MODES: Set<string> = new Set(['markets', 'news', 'pa', 'law']);
 
 const MODES: { key: Mode; label: string }[] = [
   { key: 'markets', label: 'Markets' },
@@ -83,17 +86,17 @@ const ICON_MAP: Record<Mode, (props: { active: boolean }) => JSX.Element> = {
 };
 
 export default function ModeSidebar() {
-  const [activeMode, setActiveMode] = useState<Mode>('markets');
   const [hoveredMode, setHoveredMode] = useState<Mode | null>(null);
   const platform = usePlatform();
 
   const handleModeClick = (mode: Mode) => {
     if (mode === 'chat') {
       platform.toggleChatSidebar();
-    } else {
-      platform.setChatSidebarOpen(false);
+    } else if (mode === 'mail') {
+      // mail not yet implemented
+    } else if (WORKSPACE_MODES.has(mode)) {
+      platform.setActiveWorkspace(mode as Workspace);
     }
-    setActiveMode(mode);
   };
 
   return (
@@ -109,7 +112,7 @@ export default function ModeSidebar() {
     }}>
       {MODES.map(m => {
         const Icon = ICON_MAP[m.key];
-        const isActive = m.key === 'chat' ? platform.chatSidebarOpen : activeMode === m.key;
+        const isActive = m.key === 'chat' ? platform.chatSidebarOpen : WORKSPACE_MODES.has(m.key) ? platform.activeWorkspace === m.key : false;
         const isHovered = hoveredMode === m.key;
         return (
           <>{m.key === 'chat' && (
