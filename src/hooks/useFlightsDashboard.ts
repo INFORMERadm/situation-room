@@ -51,14 +51,19 @@ export function useFlightsDashboard(): FlightsDashboardState {
     }
   }, []);
 
-  useEffect(() => {
-    loadFlights();
-    const interval = setInterval(loadFlights, POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [loadFlights]);
+  const prevBoundsRef = useRef<string>('');
 
   useEffect(() => {
-    loadFlights();
+    const boundsKey = `${bounds.lamin},${bounds.lamax},${bounds.lomin},${bounds.lomax}`;
+    const boundsChanged = boundsKey !== prevBoundsRef.current;
+    prevBoundsRef.current = boundsKey;
+
+    if (boundsChanged) {
+      loadFlights();
+    }
+
+    const interval = setInterval(loadFlights, POLL_INTERVAL);
+    return () => clearInterval(interval);
   }, [bounds, loadFlights]);
 
   const selectFlight = useCallback(async (flightId: string) => {
