@@ -7,8 +7,14 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const FR24_API_TOKEN = Deno.env.get("FR24_API_TOKEN") ?? "";
-const FR24_BASE = "https://fr24api.flightradar24.com/api";
+const OPENSKY_CLIENT_ID = Deno.env.get("OPENSKY_CLIENT_ID") ?? "";
+const OPENSKY_CLIENT_SECRET = Deno.env.get("OPENSKY_CLIENT_SECRET") ?? "";
+const OPENSKY_TOKEN_URL =
+  "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
+const OPENSKY_API = "https://opensky-network.org/api";
+
+let cachedToken: string | null = null;
+let tokenExpiresAt = 0;
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -21,27 +27,76 @@ function errorResponse(message: string, status = 500) {
   return jsonResponse({ error: message }, status);
 }
 
-async function fr24Fetch(endpoint: string, params: Record<string, string> = {}) {
-  const url = new URL(`${FR24_BASE}${endpoint}`);
+async function getOpenSkyToken(): Promise<string | null> {
+  if (!OPENSKY_CLIENT_ID || !OPENSKY_CLIENT_SECRET) return null;
+
+  const now = Date.now();
+  if (cachedToken && tokenExpiresAt > now + 60_000) {
+    return cachedToken;
+  }
+
+  try {
+    const body = new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: OPENSKY_CLIENT_ID,
+      client_secret: OPENSKY_CLIENT_SECRET,
+    });
+
+    const res = await fetch(OPENSKY_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error("OpenSky token error:", res.status, text);
+      cachedToken = null;
+      return null;
+    }
+
+    const json = await res.json();
+    cachedToken = json.access_token ?? null;
+    const expiresIn = json.expires_in ?? 1800;
+    tokenExpiresAt = now + expiresIn * 1000;
+    return cachedToken;
+  } catch (err) {
+    console.error("OpenSky token fetch failed:", err);
+    cachedToken = null;
+    return null;
+  }
+}
+
+async function fetchOpenSky(
+  endpoint: string,
+  params: Record<string, string> = {},
+): Promise<unknown> {
+  const url = new URL(`${OPENSKY_API}${endpoint}`);
   for (const [k, v] of Object.entries(params)) {
     if (v) url.searchParams.set(k, v);
+  }
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+
+  const token = await getOpenSkyToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
   try {
     const res = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "Accept-Version": "v1",
-        Authorization: `Bearer ${FR24_API_TOKEN}`,
-      },
+      headers,
       signal: controller.signal,
     });
     clearTimeout(timeout);
+
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(`FR24 ${res.status}: ${text || res.statusText}`);
+      throw new Error(`OpenSky ${res.status}: ${text || res.statusText}`);
     }
     return res.json();
   } catch (err) {
@@ -50,82 +105,49 @@ async function fr24Fetch(endpoint: string, params: Record<string, string> = {}) 
   }
 }
 
-interface FR24PositionLight {
-  fr24_id: string;
-  hex: string;
-  callsign: string;
-  lat: number;
-  lon: number;
-  track: number;
-  alt: number;
-  gspeed: number;
-  vspeed: number;
-  squawk: string;
-  timestamp: number;
-  source: string;
-}
+type StateVector = (string | number | boolean | null)[];
 
-interface FR24PositionFull extends FR24PositionLight {
-  flight: string;
-  type: string;
-  reg: string;
-  painted_as: string;
-  operating_as: string;
-  orig_iata: string;
-  orig_icao: string;
-  dest_iata: string;
-  dest_icao: string;
-  eta: number;
-}
-
-function mapFR24ToFlight(p: FR24PositionLight) {
-  if (p.lat === 0 && p.lon === 0) return null;
+function mapStateToFlight(sv: StateVector) {
+  const lat = sv[6] as number | null;
+  const lon = sv[5] as number | null;
+  if (lat == null || lon == null) return null;
+  if (lat === 0 && lon === 0) return null;
 
   return {
-    icao24: p.hex ?? p.fr24_id,
-    callsign: (p.callsign ?? "").trim(),
-    origin_country: "",
-    lat: p.lat,
-    lon: p.lon,
-    alt: p.alt ?? 0,
-    gspd: p.gspeed ?? 0,
-    track: p.track ?? 0,
-    vspd: p.vspeed ?? 0,
-    on_ground: (p.alt ?? 0) <= 0,
-    squawk: p.squawk ?? "",
-    geo_alt: p.alt ?? 0,
-    baro_alt: p.alt ?? 0,
-    last_contact: p.timestamp ?? Math.floor(Date.now() / 1000),
-    category: 0,
+    icao24: String(sv[0] ?? ""),
+    callsign: String(sv[1] ?? "").trim(),
+    origin_country: String(sv[2] ?? ""),
+    lat,
+    lon,
+    alt: (sv[13] as number) ?? (sv[7] as number) ?? 0,
+    gspd: (sv[9] as number) ?? 0,
+    track: (sv[10] as number) ?? 0,
+    vspd: (sv[11] as number) ?? 0,
+    on_ground: (sv[8] as boolean) ?? false,
+    squawk: String(sv[14] ?? ""),
+    geo_alt: (sv[13] as number) ?? 0,
+    baro_alt: (sv[7] as number) ?? 0,
+    last_contact: (sv[4] as number) ?? Math.floor(Date.now() / 1000),
+    category: (sv[17] as number) ?? 0,
   };
 }
 
-function mapFR24FullToDetail(p: FR24PositionFull) {
+function mapStateToDetail(sv: StateVector) {
+  const base = mapStateToFlight(sv);
+  if (!base) return null;
+
   return {
-    icao24: p.hex ?? p.fr24_id,
-    callsign: (p.callsign ?? "").trim(),
-    origin_country: "",
-    lat: p.lat,
-    lon: p.lon,
-    alt: p.alt ?? 0,
-    gspd: p.gspeed ?? 0,
-    track_heading: p.track ?? 0,
-    vspd: p.vspeed ?? 0,
-    on_ground: (p.alt ?? 0) <= 0,
-    squawk: p.squawk ?? "",
-    baro_alt: p.alt ?? 0,
-    geo_alt: p.alt ?? 0,
-    last_contact: p.timestamp ?? Math.floor(Date.now() / 1000),
-    category: 0,
-    flight: (p.flight ?? "").trim(),
-    type: p.type ?? "",
-    reg: p.reg ?? "",
-    painted_as: p.painted_as ?? "",
-    operating_as: p.operating_as ?? "",
-    orig_iata: p.orig_iata ?? "",
-    orig_icao: p.orig_icao ?? "",
-    dest_iata: p.dest_iata ?? "",
-    dest_icao: p.dest_icao ?? "",
+    ...base,
+    track_heading: base.track,
+    flight: "",
+    type: "",
+    reg: "",
+    painted_as: "",
+    operating_as: "",
+    orig_iata: "",
+    orig_icao: "",
+    dest_iata: "",
+    dest_icao: "",
     waypoints: null,
   };
 }
@@ -140,30 +162,36 @@ Deno.serve(async (req: Request) => {
     const feed = url.searchParams.get("feed") ?? "";
 
     if (feed === "live-flights") {
-      const params: Record<string, string> = { limit: "1500" };
+      const params: Record<string, string> = {};
 
       const bounds = url.searchParams.get("bounds");
       if (bounds) {
         const parts = bounds.split(",").map((s) => s.trim());
         if (parts.length === 4) {
-          params.bounds = `${parts[0]},${parts[1]},${parts[2]},${parts[3]}`;
+          params.lamin = parts[1];
+          params.lamax = parts[0];
+          params.lomin = parts[2];
+          params.lomax = parts[3];
         }
       }
 
-      let flights: ReturnType<typeof mapFR24ToFlight>[] = [];
       try {
-        const data = await fr24Fetch("/live/flight-positions/light", params);
-        const positions: FR24PositionLight[] = data?.data ?? data ?? [];
-        flights = (Array.isArray(positions) ? positions : [])
-          .map(mapFR24ToFlight)
-          .filter((f): f is NonNullable<typeof f> => f !== null);
+        const data = (await fetchOpenSky("/states/all", params)) as {
+          states: StateVector[] | null;
+        };
+        const states = data?.states ?? [];
+        const flights = states
+          .map(mapStateToFlight)
+          .filter(
+            (f): f is NonNullable<typeof f> => f !== null,
+          );
+
+        return jsonResponse({ flights });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error("FR24 live flights error:", msg);
+        console.error("OpenSky live flights error:", msg);
         return jsonResponse({ flights: [], error: msg, partial: true });
       }
-
-      return jsonResponse({ flights });
     }
 
     if (feed === "flight-details") {
@@ -171,20 +199,20 @@ Deno.serve(async (req: Request) => {
       if (!flightId) return errorResponse("Missing flightId", 400);
 
       try {
-        const data = await fr24Fetch("/live/flight-positions/full", {
-          flights: flightId,
-        });
-        const positions: FR24PositionFull[] = data?.data ?? data ?? [];
-        const pos = Array.isArray(positions) ? positions[0] : null;
+        const data = (await fetchOpenSky("/states/all", {
+          icao24: flightId.toLowerCase(),
+        })) as { states: StateVector[] | null };
 
-        if (!pos) {
+        const states = data?.states ?? [];
+        if (states.length === 0) {
           return jsonResponse({ details: null });
         }
 
-        return jsonResponse({ details: mapFR24FullToDetail(pos) });
+        const detail = mapStateToDetail(states[0]);
+        return jsonResponse({ details: detail });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error("FR24 flight details error:", msg);
+        console.error("OpenSky flight details error:", msg);
         return jsonResponse({ details: null, error: msg });
       }
     }
