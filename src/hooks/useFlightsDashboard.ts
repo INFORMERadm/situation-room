@@ -54,7 +54,6 @@ export function useFlightsDashboard(active: boolean) {
   const [flights, setFlights] = useState<LiveFlightPosition[]>([]);
   const [selectedFlight, setSelectedFlight] = useState<FlightDetail | null>(null);
   const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
-  const [hoveredFlight, setHoveredFlight] = useState<LiveFlightPosition | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -166,20 +165,14 @@ export function useFlightsDashboard(active: boolean) {
     setSelectedFlightId(null);
   }, []);
 
-  const hoverFlight = useCallback((flight: LiveFlightPosition | null) => {
-    setHoveredFlight(flight);
-  }, []);
-
   return {
     flights,
     selectedFlight,
     selectedFlightId,
-    hoveredFlight,
     loading,
     error,
     detailLoading,
     selectFlight,
     clearSelection,
-    hoverFlight,
   };
 }

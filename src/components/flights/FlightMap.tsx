@@ -17,15 +17,6 @@ function createPlaneIcon(heading: number, isSelected: boolean, isOnGround: boole
   });
 }
 
-function formatAlt(alt: number) {
-  if (alt >= 1000) return `${(alt / 1000).toFixed(1)}k ft`;
-  return `${alt} ft`;
-}
-
-function formatSpeed(spd: number) {
-  return `${Math.round(spd)} kts`;
-}
-
 interface FlightMarkersProps {
   flights: LiveFlightPosition[];
   selectedFlightId: string | null;
@@ -50,25 +41,6 @@ function FlightMarkers({ flights, selectedFlightId, onSelect }: FlightMarkersPro
       const icon = createPlaneIcon(flight.heading, isSelected, flight.isOnGround);
       const marker = L.marker([flight.latitude, flight.longitude], { icon })
         .addTo(map);
-
-      const routeStr = flight.originIata && flight.destinationIata
-        ? `${flight.originIata} → ${flight.destinationIata}`
-        : flight.originIata || flight.destinationIata || '';
-
-      const tooltipContent = `<div style="font-family:inherit;font-size:11px;line-height:1.4;min-width:120px">
-        <div style="font-weight:700;color:#fff;margin-bottom:2px">${flight.callsign || flight.flightNumber || 'N/A'}</div>
-        ${flight.airlineName ? `<div style="color:#aaa;font-size:10px">${flight.airlineName}</div>` : ''}
-        ${routeStr ? `<div style="color:#ff9800;font-size:10px;margin-top:2px">${routeStr}</div>` : ''}
-        <div style="color:#888;font-size:10px;margin-top:2px">${formatAlt(flight.altitude)} · ${formatSpeed(flight.groundSpeed)}</div>
-        ${flight.aircraftType ? `<div style="color:#666;font-size:10px">${flight.aircraftType} ${flight.registration ? `· ${flight.registration}` : ''}</div>` : ''}
-      </div>`;
-
-      marker.bindPopup(tooltipContent, {
-        className: 'flight-tooltip',
-        closeButton: false,
-        offset: [0, -8],
-        autoPan: false,
-      });
 
       marker.on('click', () => onSelect(flight));
 
@@ -194,20 +166,6 @@ export default function FlightMap({
       </div>
 
       <style>{`
-        .flight-tooltip .leaflet-popup-content-wrapper {
-          background: rgba(10,10,10,0.95) !important;
-          border: 1px solid #333 !important;
-          border-radius: 6px !important;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
-          color: #fff !important;
-        }
-        .flight-tooltip .leaflet-popup-content {
-          margin: 8px 10px !important;
-        }
-        .flight-tooltip .leaflet-popup-tip {
-          background: rgba(10,10,10,0.95) !important;
-          border: 1px solid #333 !important;
-        }
         .leaflet-container {
           background: #0a0a0a !important;
           font-family: inherit !important;
