@@ -58,7 +58,7 @@ html, body, #root {
 }
 
 .flight-map-tiles {
-  filter: brightness(1.35) contrast(1.05);
+  filter: brightness(1.8) contrast(1.1) saturate(0.15);
 }
 
 @keyframes newsStreamIn {
