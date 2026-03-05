@@ -497,3 +497,83 @@ export async function fetchFlightDetails(flightId: string, callsign?: string): P
     destination: null,
   };
 }
+
+export async function fetchFlightsInInterval(begin: number, end: number): Promise<import('../types').OpenSkyFlight[]> {
+  const headers = await getAuthHeaders();
+  const params = new URLSearchParams({
+    feed: 'flights-in-interval',
+    begin: String(begin),
+    end: String(end),
+  });
+  const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Flights in interval failed: ${res.status} ${body}`);
+  }
+  const json = await res.json();
+  return json.flights ?? [];
+}
+
+export async function fetchFlightsByAircraft(icao24: string, begin: number, end: number): Promise<import('../types').OpenSkyFlight[]> {
+  const headers = await getAuthHeaders();
+  const params = new URLSearchParams({
+    feed: 'flights-by-aircraft',
+    icao24,
+    begin: String(begin),
+    end: String(end),
+  });
+  const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Flights by aircraft failed: ${res.status} ${body}`);
+  }
+  const json = await res.json();
+  return json.flights ?? [];
+}
+
+export async function fetchArrivalsByAirport(airport: string, begin: number, end: number): Promise<import('../types').OpenSkyFlight[]> {
+  const headers = await getAuthHeaders();
+  const params = new URLSearchParams({
+    feed: 'arrivals-by-airport',
+    airport,
+    begin: String(begin),
+    end: String(end),
+  });
+  const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Arrivals by airport failed: ${res.status} ${body}`);
+  }
+  const json = await res.json();
+  return json.flights ?? [];
+}
+
+export async function fetchDeparturesByAirport(airport: string, begin: number, end: number): Promise<import('../types').OpenSkyFlight[]> {
+  const headers = await getAuthHeaders();
+  const params = new URLSearchParams({
+    feed: 'departures-by-airport',
+    airport,
+    begin: String(begin),
+    end: String(end),
+  });
+  const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Departures by airport failed: ${res.status} ${body}`);
+  }
+  const json = await res.json();
+  return json.flights ?? [];
+}
+
+export async function fetchAircraftTrack(icao24: string, time?: number): Promise<import('../types').AircraftTrack | null> {
+  const headers = await getAuthHeaders();
+  const params = new URLSearchParams({ feed: 'track-by-aircraft', icao24 });
+  if (time !== undefined) params.set('time', String(time));
+  const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Aircraft track failed: ${res.status} ${body}`);
+  }
+  const json = await res.json();
+  return json.track ?? null;
+}

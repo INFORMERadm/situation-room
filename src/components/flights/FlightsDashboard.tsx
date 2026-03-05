@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
 import FlightMap from './FlightMap';
 import FlightDetailPanel from './FlightDetailPanel';
+import FlightSearchPanel from './FlightSearchPanel';
 import { useFlightsDashboard } from '../../hooks/useFlightsDashboard';
 import { useFlightInterpolation } from '../../hooks/useFlightInterpolation';
+import useFlightSearch from '../../hooks/useFlightSearch';
 import type { LiveFlightPosition } from '../../types';
 
 interface FlightsDashboardProps {
@@ -23,6 +25,8 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
 
   const interpolatedFlights = useFlightInterpolation(flights);
 
+  const search = useFlightSearch();
+
   const handleSelectFlight = useCallback((flight: LiveFlightPosition) => {
     selectFlight(flight.flightId);
   }, [selectFlight]);
@@ -41,6 +45,24 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         loading={loading}
         error={error}
         onSelectFlight={handleSelectFlight}
+        activeTrack={search.activeTrack}
+      />
+      <FlightSearchPanel
+        isOpen={search.isOpen}
+        mode={search.mode}
+        loading={search.loading}
+        error={search.error}
+        results={search.results}
+        activeTrack={search.activeTrack}
+        onToggle={search.togglePanel}
+        onSetMode={search.setMode}
+        onClearResults={search.clearResults}
+        onClearTrack={search.clearTrack}
+        onSearchInterval={search.searchFlightsInInterval}
+        onSearchAircraft={search.searchFlightsByAircraft}
+        onSearchArrivals={search.searchArrivalsByAirport}
+        onSearchDepartures={search.searchDeparturesByAirport}
+        onSearchTrack={search.searchAircraftTrack}
       />
       {selectedFlightId && (
         <FlightDetailPanel

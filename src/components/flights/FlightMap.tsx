@@ -1,7 +1,8 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import type { LiveFlightPosition } from '../../types';
+import type { LiveFlightPosition, AircraftTrack } from '../../types';
+import FlightTrackOverlay from './FlightTrackOverlay';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -163,6 +164,7 @@ interface FlightMapProps {
   loading: boolean;
   error: string | null;
   onSelectFlight: (flight: LiveFlightPosition) => void;
+  activeTrack?: AircraftTrack | null;
 }
 
 export default function FlightMap({
@@ -171,6 +173,7 @@ export default function FlightMap({
   loading,
   error,
   onSelectFlight,
+  activeTrack,
 }: FlightMapProps) {
   const flightCount = useMemo(() => flights.length, [flights]);
 
@@ -195,6 +198,7 @@ export default function FlightMap({
           selectedFlightId={selectedFlightId}
           onSelect={onSelectFlight}
         />
+        {activeTrack && <FlightTrackOverlay track={activeTrack} />}
       </MapContainer>
 
       <div style={{

@@ -395,6 +395,33 @@ function buildDetailResponse(
   };
 }
 
+function enrichFlightResult(f: Record<string, unknown>) {
+  const depIcao = String(f.estDepartureAirport ?? "");
+  const arrIcao = String(f.estArrivalAirport ?? "");
+  const depAirport = lookupAirport(depIcao);
+  const arrAirport = lookupAirport(arrIcao);
+  return {
+    icao24: f.icao24 ?? "",
+    firstSeen: f.firstSeen ?? 0,
+    lastSeen: f.lastSeen ?? 0,
+    estDepartureAirport: f.estDepartureAirport ?? null,
+    estArrivalAirport: f.estArrivalAirport ?? null,
+    callsign: f.callsign ? String(f.callsign).trim() : null,
+    estDepartureAirportHorizDistance: f.estDepartureAirportHorizDistance ?? 0,
+    estDepartureAirportVertDistance: f.estDepartureAirportVertDistance ?? 0,
+    estArrivalAirportHorizDistance: f.estArrivalAirportHorizDistance ?? 0,
+    estArrivalAirportVertDistance: f.estArrivalAirportVertDistance ?? 0,
+    departureAirportCandidatesCount: f.departureAirportCandidatesCount ?? 0,
+    arrivalAirportCandidatesCount: f.arrivalAirportCandidatesCount ?? 0,
+    departureAirportName: depAirport?.name ?? "",
+    departureCity: depAirport?.city ?? "",
+    departureIata: depAirport?.iata ?? "",
+    arrivalAirportName: arrAirport?.name ?? "",
+    arrivalCity: arrAirport?.city ?? "",
+    arrivalIata: arrAirport?.iata ?? "",
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -478,6 +505,132 @@ Deno.serve(async (req: Request) => {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("Flight details error:", msg);
         return jsonResponse({ details: null, error: msg });
+      }
+    }
+
+    if (feed === "flights-in-interval") {
+      const begin = url.searchParams.get("begin") ?? "";
+      const end = url.searchParams.get("end") ?? "";
+      if (!begin || !end) return errorResponse("Missing begin or end", 400);
+      const b = Number(begin);
+      const e = Number(end);
+      if (isNaN(b) || isNaN(e)) return errorResponse("begin and end must be numbers", 400);
+      if (e - b > 7200) return errorResponse("Time interval must not exceed 2 hours", 400);
+      if (e <= b) return errorResponse("end must be after begin", 400);
+
+      try {
+        const data = await fetchOpenSky("/flights/all", { begin, end }) as unknown[];
+        const flights = Array.isArray(data) ? data.map((f: Record<string, unknown>) => enrichFlightResult(f)) : [];
+        return jsonResponse({ flights });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("404")) return jsonResponse({ flights: [] });
+        return errorResponse(msg);
+      }
+    }
+
+    if (feed === "flights-by-aircraft") {
+      const icao24 = url.searchParams.get("icao24") ?? "";
+      const begin = url.searchParams.get("begin") ?? "";
+      const end = url.searchParams.get("end") ?? "";
+      if (!icao24 || !begin || !end) return errorResponse("Missing icao24, begin, or end", 400);
+      const b = Number(begin);
+      const e = Number(end);
+      if (isNaN(b) || isNaN(e)) return errorResponse("begin and end must be numbers", 400);
+      if (e - b > 172800) return errorResponse("Time interval must not exceed 2 days", 400);
+      if (e <= b) return errorResponse("end must be after begin", 400);
+
+      try {
+        const data = await fetchOpenSky("/flights/aircraft", {
+          icao24: icao24.toLowerCase(),
+          begin,
+          end,
+        }) as unknown[];
+        const flights = Array.isArray(data) ? data.map((f: Record<string, unknown>) => enrichFlightResult(f)) : [];
+        return jsonResponse({ flights });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("404")) return jsonResponse({ flights: [] });
+        return errorResponse(msg);
+      }
+    }
+
+    if (feed === "arrivals-by-airport") {
+      const airport = url.searchParams.get("airport") ?? "";
+      const begin = url.searchParams.get("begin") ?? "";
+      const end = url.searchParams.get("end") ?? "";
+      if (!airport || !begin || !end) return errorResponse("Missing airport, begin, or end", 400);
+      const b = Number(begin);
+      const e = Number(end);
+      if (isNaN(b) || isNaN(e)) return errorResponse("begin and end must be numbers", 400);
+      if (e - b > 604800) return errorResponse("Time interval must not exceed 7 days", 400);
+      if (e <= b) return errorResponse("end must be after begin", 400);
+
+      try {
+        const data = await fetchOpenSky("/flights/arrival", {
+          airport: airport.toUpperCase(),
+          begin,
+          end,
+        }) as unknown[];
+        const flights = Array.isArray(data) ? data.map((f: Record<string, unknown>) => enrichFlightResult(f)) : [];
+        return jsonResponse({ flights });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("404")) return jsonResponse({ flights: [] });
+        return errorResponse(msg);
+      }
+    }
+
+    if (feed === "departures-by-airport") {
+      const airport = url.searchParams.get("airport") ?? "";
+      const begin = url.searchParams.get("begin") ?? "";
+      const end = url.searchParams.get("end") ?? "";
+      if (!airport || !begin || !end) return errorResponse("Missing airport, begin, or end", 400);
+      const b = Number(begin);
+      const e = Number(end);
+      if (isNaN(b) || isNaN(e)) return errorResponse("begin and end must be numbers", 400);
+      if (e - b > 604800) return errorResponse("Time interval must not exceed 7 days", 400);
+      if (e <= b) return errorResponse("end must be after begin", 400);
+
+      try {
+        const data = await fetchOpenSky("/flights/departure", {
+          airport: airport.toUpperCase(),
+          begin,
+          end,
+        }) as unknown[];
+        const flights = Array.isArray(data) ? data.map((f: Record<string, unknown>) => enrichFlightResult(f)) : [];
+        return jsonResponse({ flights });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("404")) return jsonResponse({ flights: [] });
+        return errorResponse(msg);
+      }
+    }
+
+    if (feed === "track-by-aircraft") {
+      const icao24 = url.searchParams.get("icao24") ?? "";
+      if (!icao24) return errorResponse("Missing icao24", 400);
+      const time = url.searchParams.get("time") ?? "";
+
+      const params: Record<string, string> = { icao24: icao24.toLowerCase() };
+      if (time) params.time = time;
+
+      try {
+        const data = await fetchOpenSky("/tracks/all", params) as Record<string, unknown>;
+        if (!data || !data.path) return jsonResponse({ track: null });
+        return jsonResponse({
+          track: {
+            icao24: data.icao24 ?? icao24,
+            startTime: data.startTime ?? 0,
+            endTime: data.endTime ?? 0,
+            callsign: data.callsign ?? null,
+            path: data.path ?? [],
+          },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("404")) return jsonResponse({ track: null });
+        return errorResponse(msg);
       }
     }
 

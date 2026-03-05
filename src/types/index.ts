@@ -243,3 +243,48 @@ export interface FlightDetail {
   origin: AirportInfo | null;
   destination: AirportInfo | null;
 }
+
+export interface OpenSkyFlight {
+  icao24: string;
+  firstSeen: number;
+  lastSeen: number;
+  estDepartureAirport: string | null;
+  estArrivalAirport: string | null;
+  callsign: string | null;
+  estDepartureAirportHorizDistance: number;
+  estDepartureAirportVertDistance: number;
+  estArrivalAirportHorizDistance: number;
+  estArrivalAirportVertDistance: number;
+  departureAirportCandidatesCount: number;
+  arrivalAirportCandidatesCount: number;
+  departureAirportName?: string;
+  departureCity?: string;
+  departureIata?: string;
+  arrivalAirportName?: string;
+  arrivalCity?: string;
+  arrivalIata?: string;
+}
+
+export type TrackWaypoint = [
+  time: number,
+  latitude: number | null,
+  longitude: number | null,
+  baro_altitude: number | null,
+  true_track: number | null,
+  on_ground: boolean,
+];
+
+export interface AircraftTrack {
+  icao24: string;
+  startTime: number;
+  endTime: number;
+  callsign: string | null;
+  path: TrackWaypoint[];
+}
+
+export type FlightSearchMode =
+  | 'flights-interval'
+  | 'flights-aircraft'
+  | 'arrivals-airport'
+  | 'departures-airport'
+  | 'track-aircraft';
