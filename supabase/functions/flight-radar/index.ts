@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
     if (feed === "live-flights") {
       const bounds = url.searchParams.get("bounds") || "90,-90,-180,180";
       const limit = url.searchParams.get("limit") ?? "3000";
-      const variant = url.searchParams.get("variant") ?? "light";
+      const variant = url.searchParams.get("variant") ?? "full";
       const params: Record<string, string> = { bounds, limit };
 
       try {
