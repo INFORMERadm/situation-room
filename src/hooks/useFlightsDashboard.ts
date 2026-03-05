@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveFlights, fetchFlightDetails } from '../lib/api';
+import { fetchLiveFlights } from '../lib/api';
 import type { LiveFlightPosition, FlightDetail } from '../types';
 
 interface RawFlightData {
@@ -140,24 +140,7 @@ export function useFlightsDashboard(active: boolean) {
     };
     setSelectedFlight(baseFlight);
 
-    setDetailLoading(true);
-    fetchFlightDetails(flightId, live?.callsign)
-      .then((detail) => {
-        if (!mountedRef.current) return;
-        if (detail) {
-          setSelectedFlight(() => ({
-            ...baseFlight,
-            ...detail,
-            status: live?.isOnGround ? 'On Ground' : (detail.status || 'In Flight'),
-          }));
-        }
-      })
-      .catch((err) => {
-        console.error('Flight detail fetch failed:', err);
-      })
-      .finally(() => {
-        if (mountedRef.current) setDetailLoading(false);
-      });
+    setDetailLoading(false);
   }, [flights]);
 
   const clearSelection = useCallback(() => {
