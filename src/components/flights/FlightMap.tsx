@@ -24,6 +24,20 @@ function createPlaneIcon(heading: number, isSelected: boolean, isOnGround: boole
   });
 }
 
+function buildTooltipContent(flight: LiveFlightPosition): string {
+  const label = flight.flightNumber || flight.callsign || 'N/A';
+  const aircraft = flight.aircraftType || '---';
+  const route =
+    flight.originIata && flight.destinationIata
+      ? `${flight.originIata} → ${flight.destinationIata}`
+      : flight.originIata || flight.destinationIata || '---';
+  const alt = flight.isOnGround
+    ? 'On Ground'
+    : `${Math.round(flight.altitude).toLocaleString()} ft`;
+
+  return `<div class="flight-tooltip"><strong>${label}</strong><span>${aircraft}</span><span>${route}</span><span>${alt}</span></div>`;
+}
+
 interface MarkerEntry {
   marker: L.Marker;
   heading: number;
@@ -81,9 +95,20 @@ function FlightMarkers({ flights, selectedFlightId, onSelect }: FlightMarkersPro
           entry.isSelected = isSelected;
           entry.isOnGround = flight.isOnGround;
         }
+
+        const tooltip = entry.marker.getTooltip();
+        if (tooltip) {
+          tooltip.setContent(buildTooltipContent(flight));
+        }
       } else {
         const icon = createPlaneIcon(flight.heading, isSelected, flight.isOnGround);
         const marker = L.marker([flight.latitude, flight.longitude], { icon }).addTo(map);
+        marker.bindTooltip(buildTooltipContent(flight), {
+          direction: 'top',
+          offset: [0, -10],
+          opacity: 1,
+          className: 'flight-marker-tooltip',
+        });
         const flightId = flight.flightId;
         marker.on('click', () => {
           const f = flightsRef.current.find(fl => fl.flightId === flightId);
@@ -237,6 +262,36 @@ export default function FlightMap({
         .leaflet-container {
           background: #0a0a0a !important;
           font-family: inherit !important;
+        }
+        .flight-marker-tooltip {
+          background: rgba(0, 0, 0, 0.9) !important;
+          border: 1px solid #333 !important;
+          border-radius: 6px !important;
+          padding: 0 !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+          color: #fff !important;
+          font-size: 11px !important;
+          line-height: 1 !important;
+        }
+        .flight-marker-tooltip::before {
+          border-top-color: #333 !important;
+        }
+        .flight-tooltip {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          padding: 8px 10px;
+          white-space: nowrap;
+        }
+        .flight-tooltip strong {
+          font-size: 12px;
+          font-weight: 700;
+          color: #2196f3;
+          letter-spacing: 0.5px;
+        }
+        .flight-tooltip span {
+          color: #aaa;
+          font-size: 10px;
         }
       `}</style>
     </div>
