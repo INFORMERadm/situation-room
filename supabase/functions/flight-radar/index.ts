@@ -7,41 +7,11 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const OPENSKY_CLIENT_ID = Deno.env.get("OPENSKY_CLIENT_ID") ?? "";
-const OPENSKY_CLIENT_SECRET = Deno.env.get("OPENSKY_CLIENT_SECRET") ?? "";
+const OPENSKY_USER = Deno.env.get("OPENSKY_CLIENT_ID") ?? "";
+const OPENSKY_PASS = Deno.env.get("OPENSKY_CLIENT_SECRET") ?? "";
 const OPENSKY_BASE = "https://opensky-network.org/api";
-const OPENSKY_TOKEN_URL =
-  "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
 
-let cachedToken: string | null = null;
-let tokenExpiresAt = 0;
-
-async function getAccessToken(): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && tokenExpiresAt > now + 60_000) {
-    return cachedToken;
-  }
-
-  const res = await fetch(OPENSKY_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: OPENSKY_CLIENT_ID,
-      client_secret: OPENSKY_CLIENT_SECRET,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`OpenSky token error ${res.status}: ${text}`);
-  }
-
-  const data = await res.json();
-  cachedToken = data.access_token;
-  tokenExpiresAt = now + (data.expires_in ?? 1800) * 1000;
-  return cachedToken!;
-}
+const basicAuth = btoa(`${OPENSKY_USER}:${OPENSKY_PASS}`);
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -55,22 +25,20 @@ function errorResponse(message: string, status = 500) {
 }
 
 async function openskyFetch(endpoint: string, params: Record<string, string> = {}) {
-  const token = await getAccessToken();
   const url = new URL(`${OPENSKY_BASE}${endpoint}`);
   for (const [k, v] of Object.entries(params)) {
     if (v) url.searchParams.set(k, v);
   }
 
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (OPENSKY_USER && OPENSKY_PASS) {
+    headers.Authorization = `Basic ${basicAuth}`;
+  }
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  const timeout = setTimeout(() => controller.abort(), 25000);
   try {
-    const res = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      signal: controller.signal,
-    });
+    const res = await fetch(url.toString(), { headers, signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
@@ -81,27 +49,6 @@ async function openskyFetch(endpoint: string, params: Record<string, string> = {
     clearTimeout(timeout);
     throw err;
   }
-}
-
-interface StateVector {
-  0: string;       // icao24
-  1: string | null; // callsign
-  2: string;       // origin_country
-  3: number | null; // time_position
-  4: number;       // last_contact
-  5: number | null; // longitude
-  6: number | null; // latitude
-  7: number | null; // baro_altitude (meters)
-  8: boolean;      // on_ground
-  9: number | null; // velocity (m/s)
-  10: number | null; // true_track (degrees)
-  11: number | null; // vertical_rate (m/s)
-  12: number[] | null; // sensors
-  13: number | null; // geo_altitude (meters)
-  14: string | null; // squawk
-  15: boolean;      // spi
-  16: number;       // position_source
-  17?: number;      // category (extended only)
 }
 
 function metersToFeet(m: number | null): number {
@@ -119,30 +66,32 @@ function msToFpm(ms: number | null): number {
   return Math.round(ms * 196.85);
 }
 
-function mapStateToFlight(s: StateVector) {
-  const lat = s[6];
-  const lon = s[5];
+function mapStateToFlight(s: unknown[]) {
+  const lat = s[6] as number | null;
+  const lon = s[5] as number | null;
   if (lat === null || lon === null) return null;
 
-  const altMeters = s[7] ?? s[13] ?? 0;
-  const callsign = (s[1] ?? "").trim();
+  const baroAlt = s[7] as number | null;
+  const geoAlt = s[13] as number | null;
+  const altMeters = baroAlt ?? geoAlt ?? 0;
+  const callsign = ((s[1] as string) ?? "").trim();
 
   return {
-    icao24: s[0],
+    icao24: s[0] as string,
     callsign,
-    origin_country: s[2],
+    origin_country: s[2] as string,
     lat,
     lon,
     alt: metersToFeet(altMeters),
-    gspd: msToKnots(s[9]),
-    track: s[10] ?? 0,
-    vspd: msToFpm(s[11]),
-    on_ground: s[8],
-    squawk: s[14] ?? "",
-    geo_alt: metersToFeet(s[13]),
-    baro_alt: metersToFeet(s[7]),
-    last_contact: s[4],
-    category: s[17] ?? 0,
+    gspd: msToKnots(s[9] as number | null),
+    track: (s[10] as number | null) ?? 0,
+    vspd: msToFpm(s[11] as number | null),
+    on_ground: s[8] as boolean,
+    squawk: (s[14] as string) ?? "",
+    geo_alt: metersToFeet(geoAlt),
+    baro_alt: metersToFeet(baroAlt),
+    last_contact: s[4] as number,
+    category: (s[17] as number) ?? 0,
   };
 }
 
@@ -170,7 +119,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const data = await openskyFetch("/states/all", params);
-      const states: StateVector[] = data?.states ?? [];
+      const states: unknown[][] = data?.states ?? [];
       const flights = states
         .map(mapStateToFlight)
         .filter((f): f is NonNullable<typeof f> => f !== null);
@@ -186,7 +135,7 @@ Deno.serve(async (req: Request) => {
         icao24: icao24.toLowerCase(),
         extended: "1",
       });
-      const states: StateVector[] = data?.states ?? [];
+      const states: unknown[][] = data?.states ?? [];
       const state = states[0] ?? null;
 
       if (!state) {
@@ -207,7 +156,7 @@ Deno.serve(async (req: Request) => {
 
       const detail = {
         icao24: state[0],
-        callsign: (state[1] ?? "").trim(),
+        callsign: ((state[1] as string) ?? "").trim(),
         origin_country: state[2],
         lat: state[6],
         lon: state[5],
@@ -216,11 +165,11 @@ Deno.serve(async (req: Request) => {
         track_heading: mapped?.track ?? 0,
         vspd: mapped?.vspd ?? 0,
         on_ground: state[8],
-        squawk: state[14] ?? "",
+        squawk: (state[14] as string) ?? "",
         baro_alt: mapped?.baro_alt ?? 0,
         geo_alt: mapped?.geo_alt ?? 0,
         last_contact: state[4],
-        category: state[17] ?? 0,
+        category: (state[17] as number) ?? 0,
         waypoints: track?.path ?? null,
       };
 
