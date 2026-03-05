@@ -13,7 +13,6 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
     flights,
     selectedFlight,
     selectedFlightId,
-    hoveredFlight,
     loading,
     error,
     detailLoading,
@@ -42,10 +41,10 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         onSelectFlight={handleSelectFlight}
         onHoverFlight={hoverFlight}
       />
-      {(selectedFlightId || hoveredFlight) && (
+      {selectedFlightId && (
         <FlightDetailPanel
           detail={selectedFlight}
-          liveFlight={liveFlight ?? hoveredFlight}
+          liveFlight={liveFlight}
           loading={detailLoading}
           onClose={clearSelection}
         />
