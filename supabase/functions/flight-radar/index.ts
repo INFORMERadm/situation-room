@@ -22,12 +22,15 @@ function errorResponse(message: string, status = 500) {
 }
 
 async function fr24Fetch(endpoint: string, params: Record<string, string> = {}) {
+  if (!FR24_TOKEN) {
+    throw new Error("FR24_API_TOKEN not configured");
+  }
   const url = new URL(`${FR24_BASE}${endpoint}`);
   for (const [k, v] of Object.entries(params)) {
     if (v) url.searchParams.set(k, v);
   }
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     const res = await fetch(url.toString(), {
       headers: {
@@ -40,7 +43,7 @@ async function fr24Fetch(endpoint: string, params: Record<string, string> = {}) 
     clearTimeout(timeout);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(`FR24 ${endpoint}: ${res.status} ${text}`);
+      throw new Error(`FR24 ${res.status}: ${text || res.statusText}`);
     }
     return res.json();
   } catch (err) {
@@ -61,11 +64,20 @@ Deno.serve(async (req: Request) => {
     if (feed === "live-flights") {
       const bounds = url.searchParams.get("bounds") ?? "";
       const limit = url.searchParams.get("limit") ?? "1500";
+      const variant = url.searchParams.get("variant") ?? "light";
       const params: Record<string, string> = { limit };
       if (bounds) params.bounds = bounds;
 
-      const data = await fr24Fetch("/live/flight-positions/full", params);
-      return jsonResponse({ flights: data?.data ?? [] });
+      try {
+        const data = await fr24Fetch(`/live/flight-positions/${variant}`, params);
+        return jsonResponse({ flights: data?.data ?? [] });
+      } catch (firstErr) {
+        if (variant === "full") {
+          const data = await fr24Fetch("/live/flight-positions/light", params);
+          return jsonResponse({ flights: data?.data ?? [] });
+        }
+        throw firstErr;
+      }
     }
 
     if (feed === "flight-details") {
