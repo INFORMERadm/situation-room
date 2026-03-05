@@ -1,20 +1,34 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { LiveFlightPosition } from '../../types';
 
 import 'leaflet/dist/leaflet.css';
 
-function createPlaneIcon(heading: number, isSelected: boolean, isOnGround: boolean) {
+function buildPlaneSvg(heading: number, isSelected: boolean, isOnGround: boolean) {
   const color = isSelected ? '#ff9800' : isOnGround ? '#666' : '#2196f3';
   const size = isSelected ? 18 : 14;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" style="transform:rotate(${heading}deg)"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`;
+  return {
+    size,
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" style="transform:rotate(${heading}deg)"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
+  };
+}
+
+function createPlaneIcon(heading: number, isSelected: boolean, isOnGround: boolean) {
+  const { size, html } = buildPlaneSvg(heading, isSelected, isOnGround);
   return L.divIcon({
-    html: svg,
+    html,
     className: '',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
+}
+
+interface MarkerEntry {
+  marker: L.Marker;
+  heading: number;
+  isSelected: boolean;
+  isOnGround: boolean;
 }
 
 interface FlightMarkersProps {
@@ -25,41 +39,95 @@ interface FlightMarkersProps {
 
 function FlightMarkers({ flights, selectedFlightId, onSelect }: FlightMarkersProps) {
   const map = useMap();
-  const markersRef = useRef<L.Marker[]>([]);
+  const markerMapRef = useRef<Map<string, MarkerEntry>>(new Map());
+  const flightsRef = useRef(flights);
+  const selectedRef = useRef(selectedFlightId);
+  const onSelectRef = useRef(onSelect);
+  const throttleRef = useRef(0);
 
-  useEffect(() => {
-    markersRef.current.forEach(m => m.remove());
-    markersRef.current = [];
+  flightsRef.current = flights;
+  selectedRef.current = selectedFlightId;
+  onSelectRef.current = onSelect;
 
+  const syncMarkers = useCallback(() => {
+    const now = performance.now();
+    if (now - throttleRef.current < 50) return;
+    throttleRef.current = now;
+
+    const currentFlights = flightsRef.current;
+    const selected = selectedRef.current;
     const bounds = map.getBounds();
-    const visible = flights.filter(f => bounds.contains([f.latitude, f.longitude]));
+    const existing = markerMapRef.current;
 
-    const toRender = visible;
+    const activeIds = new Set<string>();
 
-    toRender.forEach(flight => {
-      const isSelected = flight.flightId === selectedFlightId;
-      const icon = createPlaneIcon(flight.heading, isSelected, flight.isOnGround);
-      const marker = L.marker([flight.latitude, flight.longitude], { icon })
-        .addTo(map);
+    for (const flight of currentFlights) {
+      if (!bounds.contains([flight.latitude, flight.longitude])) continue;
 
-      marker.on('click', () => onSelect(flight));
+      activeIds.add(flight.flightId);
+      const isSelected = flight.flightId === selected;
+      const entry = existing.get(flight.flightId);
 
-      markersRef.current.push(marker);
-    });
+      if (entry) {
+        entry.marker.setLatLng([flight.latitude, flight.longitude]);
 
-    return () => {
-      markersRef.current.forEach(m => m.remove());
-      markersRef.current = [];
-    };
-  }, [flights, selectedFlightId, map, onSelect]);
+        const headingChanged = Math.abs(entry.heading - flight.heading) > 3;
+        const selectionChanged = entry.isSelected !== isSelected;
+        const groundChanged = entry.isOnGround !== flight.isOnGround;
+
+        if (headingChanged || selectionChanged || groundChanged) {
+          entry.marker.setIcon(createPlaneIcon(flight.heading, isSelected, flight.isOnGround));
+          entry.heading = flight.heading;
+          entry.isSelected = isSelected;
+          entry.isOnGround = flight.isOnGround;
+        }
+      } else {
+        const icon = createPlaneIcon(flight.heading, isSelected, flight.isOnGround);
+        const marker = L.marker([flight.latitude, flight.longitude], { icon }).addTo(map);
+        const flightId = flight.flightId;
+        marker.on('click', () => {
+          const f = flightsRef.current.find(fl => fl.flightId === flightId);
+          if (f) onSelectRef.current(f);
+        });
+        existing.set(flight.flightId, {
+          marker,
+          heading: flight.heading,
+          isSelected,
+          isOnGround: flight.isOnGround,
+        });
+      }
+    }
+
+    for (const [id, entry] of existing) {
+      if (!activeIds.has(id)) {
+        entry.marker.remove();
+        existing.delete(id);
+      }
+    }
+  }, [map]);
 
   useEffect(() => {
-    const handler = () => {
-      map.fire('moveend');
+    syncMarkers();
+  }, [flights, selectedFlightId, syncMarkers]);
+
+  useEffect(() => {
+    const onMove = () => syncMarkers();
+    map.on('moveend', onMove);
+    map.on('zoomend', onMove);
+    return () => {
+      map.off('moveend', onMove);
+      map.off('zoomend', onMove);
     };
-    map.on('zoomend', handler);
-    return () => { map.off('zoomend', handler); };
-  }, [map]);
+  }, [map, syncMarkers]);
+
+  useEffect(() => {
+    return () => {
+      for (const [, entry] of markerMapRef.current) {
+        entry.marker.remove();
+      }
+      markerMapRef.current.clear();
+    };
+  }, []);
 
   return null;
 }
