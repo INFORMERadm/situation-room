@@ -443,7 +443,10 @@ export async function fetchLiveFlights(bounds?: string) {
   const params = new URLSearchParams({ feed: 'live-flights' });
   if (bounds) params.set('bounds', bounds);
   const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers });
-  if (!res.ok) throw new Error(`Live flights failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Live flights failed: ${res.status} ${body}`);
+  }
   const json = await res.json();
   return json.flights ?? [];
 }
