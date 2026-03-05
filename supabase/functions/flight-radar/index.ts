@@ -14,9 +14,6 @@ const OPENSKY_TOKEN_URL =
   "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
 const OPENSKY_API = "https://opensky-network.org/api";
 
-const FR24_API_TOKEN = Deno.env.get("FR24_API_TOKEN") ?? "";
-const FR24_API_BASE = "https://fr24api.flightradar24.com";
-
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
@@ -279,7 +276,6 @@ function lookupAirport(icao: string) {
 interface CachedDetail {
   callsign: string;
   icao24: string;
-  fr24_id: string;
   flight: string;
   aircraft_type: string;
   registration: string;
@@ -331,59 +327,6 @@ async function setCachedDetail(detail: Omit<CachedDetail, "cached_at">): Promise
   }
 }
 
-interface FR24Flight {
-  fr24_id?: string;
-  flight?: string;
-  callsign?: string;
-  hex?: string;
-  type?: string;
-  reg?: string;
-  painted_as?: string;
-  operating_as?: string;
-  orig_iata?: string;
-  orig_icao?: string;
-  dest_iata?: string;
-  dest_icao?: string;
-  eta?: string;
-  [key: string]: unknown;
-}
-
-async function fetchFR24Details(callsign: string): Promise<FR24Flight | null> {
-  if (!FR24_API_TOKEN || !callsign) return null;
-
-  try {
-    const url = `${FR24_API_BASE}/api/live/flight-positions/full?callsigns=${encodeURIComponent(callsign)}&limit=1`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    const res = await fetch(url, {
-      headers: {
-        "Authorization": `Bearer ${FR24_API_TOKEN}`,
-        "Accept-Version": "v1",
-        "Accept": "application/json",
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error(`FR24 error ${res.status}: ${text}`);
-      return null;
-    }
-
-    const json = await res.json();
-    const flights = json?.data ?? json;
-    if (Array.isArray(flights) && flights.length > 0) {
-      return flights[0] as FR24Flight;
-    }
-    return null;
-  } catch (err) {
-    console.error("FR24 fetch failed:", err);
-    return null;
-  }
-}
-
 interface OpenSkyRoute {
   estDepartureAirport: string | null;
   estArrivalAirport: string | null;
@@ -414,17 +357,16 @@ function buildDetailResponse(
   icao24: string,
   callsign: string,
   cached: CachedDetail | null,
-  fr24: FR24Flight | null,
   openSkyRoute: OpenSkyRoute | null,
 ) {
-  const origIcao = fr24?.orig_icao || cached?.orig_icao || openSkyRoute?.estDepartureAirport || "";
-  const destIcao = fr24?.dest_icao || cached?.dest_icao || openSkyRoute?.estArrivalAirport || "";
-  const origIata = fr24?.orig_iata || cached?.orig_iata || "";
-  const destIata = fr24?.dest_iata || cached?.dest_iata || "";
+  const origIcao = cached?.orig_icao || openSkyRoute?.estDepartureAirport || "";
+  const destIcao = cached?.dest_icao || openSkyRoute?.estArrivalAirport || "";
+  const origIata = cached?.orig_iata || "";
+  const destIata = cached?.dest_iata || "";
   const origAirport = lookupAirport(origIcao);
   const destAirport = lookupAirport(destIcao);
 
-  const operatingAs = fr24?.operating_as || cached?.operating_as || "";
+  const operatingAs = cached?.operating_as || "";
   const airlineName = operatingAs
     ? (AIRLINES[operatingAs.toUpperCase()] || operatingAs)
     : lookupAirline(callsign);
@@ -432,12 +374,11 @@ function buildDetailResponse(
   return {
     icao24,
     callsign,
-    fr24_id: fr24?.fr24_id || cached?.fr24_id || "",
-    flight: fr24?.flight || cached?.flight || callsign,
-    aircraft_type: fr24?.type || cached?.aircraft_type || "",
-    registration: fr24?.reg || cached?.registration || "",
+    flight: cached?.flight || callsign,
+    aircraft_type: cached?.aircraft_type || "",
+    registration: cached?.registration || "",
     operating_as: operatingAs,
-    painted_as: fr24?.painted_as || cached?.painted_as || "",
+    painted_as: cached?.painted_as || "",
     airline: airlineName,
     orig_iata: origIata || origAirport?.iata || "",
     orig_icao: origIcao,
@@ -449,8 +390,8 @@ function buildDetailResponse(
     dest_name: destAirport?.name || "",
     dest_city: destAirport?.city || "",
     dest_country: destAirport?.country || "",
-    eta: fr24?.eta || cached?.eta || "",
-    source: fr24 ? "fr24" : cached ? "cache" : openSkyRoute ? "opensky" : "basic",
+    eta: cached?.eta || "",
+    source: cached ? "cache" : openSkyRoute ? "opensky" : "basic",
   };
 }
 
@@ -503,27 +444,20 @@ Deno.serve(async (req: Request) => {
       try {
         const cached = callsign ? await getCachedDetail(callsign) : null;
         if (cached) {
-          const detail = buildDetailResponse(flightId, callsign, cached, null, null);
+          const detail = buildDetailResponse(flightId, callsign, cached, null);
           return jsonResponse({ details: detail });
         }
 
-        const [fr24Result, openSkyRoute] = await Promise.allSettled([
-          callsign ? fetchFR24Details(callsign) : Promise.resolve(null),
-          fetchOpenSkyRoute(flightId),
-        ]);
+        const openSkyRoute = await fetchOpenSkyRoute(flightId);
 
-        const fr24 = fr24Result.status === "fulfilled" ? fr24Result.value : null;
-        const osRoute = openSkyRoute.status === "fulfilled" ? openSkyRoute.value : null;
+        const effectiveCallsign = callsign || openSkyRoute?.callsign?.toString().trim() || "";
 
-        const effectiveCallsign = callsign || fr24?.callsign?.toString().trim() || osRoute?.callsign?.toString().trim() || "";
+        const detail = buildDetailResponse(flightId, effectiveCallsign, null, openSkyRoute);
 
-        const detail = buildDetailResponse(flightId, effectiveCallsign, null, fr24, osRoute);
-
-        if (effectiveCallsign && (fr24 || osRoute)) {
+        if (effectiveCallsign && openSkyRoute) {
           const cacheEntry = {
             callsign: effectiveCallsign,
             icao24: flightId,
-            fr24_id: detail.fr24_id,
             flight: detail.flight,
             aircraft_type: detail.aircraft_type,
             registration: detail.registration,
@@ -534,7 +468,7 @@ Deno.serve(async (req: Request) => {
             dest_iata: detail.dest_iata,
             dest_icao: detail.dest_icao,
             eta: detail.eta || null,
-            data: fr24 ? (fr24 as Record<string, unknown>) : {},
+            data: {},
           };
           EdgeRuntime.waitUntil(setCachedDetail(cacheEntry));
         }
