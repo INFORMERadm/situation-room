@@ -7,11 +7,56 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const OPENSKY_USER = Deno.env.get("OPENSKY_CLIENT_ID") ?? "";
-const OPENSKY_PASS = Deno.env.get("OPENSKY_CLIENT_SECRET") ?? "";
+const OPENSKY_CLIENT_ID = Deno.env.get("OPENSKY_CLIENT_ID") ?? "";
+const OPENSKY_CLIENT_SECRET = Deno.env.get("OPENSKY_CLIENT_SECRET") ?? "";
 const OPENSKY_BASE = "https://opensky-network.org/api";
+const OPENSKY_TOKEN_URL =
+  "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
 
-const basicAuth = btoa(`${OPENSKY_USER}:${OPENSKY_PASS}`);
+let cachedToken: string | null = null;
+let tokenExpiresAt = 0;
+
+async function getAccessToken(): Promise<string | null> {
+  if (!OPENSKY_CLIENT_ID || !OPENSKY_CLIENT_SECRET) return null;
+
+  const now = Date.now();
+  if (cachedToken && tokenExpiresAt > now + 60_000) {
+    return cachedToken;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const res = await fetch(OPENSKY_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: OPENSKY_CLIENT_ID,
+        client_secret: OPENSKY_CLIENT_SECRET,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      console.error(`OpenSky token error ${res.status}`);
+      cachedToken = null;
+      return null;
+    }
+
+    const data = await res.json();
+    cachedToken = data.access_token;
+    tokenExpiresAt = now + (data.expires_in ?? 1800) * 1000;
+    return cachedToken;
+  } catch (err) {
+    clearTimeout(timeout);
+    console.error("OpenSky auth unreachable:", err instanceof Error ? err.message : err);
+    cachedToken = null;
+    return null;
+  }
+}
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -25,14 +70,16 @@ function errorResponse(message: string, status = 500) {
 }
 
 async function openskyFetch(endpoint: string, params: Record<string, string> = {}) {
+  const token = await getAccessToken();
+
   const url = new URL(`${OPENSKY_BASE}${endpoint}`);
   for (const [k, v] of Object.entries(params)) {
     if (v) url.searchParams.set(k, v);
   }
 
   const headers: Record<string, string> = { Accept: "application/json" };
-  if (OPENSKY_USER && OPENSKY_PASS) {
-    headers.Authorization = `Basic ${basicAuth}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const controller = new AbortController();
@@ -118,11 +165,18 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const data = await openskyFetch("/states/all", params);
-      const states: unknown[][] = data?.states ?? [];
-      const flights = states
-        .map(mapStateToFlight)
-        .filter((f): f is NonNullable<typeof f> => f !== null);
+      let flights: ReturnType<typeof mapStateToFlight>[] = [];
+      try {
+        const data = await openskyFetch("/states/all", params);
+        const states: unknown[][] = data?.states ?? [];
+        flights = states
+          .map(mapStateToFlight)
+          .filter((f): f is NonNullable<typeof f> => f !== null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("Live flights fetch error:", msg);
+        return jsonResponse({ flights: [], error: msg, partial: true });
+      }
 
       return jsonResponse({ flights });
     }
