@@ -59,10 +59,14 @@ async function fetchWithRetry(
   options: RequestInit,
   retries = 1,
   delay = 1500,
+  timeoutMs = 30000,
 ): Promise<Response> {
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, options);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
       if (res.ok || attempt === retries) return res;
       if (res.status === 401) {
         const token = await refreshTokenOnce();
@@ -77,11 +81,27 @@ async function fetchWithRetry(
         }
       }
     } catch (err) {
+      clearTimeout(timer);
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        if (attempt === retries) throw new Error('Request timed out');
+      }
       if (attempt === retries) throw err;
     }
     await new Promise(r => setTimeout(r, delay));
   }
-  return fetch(url, options);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    throw err;
+  }
 }
 
 export async function fetchFeed(feed: string) {
