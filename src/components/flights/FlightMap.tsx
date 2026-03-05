@@ -44,8 +44,7 @@ function FlightMarkers({ flights, selectedFlightId, onSelect, onHover }: FlightM
     const bounds = map.getBounds();
     const visible = flights.filter(f => bounds.contains([f.latitude, f.longitude]));
 
-    const maxMarkers = 800;
-    const toRender = visible.length > maxMarkers ? visible.slice(0, maxMarkers) : visible;
+    const toRender = visible;
 
     toRender.forEach(flight => {
       const isSelected = flight.flightId === selectedFlightId;
