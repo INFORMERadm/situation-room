@@ -437,3 +437,24 @@ export async function fetchWebSearchSources(sessionId: string) {
   const json = await res.json();
   return json.searchResult ?? null;
 }
+
+export async function fetchLiveFlights(bounds?: string) {
+  const headers = await getAuthHeaders();
+  const params = new URLSearchParams({ feed: 'live-flights' });
+  if (bounds) params.set('bounds', bounds);
+  const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers });
+  if (!res.ok) throw new Error(`Live flights failed: ${res.status}`);
+  const json = await res.json();
+  return json.flights ?? [];
+}
+
+export async function fetchFlightDetails(flightId: string) {
+  const headers = await getAuthHeaders();
+  const res = await fetchWithRetry(
+    `${API_BASE}/flight-radar?feed=flight-details&flightId=${encodeURIComponent(flightId)}`,
+    { headers },
+  );
+  if (!res.ok) throw new Error(`Flight details failed: ${res.status}`);
+  const json = await res.json();
+  return json.details ?? null;
+}

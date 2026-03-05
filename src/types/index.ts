@@ -177,3 +177,48 @@ export interface SearchProgress {
   count?: number;
   completed?: number;
 }
+
+export interface LiveFlightPosition {
+  flightId: string;
+  callsign: string;
+  registration: string;
+  aircraftType: string;
+  airlineName: string;
+  airlineIcao: string;
+  latitude: number;
+  longitude: number;
+  altitude: number;
+  groundSpeed: number;
+  heading: number;
+  verticalSpeed: number;
+  originIata: string;
+  originName: string;
+  destinationIata: string;
+  destinationName: string;
+  flightNumber: string;
+  squawk: string;
+  isOnGround: boolean;
+  timestamp: number;
+}
+
+export interface FlightDetail {
+  flightId: string;
+  callsign: string;
+  flightNumber: string;
+  registration: string;
+  aircraftType: string;
+  airlineName: string;
+  originIata: string;
+  originIcao: string;
+  originName: string;
+  originCity: string;
+  originCountry: string;
+  destinationIata: string;
+  destinationIcao: string;
+  destinationName: string;
+  destinationCity: string;
+  destinationCountry: string;
+  departureTime: string;
+  arrivalTime: string;
+  status: string;
+}
