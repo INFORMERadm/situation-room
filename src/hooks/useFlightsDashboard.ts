@@ -14,52 +14,43 @@ interface RawFlightData {
   vspd?: number;
   reg?: string;
   type?: string;
-  airline_name?: string;
-  airline_icao?: string;
+  painted_as?: string;
+  operating_as?: string;
   orig_iata?: string;
-  orig_name?: string;
+  orig_icao?: string;
   dest_iata?: string;
-  dest_name?: string;
+  dest_icao?: string;
+  eta?: string;
+  hex?: string;
   squawk?: string;
-  gnd?: boolean | number | string;
-  t?: number;
-  latitude?: number;
-  longitude?: number;
-  altitude?: number;
-  ground_speed?: number;
-  heading?: number;
-  vertical_speed?: number;
-  registration?: string;
-  aircraft_type?: string;
-  origin_airport_iata?: string;
-  destination_airport_iata?: string;
-  on_ground?: boolean;
-  timestamp?: number;
+  timestamp?: string;
+  source?: string;
   [key: string]: unknown;
 }
 
 function normalizeFlight(raw: RawFlightData, idx: number): LiveFlightPosition {
+  const alt = Number(raw.alt ?? 0);
   return {
-    flightId: String(raw.fr24_id ?? raw.flight ?? `fl-${idx}`),
-    callsign: String(raw.callsign ?? raw.flight ?? ''),
-    registration: String(raw.reg ?? raw.registration ?? ''),
-    aircraftType: String(raw.type ?? raw.aircraft_type ?? ''),
-    airlineName: String(raw.airline_name ?? ''),
-    airlineIcao: String(raw.airline_icao ?? ''),
-    latitude: Number(raw.lat ?? raw.latitude ?? 0),
-    longitude: Number(raw.lon ?? raw.longitude ?? 0),
-    altitude: Number(raw.alt ?? raw.altitude ?? 0),
-    groundSpeed: Number(raw.gspd ?? raw.ground_speed ?? 0),
-    heading: Number(raw.track ?? raw.heading ?? 0),
-    verticalSpeed: Number(raw.vspd ?? raw.vertical_speed ?? 0),
-    originIata: String(raw.orig_iata ?? raw.origin_airport_iata ?? ''),
-    originName: String(raw.orig_name ?? ''),
-    destinationIata: String(raw.dest_iata ?? raw.destination_airport_iata ?? ''),
-    destinationName: String(raw.dest_name ?? ''),
+    flightId: String(raw.fr24_id ?? `fl-${idx}`),
+    callsign: String(raw.callsign ?? ''),
+    registration: String(raw.reg ?? ''),
+    aircraftType: String(raw.type ?? ''),
+    airlineName: String(raw.painted_as ?? raw.operating_as ?? ''),
+    airlineIcao: String(raw.operating_as ?? ''),
+    latitude: Number(raw.lat ?? 0),
+    longitude: Number(raw.lon ?? 0),
+    altitude: alt,
+    groundSpeed: Number(raw.gspd ?? 0),
+    heading: Number(raw.track ?? 0),
+    verticalSpeed: Number(raw.vspd ?? 0),
+    originIata: String(raw.orig_iata ?? raw.orig_icao ?? ''),
+    originName: '',
+    destinationIata: String(raw.dest_iata ?? raw.dest_icao ?? ''),
+    destinationName: '',
     flightNumber: String(raw.flight ?? raw.callsign ?? ''),
     squawk: String(raw.squawk ?? ''),
-    isOnGround: Boolean(raw.gnd ?? raw.on_ground ?? false),
-    timestamp: Number(raw.t ?? raw.timestamp ?? Date.now() / 1000),
+    isOnGround: alt === 0,
+    timestamp: raw.timestamp ? new Date(raw.timestamp).getTime() / 1000 : Date.now() / 1000,
   };
 }
 

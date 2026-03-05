@@ -201,24 +201,45 @@ export interface LiveFlightPosition {
   timestamp: number;
 }
 
+export interface AirportInfo {
+  name: string;
+  iata: string;
+  icao: string;
+  city: string;
+  country: string;
+  timezone: string;
+  timezoneOffset: number;
+  lat: number;
+  lon: number;
+}
+
 export interface FlightDetail {
   flightId: string;
   callsign: string;
   flightNumber: string;
   registration: string;
   aircraftType: string;
-  airlineName: string;
+  operatingAs: string;
+  paintedAs: string;
   originIata: string;
   originIcao: string;
   originName: string;
   originCity: string;
   originCountry: string;
+  originTimezone: string;
   destinationIata: string;
   destinationIcao: string;
   destinationName: string;
   destinationCity: string;
   destinationCountry: string;
+  destinationTimezone: string;
   departureTime: string;
   arrivalTime: string;
+  flightTime: number | null;
+  actualDistance: number | null;
+  circleDistance: number | null;
+  category: string;
   status: string;
+  origin: AirportInfo | null;
+  destination: AirportInfo | null;
 }

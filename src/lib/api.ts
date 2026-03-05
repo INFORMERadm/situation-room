@@ -451,7 +451,7 @@ export async function fetchLiveFlights(bounds?: string) {
   return json.flights ?? [];
 }
 
-export async function fetchFlightDetails(flightId: string) {
+export async function fetchFlightDetails(flightId: string): Promise<import('../types').FlightDetail | null> {
   const headers = await getAuthHeaders();
   const res = await fetchWithRetry(
     `${API_BASE}/flight-radar?feed=flight-details&flightId=${encodeURIComponent(flightId)}`,
@@ -459,5 +459,63 @@ export async function fetchFlightDetails(flightId: string) {
   );
   if (!res.ok) throw new Error(`Flight details failed: ${res.status}`);
   const json = await res.json();
-  return json.details ?? null;
+  const d = json.details;
+  if (!d) return null;
+
+  const airports = json.airports ?? {};
+  const origCode = d.orig_iata || d.orig_icao || '';
+  const destCode = d.dest_iata || d.dest_icao || d.dest_iata_actual || d.dest_icao_actual || '';
+  const origAirport = airports[origCode] || null;
+  const destAirport = airports[destCode] || null;
+
+  function mapAirport(a: Record<string, unknown> | null): import('../types').AirportInfo | null {
+    if (!a) return null;
+    const tz = a.timezone as Record<string, unknown> | undefined;
+    const country = a.country as Record<string, unknown> | undefined;
+    return {
+      name: String(a.name ?? ''),
+      iata: String(a.iata ?? ''),
+      icao: String(a.icao ?? ''),
+      city: String(a.city ?? ''),
+      country: String(country?.name ?? ''),
+      timezone: String(tz?.name ?? ''),
+      timezoneOffset: Number(tz?.offset ?? 0),
+      lat: Number(a.lat ?? 0),
+      lon: Number(a.lon ?? 0),
+    };
+  }
+
+  const orig = mapAirport(origAirport);
+  const dest = mapAirport(destAirport);
+
+  return {
+    flightId: String(d.fr24_id ?? flightId),
+    callsign: String(d.callsign ?? ''),
+    flightNumber: String(d.flight ?? ''),
+    registration: String(d.reg ?? ''),
+    aircraftType: String(d.type ?? ''),
+    operatingAs: String(d.operating_as ?? ''),
+    paintedAs: String(d.painted_as ?? ''),
+    originIata: String(d.orig_iata ?? ''),
+    originIcao: String(d.orig_icao ?? ''),
+    originName: orig?.name ?? '',
+    originCity: orig?.city ?? '',
+    originCountry: orig?.country ?? '',
+    originTimezone: orig?.timezone ?? '',
+    destinationIata: String(d.dest_iata ?? d.dest_iata_actual ?? ''),
+    destinationIcao: String(d.dest_icao ?? d.dest_icao_actual ?? ''),
+    destinationName: dest?.name ?? '',
+    destinationCity: dest?.city ?? '',
+    destinationCountry: dest?.country ?? '',
+    destinationTimezone: dest?.timezone ?? '',
+    departureTime: String(d.datetime_takeoff ?? ''),
+    arrivalTime: String(d.datetime_landed ?? ''),
+    flightTime: d.flight_time ?? null,
+    actualDistance: d.actual_distance ?? null,
+    circleDistance: d.circle_distance ?? null,
+    category: String(d.category ?? ''),
+    status: d.flight_ended ? 'Landed' : d.datetime_takeoff ? 'In Flight' : 'Scheduled',
+    origin: orig,
+    destination: dest,
+  };
 }

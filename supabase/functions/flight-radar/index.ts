@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
     if (feed === "live-flights") {
       const bounds = url.searchParams.get("bounds") || "90,-90,-180,180";
       const limit = url.searchParams.get("limit") ?? "1500";
-      const variant = url.searchParams.get("variant") ?? "light";
+      const variant = url.searchParams.get("variant") ?? "full";
       const params: Record<string, string> = { bounds, limit };
 
       try {
@@ -83,10 +83,30 @@ Deno.serve(async (req: Request) => {
       const flightId = url.searchParams.get("flightId") ?? "";
       if (!flightId) return errorResponse("Missing flightId", 400);
 
-      const data = await fr24Fetch(`/flight-summary/light`, {
-        flights: flightId,
+      const summary = await fr24Fetch(`/flight-summary/full`, {
+        flight_ids: flightId,
       });
-      return jsonResponse({ details: data?.data?.[0] ?? null });
+      const detail = summary?.data?.[0] ?? null;
+
+      if (detail) {
+        const airportCodes = [
+          detail.orig_iata || detail.orig_icao,
+          detail.dest_iata || detail.dest_icao || detail.dest_iata_actual || detail.dest_icao_actual,
+        ].filter(Boolean);
+
+        const airports: Record<string, unknown> = {};
+        await Promise.all(
+          airportCodes.map(async (code: string) => {
+            try {
+              const info = await fr24Fetch(`/static/airports/${code}/full`);
+              airports[code] = info ?? null;
+            } catch { /* skip */ }
+          })
+        );
+        return jsonResponse({ details: detail, airports });
+      }
+
+      return jsonResponse({ details: null, airports: {} });
     }
 
     if (feed === "airport-info") {
