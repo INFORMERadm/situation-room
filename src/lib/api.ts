@@ -440,7 +440,7 @@ export async function fetchWebSearchSources(sessionId: string) {
 
 export async function fetchLiveFlights(bounds?: string) {
   const headers = await getAuthHeaders();
-  const params = new URLSearchParams({ feed: 'live-flights', limit: '5000' });
+  const params = new URLSearchParams({ feed: 'live-flights' });
   if (bounds) params.set('bounds', bounds);
   const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers });
   if (!res.ok) {
@@ -462,60 +462,36 @@ export async function fetchFlightDetails(flightId: string): Promise<import('../t
   const d = json.details;
   if (!d) return null;
 
-  const airports = json.airports ?? {};
-  const origCode = d.orig_iata || d.orig_icao || '';
-  const destCode = d.dest_iata || d.dest_icao || d.dest_iata_actual || d.dest_icao_actual || '';
-  const origAirport = airports[origCode] || null;
-  const destAirport = airports[destCode] || null;
-
-  function mapAirport(a: Record<string, unknown> | null): import('../types').AirportInfo | null {
-    if (!a) return null;
-    const tz = a.timezone as Record<string, unknown> | undefined;
-    const country = a.country as Record<string, unknown> | undefined;
-    return {
-      name: String(a.name ?? ''),
-      iata: String(a.iata ?? ''),
-      icao: String(a.icao ?? ''),
-      city: String(a.city ?? ''),
-      country: String(country?.name ?? ''),
-      timezone: String(tz?.name ?? ''),
-      timezoneOffset: Number(tz?.offset ?? 0),
-      lat: Number(a.lat ?? 0),
-      lon: Number(a.lon ?? 0),
-    };
-  }
-
-  const orig = mapAirport(origAirport);
-  const dest = mapAirport(destAirport);
+  const callsign = String(d.callsign ?? '').trim();
 
   return {
-    flightId: String(d.fr24_id ?? flightId),
-    callsign: String(d.callsign ?? ''),
-    flightNumber: String(d.flight ?? ''),
-    registration: String(d.reg ?? ''),
-    aircraftType: String(d.type ?? ''),
-    operatingAs: String(d.operating_as ?? ''),
-    paintedAs: String(d.painted_as ?? ''),
-    originIata: String(d.orig_iata ?? ''),
-    originIcao: String(d.orig_icao ?? ''),
-    originName: orig?.name ?? '',
-    originCity: orig?.city ?? '',
-    originCountry: orig?.country ?? '',
-    originTimezone: orig?.timezone ?? '',
-    destinationIata: String(d.dest_iata ?? d.dest_iata_actual ?? ''),
-    destinationIcao: String(d.dest_icao ?? d.dest_icao_actual ?? ''),
-    destinationName: dest?.name ?? '',
-    destinationCity: dest?.city ?? '',
-    destinationCountry: dest?.country ?? '',
-    destinationTimezone: dest?.timezone ?? '',
-    departureTime: String(d.datetime_takeoff ?? ''),
-    arrivalTime: String(d.datetime_landed ?? ''),
-    flightTime: d.flight_time ?? null,
-    actualDistance: d.actual_distance ?? null,
-    circleDistance: d.circle_distance ?? null,
+    flightId: String(d.icao24 ?? flightId),
+    callsign,
+    flightNumber: callsign,
+    registration: '',
+    aircraftType: '',
+    operatingAs: '',
+    paintedAs: '',
+    originIata: '',
+    originIcao: '',
+    originName: '',
+    originCity: '',
+    originCountry: String(d.origin_country ?? ''),
+    originTimezone: '',
+    destinationIata: '',
+    destinationIcao: '',
+    destinationName: '',
+    destinationCity: '',
+    destinationCountry: '',
+    destinationTimezone: '',
+    departureTime: '',
+    arrivalTime: '',
+    flightTime: null,
+    actualDistance: null,
+    circleDistance: null,
     category: String(d.category ?? ''),
-    status: d.flight_ended ? 'Landed' : d.datetime_takeoff ? 'In Flight' : 'Scheduled',
-    origin: orig,
-    destination: dest,
+    status: d.on_ground ? 'On Ground' : 'In Flight',
+    origin: null,
+    destination: null,
   };
 }

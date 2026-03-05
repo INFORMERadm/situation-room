@@ -3,58 +3,52 @@ import { fetchLiveFlights, fetchFlightDetails } from '../lib/api';
 import type { LiveFlightPosition, FlightDetail } from '../types';
 
 interface RawFlightData {
-  fr24_id?: string;
-  flight?: string;
+  icao24?: string;
   callsign?: string;
+  origin_country?: string;
   lat?: number;
   lon?: number;
   alt?: number;
   gspd?: number;
   track?: number;
   vspd?: number;
-  reg?: string;
-  type?: string;
-  painted_as?: string;
-  operating_as?: string;
-  orig_iata?: string;
-  orig_icao?: string;
-  dest_iata?: string;
-  dest_icao?: string;
-  eta?: string;
-  hex?: string;
+  on_ground?: boolean;
   squawk?: string;
-  timestamp?: string;
-  source?: string;
+  baro_alt?: number;
+  geo_alt?: number;
+  last_contact?: number;
+  category?: number;
   [key: string]: unknown;
 }
 
 function normalizeFlight(raw: RawFlightData, idx: number): LiveFlightPosition {
   const alt = Number(raw.alt ?? 0);
+  const callsign = String(raw.callsign ?? '').trim();
   return {
-    flightId: String(raw.fr24_id ?? `fl-${idx}`),
-    callsign: String(raw.callsign ?? ''),
-    registration: String(raw.reg ?? ''),
-    aircraftType: String(raw.type ?? ''),
-    airlineName: String(raw.painted_as ?? raw.operating_as ?? ''),
-    airlineIcao: String(raw.operating_as ?? ''),
+    flightId: String(raw.icao24 ?? `fl-${idx}`),
+    callsign,
+    registration: '',
+    aircraftType: '',
+    airlineName: String(raw.origin_country ?? ''),
+    airlineIcao: '',
     latitude: Number(raw.lat ?? 0),
     longitude: Number(raw.lon ?? 0),
     altitude: alt,
     groundSpeed: Number(raw.gspd ?? 0),
     heading: Number(raw.track ?? 0),
     verticalSpeed: Number(raw.vspd ?? 0),
-    originIata: String(raw.orig_iata ?? raw.orig_icao ?? ''),
+    originIata: '',
     originName: '',
-    destinationIata: String(raw.dest_iata ?? raw.dest_icao ?? ''),
+    destinationIata: '',
     destinationName: '',
-    flightNumber: String(raw.flight ?? raw.callsign ?? ''),
+    flightNumber: callsign,
     squawk: String(raw.squawk ?? ''),
-    isOnGround: alt === 0,
-    timestamp: raw.timestamp ? new Date(raw.timestamp).getTime() / 1000 : Date.now() / 1000,
+    isOnGround: raw.on_ground ?? alt === 0,
+    timestamp: raw.last_contact ?? Date.now() / 1000,
   };
 }
 
-const POLL_INTERVAL = 8000;
+const POLL_INTERVAL = 15000;
 
 export function useFlightsDashboard(active: boolean) {
   const [flights, setFlights] = useState<LiveFlightPosition[]>([]);
