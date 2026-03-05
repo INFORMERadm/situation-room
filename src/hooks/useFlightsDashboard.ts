@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveFlights } from '../lib/api';
+import { fetchLiveFlights, fetchFlightDetails } from '../lib/api';
 import type { LiveFlightPosition, FlightDetail } from '../types';
 
 interface RawFlightData {
@@ -57,7 +57,7 @@ export function useFlightsDashboard(active: boolean) {
   const [hoveredFlight, setHoveredFlight] = useState<LiveFlightPosition | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const detailLoading = false;
+  const [detailLoading, setDetailLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
 
@@ -108,41 +108,57 @@ export function useFlightsDashboard(active: boolean) {
   const selectFlight = useCallback((flightId: string) => {
     setSelectedFlightId(flightId);
     const live = flights.find(f => f.flightId === flightId);
-    if (live) {
-      const detail: FlightDetail = {
-        flightId: live.flightId,
-        callsign: live.callsign,
-        flightNumber: live.flightNumber || live.callsign,
-        registration: live.registration || '',
-        aircraftType: live.aircraftType || '',
-        operatingAs: '',
-        paintedAs: '',
-        originIata: live.originIata || '',
-        originIcao: '',
-        originName: live.originName || '',
-        originCity: '',
-        originCountry: live.airlineName || '',
-        originTimezone: '',
-        destinationIata: live.destinationIata || '',
-        destinationIcao: '',
-        destinationName: live.destinationName || '',
-        destinationCity: '',
-        destinationCountry: '',
-        destinationTimezone: '',
-        departureTime: '',
-        arrivalTime: '',
-        flightTime: null,
-        actualDistance: null,
-        circleDistance: null,
-        category: '',
-        status: live.isOnGround ? 'On Ground' : 'In Flight',
-        origin: null,
-        destination: null,
-      };
-      setSelectedFlight(detail);
-    } else {
-      setSelectedFlight(null);
-    }
+
+    const baseFlight: FlightDetail = {
+      flightId,
+      callsign: live?.callsign || '',
+      flightNumber: live?.flightNumber || live?.callsign || '',
+      registration: '',
+      aircraftType: '',
+      operatingAs: '',
+      paintedAs: '',
+      originIata: '',
+      originIcao: '',
+      originName: '',
+      originCity: '',
+      originCountry: live?.airlineName || '',
+      originTimezone: '',
+      destinationIata: '',
+      destinationIcao: '',
+      destinationName: '',
+      destinationCity: '',
+      destinationCountry: '',
+      destinationTimezone: '',
+      departureTime: '',
+      arrivalTime: '',
+      flightTime: null,
+      actualDistance: null,
+      circleDistance: null,
+      category: '',
+      status: live?.isOnGround ? 'On Ground' : 'In Flight',
+      origin: null,
+      destination: null,
+    };
+    setSelectedFlight(baseFlight);
+
+    setDetailLoading(true);
+    fetchFlightDetails(flightId, live?.callsign)
+      .then((detail) => {
+        if (!mountedRef.current) return;
+        if (detail) {
+          setSelectedFlight(() => ({
+            ...baseFlight,
+            ...detail,
+            status: live?.isOnGround ? 'On Ground' : (detail.status || 'In Flight'),
+          }));
+        }
+      })
+      .catch((err) => {
+        console.error('Flight detail fetch failed:', err);
+      })
+      .finally(() => {
+        if (mountedRef.current) setDetailLoading(false);
+      });
   }, [flights]);
 
   const clearSelection = useCallback(() => {

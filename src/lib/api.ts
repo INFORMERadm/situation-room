@@ -451,10 +451,12 @@ export async function fetchLiveFlights(bounds?: string) {
   return json.flights ?? [];
 }
 
-export async function fetchFlightDetails(flightId: string): Promise<import('../types').FlightDetail | null> {
+export async function fetchFlightDetails(flightId: string, callsign?: string): Promise<import('../types').FlightDetail | null> {
   const headers = await getAuthHeaders();
+  const params = new URLSearchParams({ feed: 'flight-details', flightId });
+  if (callsign) params.set('callsign', callsign);
   const res = await fetchWithRetry(
-    `${API_BASE}/flight-radar?feed=flight-details&flightId=${encodeURIComponent(flightId)}`,
+    `${API_BASE}/flight-radar?${params.toString()}`,
     { headers },
   );
   if (!res.ok) throw new Error(`Flight details failed: ${res.status}`);
@@ -462,35 +464,35 @@ export async function fetchFlightDetails(flightId: string): Promise<import('../t
   const d = json.details;
   if (!d) return null;
 
-  const callsign = String(d.callsign ?? '').trim();
+  const cs = String(d.callsign ?? callsign ?? '').trim();
 
   return {
     flightId: String(d.icao24 ?? flightId),
-    callsign,
-    flightNumber: String(d.flight ?? callsign).trim(),
-    registration: String(d.reg ?? ''),
-    aircraftType: String(d.type ?? ''),
-    operatingAs: String(d.operating_as ?? ''),
-    paintedAs: String(d.painted_as ?? ''),
+    callsign: cs,
+    flightNumber: cs,
+    registration: '',
+    aircraftType: '',
+    operatingAs: String(d.airline ?? ''),
+    paintedAs: '',
     originIata: String(d.orig_iata ?? ''),
     originIcao: String(d.orig_icao ?? ''),
-    originName: '',
-    originCity: '',
-    originCountry: String(d.origin_country ?? ''),
+    originName: String(d.orig_name ?? ''),
+    originCity: String(d.orig_city ?? ''),
+    originCountry: String(d.orig_country ?? ''),
     originTimezone: '',
     destinationIata: String(d.dest_iata ?? ''),
     destinationIcao: String(d.dest_icao ?? ''),
-    destinationName: '',
-    destinationCity: '',
-    destinationCountry: '',
+    destinationName: String(d.dest_name ?? ''),
+    destinationCity: String(d.dest_city ?? ''),
+    destinationCountry: String(d.dest_country ?? ''),
     destinationTimezone: '',
-    departureTime: '',
-    arrivalTime: '',
-    flightTime: null,
+    departureTime: String(d.departure_time ?? ''),
+    arrivalTime: String(d.arrival_time ?? ''),
+    flightTime: d.flight_time ?? null,
     actualDistance: null,
     circleDistance: null,
-    category: String(d.category ?? ''),
-    status: d.on_ground ? 'On Ground' : 'In Flight',
+    category: '',
+    status: 'In Flight',
     origin: null,
     destination: null,
   };
