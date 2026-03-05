@@ -62,11 +62,10 @@ Deno.serve(async (req: Request) => {
     const feed = url.searchParams.get("feed") ?? "";
 
     if (feed === "live-flights") {
-      const bounds = url.searchParams.get("bounds") ?? "";
+      const bounds = url.searchParams.get("bounds") || "90,-90,-180,180";
       const limit = url.searchParams.get("limit") ?? "1500";
       const variant = url.searchParams.get("variant") ?? "light";
-      const params: Record<string, string> = { limit };
-      if (bounds) params.bounds = bounds;
+      const params: Record<string, string> = { bounds, limit };
 
       try {
         const data = await fr24Fetch(`/live/flight-positions/${variant}`, params);
