@@ -30,10 +30,9 @@ interface FlightMarkersProps {
   flights: LiveFlightPosition[];
   selectedFlightId: string | null;
   onSelect: (flight: LiveFlightPosition) => void;
-  onHover: (flight: LiveFlightPosition | null) => void;
 }
 
-function FlightMarkers({ flights, selectedFlightId, onSelect, onHover }: FlightMarkersProps) {
+function FlightMarkers({ flights, selectedFlightId, onSelect }: FlightMarkersProps) {
   const map = useMap();
   const markersRef = useRef<L.Marker[]>([]);
 
@@ -64,16 +63,14 @@ function FlightMarkers({ flights, selectedFlightId, onSelect, onHover }: FlightM
         ${flight.aircraftType ? `<div style="color:#666;font-size:10px">${flight.aircraftType} ${flight.registration ? `· ${flight.registration}` : ''}</div>` : ''}
       </div>`;
 
-      marker.bindTooltip(tooltipContent, {
-        direction: 'top',
-        offset: [0, -8],
+      marker.bindPopup(tooltipContent, {
         className: 'flight-tooltip',
-        opacity: 1,
+        closeButton: false,
+        offset: [0, -8],
+        autoPan: false,
       });
 
       marker.on('click', () => onSelect(flight));
-      marker.on('mouseover', () => onHover(flight));
-      marker.on('mouseout', () => onHover(null));
 
       markersRef.current.push(marker);
     });
@@ -82,7 +79,7 @@ function FlightMarkers({ flights, selectedFlightId, onSelect, onHover }: FlightM
       markersRef.current.forEach(m => m.remove());
       markersRef.current = [];
     };
-  }, [flights, selectedFlightId, map, onSelect, onHover]);
+  }, [flights, selectedFlightId, map, onSelect]);
 
   useEffect(() => {
     const handler = () => {
@@ -101,7 +98,6 @@ interface FlightMapProps {
   loading: boolean;
   error: string | null;
   onSelectFlight: (flight: LiveFlightPosition) => void;
-  onHoverFlight: (flight: LiveFlightPosition | null) => void;
 }
 
 export default function FlightMap({
@@ -110,7 +106,6 @@ export default function FlightMap({
   loading,
   error,
   onSelectFlight,
-  onHoverFlight,
 }: FlightMapProps) {
   const flightCount = useMemo(() => flights.length, [flights]);
 
@@ -134,7 +129,6 @@ export default function FlightMap({
           flights={flights}
           selectedFlightId={selectedFlightId}
           onSelect={onSelectFlight}
-          onHover={onHoverFlight}
         />
       </MapContainer>
 
@@ -200,16 +194,19 @@ export default function FlightMap({
       </div>
 
       <style>{`
-        .flight-tooltip {
+        .flight-tooltip .leaflet-popup-content-wrapper {
           background: rgba(10,10,10,0.95) !important;
           border: 1px solid #333 !important;
           border-radius: 6px !important;
-          padding: 8px 10px !important;
           box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
           color: #fff !important;
         }
-        .flight-tooltip::before {
-          border-top-color: #333 !important;
+        .flight-tooltip .leaflet-popup-content {
+          margin: 8px 10px !important;
+        }
+        .flight-tooltip .leaflet-popup-tip {
+          background: rgba(10,10,10,0.95) !important;
+          border: 1px solid #333 !important;
         }
         .leaflet-container {
           background: #0a0a0a !important;

@@ -18,7 +18,6 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
     detailLoading,
     selectFlight,
     clearSelection,
-    hoverFlight,
   } = useFlightsDashboard(active);
 
   const handleSelectFlight = useCallback((flight: LiveFlightPosition) => {
@@ -39,7 +38,6 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         loading={loading}
         error={error}
         onSelectFlight={handleSelectFlight}
-        onHoverFlight={hoverFlight}
       />
       {selectedFlightId && (
         <FlightDetailPanel
