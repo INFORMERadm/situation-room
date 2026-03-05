@@ -66,3 +66,5 @@ I don't just want it to work — I want it to be something I'm proud to show peo
 This is real. Not a mockup. Not a prototype. A working product.
 Keep me in control and in the loop at all times
 Never change existing configurations without discussing with me first
+
+!IMPORTANT: When fixing bugs, always read the .md files in the docs folder first!!
