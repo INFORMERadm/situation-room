@@ -7,56 +7,8 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const OPENSKY_CLIENT_ID = Deno.env.get("OPENSKY_CLIENT_ID") ?? "";
-const OPENSKY_CLIENT_SECRET = Deno.env.get("OPENSKY_CLIENT_SECRET") ?? "";
-const OPENSKY_BASE = "https://opensky-network.org/api";
-const OPENSKY_TOKEN_URL =
-  "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
-
-let cachedToken: string | null = null;
-let tokenExpiresAt = 0;
-
-async function getAccessToken(): Promise<string | null> {
-  if (!OPENSKY_CLIENT_ID || !OPENSKY_CLIENT_SECRET) return null;
-
-  const now = Date.now();
-  if (cachedToken && tokenExpiresAt > now + 60_000) {
-    return cachedToken;
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const res = await fetch(OPENSKY_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "client_credentials",
-        client_id: OPENSKY_CLIENT_ID,
-        client_secret: OPENSKY_CLIENT_SECRET,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      console.error(`OpenSky token error ${res.status}`);
-      cachedToken = null;
-      return null;
-    }
-
-    const data = await res.json();
-    cachedToken = data.access_token;
-    tokenExpiresAt = now + (data.expires_in ?? 1800) * 1000;
-    return cachedToken;
-  } catch (err) {
-    clearTimeout(timeout);
-    console.error("OpenSky auth unreachable:", err instanceof Error ? err.message : err);
-    cachedToken = null;
-    return null;
-  }
-}
+const FR24_API_TOKEN = Deno.env.get("FR24_API_TOKEN") ?? "";
+const FR24_BASE = "https://fr24api.flightradar24.com/api";
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -69,27 +21,27 @@ function errorResponse(message: string, status = 500) {
   return jsonResponse({ error: message }, status);
 }
 
-async function openskyFetch(endpoint: string, params: Record<string, string> = {}) {
-  const token = await getAccessToken();
-
-  const url = new URL(`${OPENSKY_BASE}${endpoint}`);
+async function fr24Fetch(endpoint: string, params: Record<string, string> = {}) {
+  const url = new URL(`${FR24_BASE}${endpoint}`);
   for (const [k, v] of Object.entries(params)) {
     if (v) url.searchParams.set(k, v);
-  }
-
-  const headers: Record<string, string> = { Accept: "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
   }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
   try {
-    const res = await fetch(url.toString(), { headers, signal: controller.signal });
+    const res = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "Accept-Version": "v1",
+        Authorization: `Bearer ${FR24_API_TOKEN}`,
+      },
+      signal: controller.signal,
+    });
     clearTimeout(timeout);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(`OpenSky ${res.status}: ${text || res.statusText}`);
+      throw new Error(`FR24 ${res.status}: ${text || res.statusText}`);
     }
     return res.json();
   } catch (err) {
@@ -98,47 +50,83 @@ async function openskyFetch(endpoint: string, params: Record<string, string> = {
   }
 }
 
-function metersToFeet(m: number | null): number {
-  if (m === null || m === undefined) return 0;
-  return Math.round(m * 3.28084);
+interface FR24PositionLight {
+  fr24_id: string;
+  hex: string;
+  callsign: string;
+  lat: number;
+  lon: number;
+  track: number;
+  alt: number;
+  gspeed: number;
+  vspeed: number;
+  squawk: string;
+  timestamp: number;
+  source: string;
 }
 
-function msToKnots(ms: number | null): number {
-  if (ms === null || ms === undefined) return 0;
-  return Math.round(ms * 1.94384);
+interface FR24PositionFull extends FR24PositionLight {
+  flight: string;
+  type: string;
+  reg: string;
+  painted_as: string;
+  operating_as: string;
+  orig_iata: string;
+  orig_icao: string;
+  dest_iata: string;
+  dest_icao: string;
+  eta: number;
 }
 
-function msToFpm(ms: number | null): number {
-  if (ms === null || ms === undefined) return 0;
-  return Math.round(ms * 196.85);
-}
-
-function mapStateToFlight(s: unknown[]) {
-  const lat = s[6] as number | null;
-  const lon = s[5] as number | null;
-  if (lat === null || lon === null) return null;
-
-  const baroAlt = s[7] as number | null;
-  const geoAlt = s[13] as number | null;
-  const altMeters = baroAlt ?? geoAlt ?? 0;
-  const callsign = ((s[1] as string) ?? "").trim();
+function mapFR24ToFlight(p: FR24PositionLight) {
+  if (p.lat === 0 && p.lon === 0) return null;
 
   return {
-    icao24: s[0] as string,
-    callsign,
-    origin_country: s[2] as string,
-    lat,
-    lon,
-    alt: metersToFeet(altMeters),
-    gspd: msToKnots(s[9] as number | null),
-    track: (s[10] as number | null) ?? 0,
-    vspd: msToFpm(s[11] as number | null),
-    on_ground: s[8] as boolean,
-    squawk: (s[14] as string) ?? "",
-    geo_alt: metersToFeet(geoAlt),
-    baro_alt: metersToFeet(baroAlt),
-    last_contact: s[4] as number,
-    category: (s[17] as number) ?? 0,
+    icao24: p.hex ?? p.fr24_id,
+    callsign: (p.callsign ?? "").trim(),
+    origin_country: "",
+    lat: p.lat,
+    lon: p.lon,
+    alt: p.alt ?? 0,
+    gspd: p.gspeed ?? 0,
+    track: p.track ?? 0,
+    vspd: p.vspeed ?? 0,
+    on_ground: (p.alt ?? 0) <= 0,
+    squawk: p.squawk ?? "",
+    geo_alt: p.alt ?? 0,
+    baro_alt: p.alt ?? 0,
+    last_contact: p.timestamp ?? Math.floor(Date.now() / 1000),
+    category: 0,
+  };
+}
+
+function mapFR24FullToDetail(p: FR24PositionFull) {
+  return {
+    icao24: p.hex ?? p.fr24_id,
+    callsign: (p.callsign ?? "").trim(),
+    origin_country: "",
+    lat: p.lat,
+    lon: p.lon,
+    alt: p.alt ?? 0,
+    gspd: p.gspeed ?? 0,
+    track_heading: p.track ?? 0,
+    vspd: p.vspeed ?? 0,
+    on_ground: (p.alt ?? 0) <= 0,
+    squawk: p.squawk ?? "",
+    baro_alt: p.alt ?? 0,
+    geo_alt: p.alt ?? 0,
+    last_contact: p.timestamp ?? Math.floor(Date.now() / 1000),
+    category: 0,
+    flight: (p.flight ?? "").trim(),
+    type: p.type ?? "",
+    reg: p.reg ?? "",
+    painted_as: p.painted_as ?? "",
+    operating_as: p.operating_as ?? "",
+    orig_iata: p.orig_iata ?? "",
+    orig_icao: p.orig_icao ?? "",
+    dest_iata: p.dest_iata ?? "",
+    dest_icao: p.dest_icao ?? "",
+    waypoints: null,
   };
 }
 
@@ -152,29 +140,26 @@ Deno.serve(async (req: Request) => {
     const feed = url.searchParams.get("feed") ?? "";
 
     if (feed === "live-flights") {
-      const params: Record<string, string> = { extended: "1" };
+      const params: Record<string, string> = { limit: "1500" };
 
       const bounds = url.searchParams.get("bounds");
       if (bounds) {
         const parts = bounds.split(",").map((s) => s.trim());
         if (parts.length === 4) {
-          params.lamin = parts[1];
-          params.lamax = parts[0];
-          params.lomin = parts[2];
-          params.lomax = parts[3];
+          params.bounds = `${parts[0]},${parts[1]},${parts[2]},${parts[3]}`;
         }
       }
 
-      let flights: ReturnType<typeof mapStateToFlight>[] = [];
+      let flights: ReturnType<typeof mapFR24ToFlight>[] = [];
       try {
-        const data = await openskyFetch("/states/all", params);
-        const states: unknown[][] = data?.states ?? [];
-        flights = states
-          .map(mapStateToFlight)
+        const data = await fr24Fetch("/live/flight-positions/light", params);
+        const positions: FR24PositionLight[] = data?.data ?? data ?? [];
+        flights = (Array.isArray(positions) ? positions : [])
+          .map(mapFR24ToFlight)
           .filter((f): f is NonNullable<typeof f> => f !== null);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error("Live flights fetch error:", msg);
+        console.error("FR24 live flights error:", msg);
         return jsonResponse({ flights: [], error: msg, partial: true });
       }
 
@@ -182,52 +167,26 @@ Deno.serve(async (req: Request) => {
     }
 
     if (feed === "flight-details") {
-      const icao24 = url.searchParams.get("flightId") ?? "";
-      if (!icao24) return errorResponse("Missing flightId (icao24)", 400);
+      const flightId = url.searchParams.get("flightId") ?? "";
+      if (!flightId) return errorResponse("Missing flightId", 400);
 
-      const data = await openskyFetch("/states/all", {
-        icao24: icao24.toLowerCase(),
-        extended: "1",
-      });
-      const states: unknown[][] = data?.states ?? [];
-      const state = states[0] ?? null;
-
-      if (!state) {
-        return jsonResponse({ details: null });
-      }
-
-      const mapped = mapStateToFlight(state);
-
-      let track = null;
       try {
-        track = await openskyFetch("/tracks", {
-          icao24: icao24.toLowerCase(),
-          time: "0",
+        const data = await fr24Fetch("/live/flight-positions/full", {
+          flights: flightId,
         });
-      } catch {
-        // track endpoint can fail, not critical
+        const positions: FR24PositionFull[] = data?.data ?? data ?? [];
+        const pos = Array.isArray(positions) ? positions[0] : null;
+
+        if (!pos) {
+          return jsonResponse({ details: null });
+        }
+
+        return jsonResponse({ details: mapFR24FullToDetail(pos) });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("FR24 flight details error:", msg);
+        return jsonResponse({ details: null, error: msg });
       }
-
-      const detail = {
-        icao24: state[0],
-        callsign: ((state[1] as string) ?? "").trim(),
-        origin_country: state[2],
-        lat: state[6],
-        lon: state[5],
-        alt: mapped?.alt ?? 0,
-        gspd: mapped?.gspd ?? 0,
-        track_heading: mapped?.track ?? 0,
-        vspd: mapped?.vspd ?? 0,
-        on_ground: state[8],
-        squawk: (state[14] as string) ?? "",
-        baro_alt: mapped?.baro_alt ?? 0,
-        geo_alt: mapped?.geo_alt ?? 0,
-        last_contact: state[4],
-        category: (state[17] as number) ?? 0,
-        waypoints: track?.path ?? null,
-      };
-
-      return jsonResponse({ details: detail });
     }
 
     return errorResponse("Unknown feed: " + feed, 400);
