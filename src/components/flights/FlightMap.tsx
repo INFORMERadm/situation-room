@@ -129,6 +129,7 @@ export default function FlightMap({
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           subdomains="abcd"
+          className="flight-map-tiles"
         />
         <FlightMarkers
           flights={flights}

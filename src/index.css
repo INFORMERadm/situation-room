@@ -57,6 +57,10 @@ html, body, #root {
   background: transparent;
 }
 
+.flight-map-tiles {
+  filter: brightness(1.35) contrast(1.05);
+}
+
 @keyframes newsStreamIn {
   from {
     opacity: 0;
