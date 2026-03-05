@@ -101,6 +101,8 @@ Deno.serve(async (req: Request) => {
     return errorResponse("Unknown feed: " + feed, 400);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";
-    return errorResponse(message, 500);
+    const tokenLen = FR24_TOKEN.length;
+    const tokenPrefix = FR24_TOKEN.substring(0, 8);
+    return errorResponse(`${message} [token: ${tokenPrefix}..., len=${tokenLen}]`, 500);
   }
 });
