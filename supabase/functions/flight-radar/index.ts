@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.48.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,14 @@ const OPENSKY_TOKEN_URL =
   "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
 const OPENSKY_API = "https://opensky-network.org/api";
 
+const FR24_API_TOKEN = Deno.env.get("FR24_API_TOKEN") ?? "";
+const FR24_API_BASE = "https://fr24api.flightradar24.com";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
 
@@ -25,6 +34,10 @@ function jsonResponse(data: unknown, status = 200) {
 
 function errorResponse(message: string, status = 500) {
   return jsonResponse({ error: message }, status);
+}
+
+function getSupabase() {
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 }
 
 async function getOpenSkyToken(): Promise<string | null> {
@@ -77,14 +90,9 @@ async function fetchOpenSky(
     if (v) url.searchParams.set(k, v);
   }
 
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-
+  const headers: Record<string, string> = { Accept: "application/json" };
   const token = await getOpenSkyToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -94,7 +102,6 @@ async function fetchOpenSky(
       signal: controller.signal,
     });
     clearTimeout(timeout);
-
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`OpenSky ${res.status}: ${text || res.statusText}`);
@@ -187,36 +194,16 @@ const AIRPORTS: Record<string, { name: string; city: string; country: string; ia
   KCLT: { name: "Charlotte Douglas Intl", city: "Charlotte", country: "United States", iata: "CLT" },
   KDCA: { name: "Ronald Reagan Natl", city: "Washington D.C.", country: "United States", iata: "DCA" },
   KIAD: { name: "Washington Dulles Intl", city: "Washington D.C.", country: "United States", iata: "IAD" },
-  KBWI: { name: "Baltimore-Washington Intl", city: "Baltimore", country: "United States", iata: "BWI" },
-  KTPA: { name: "Tampa Intl", city: "Tampa", country: "United States", iata: "TPA" },
-  KFLL: { name: "Fort Lauderdale-Hollywood", city: "Fort Lauderdale", country: "United States", iata: "FLL" },
-  KSLC: { name: "Salt Lake City Intl", city: "Salt Lake City", country: "United States", iata: "SLC" },
-  KSNA: { name: "John Wayne Airport", city: "Santa Ana", country: "United States", iata: "SNA" },
-  KSAN: { name: "San Diego Intl", city: "San Diego", country: "United States", iata: "SAN" },
-  KAUS: { name: "Austin-Bergstrom Intl", city: "Austin", country: "United States", iata: "AUS" },
-  KPDX: { name: "Portland Intl", city: "Portland", country: "United States", iata: "PDX" },
-  KRDU: { name: "Raleigh-Durham Intl", city: "Raleigh", country: "United States", iata: "RDU" },
-  CYYZ: { name: "Toronto Pearson Intl", city: "Toronto", country: "Canada", iata: "YYZ" },
-  CYVR: { name: "Vancouver Intl", city: "Vancouver", country: "Canada", iata: "YVR" },
-  CYUL: { name: "Montreal-Trudeau Intl", city: "Montreal", country: "Canada", iata: "YUL" },
-  CYYC: { name: "Calgary Intl", city: "Calgary", country: "Canada", iata: "YYC" },
-  CYOW: { name: "Ottawa Macdonald-Cartier", city: "Ottawa", country: "Canada", iata: "YOW" },
   EGLL: { name: "Heathrow", city: "London", country: "United Kingdom", iata: "LHR" },
   EGKK: { name: "Gatwick", city: "London", country: "United Kingdom", iata: "LGW" },
   EGSS: { name: "Stansted", city: "London", country: "United Kingdom", iata: "STN" },
-  EGLC: { name: "London City", city: "London", country: "United Kingdom", iata: "LCY" },
   EGCC: { name: "Manchester", city: "Manchester", country: "United Kingdom", iata: "MAN" },
-  EGBB: { name: "Birmingham", city: "Birmingham", country: "United Kingdom", iata: "BHX" },
   EIDW: { name: "Dublin", city: "Dublin", country: "Ireland", iata: "DUB" },
   LFPG: { name: "Charles de Gaulle", city: "Paris", country: "France", iata: "CDG" },
   LFPO: { name: "Orly", city: "Paris", country: "France", iata: "ORY" },
-  LFMN: { name: "Nice Cote d'Azur", city: "Nice", country: "France", iata: "NCE" },
   EDDF: { name: "Frankfurt", city: "Frankfurt", country: "Germany", iata: "FRA" },
   EDDM: { name: "Munich", city: "Munich", country: "Germany", iata: "MUC" },
   EDDB: { name: "Berlin Brandenburg", city: "Berlin", country: "Germany", iata: "BER" },
-  EDDL: { name: "Dusseldorf", city: "Dusseldorf", country: "Germany", iata: "DUS" },
-  EDDK: { name: "Cologne Bonn", city: "Cologne", country: "Germany", iata: "CGN" },
-  EDDH: { name: "Hamburg", city: "Hamburg", country: "Germany", iata: "HAM" },
   EHAM: { name: "Amsterdam Schiphol", city: "Amsterdam", country: "Netherlands", iata: "AMS" },
   EBBR: { name: "Brussels", city: "Brussels", country: "Belgium", iata: "BRU" },
   LSZH: { name: "Zurich", city: "Zurich", country: "Switzerland", iata: "ZRH" },
@@ -224,14 +211,11 @@ const AIRPORTS: Record<string, { name: string; city: string; country: string; ia
   LOWW: { name: "Vienna Intl", city: "Vienna", country: "Austria", iata: "VIE" },
   LEMD: { name: "Adolfo Suarez Madrid-Barajas", city: "Madrid", country: "Spain", iata: "MAD" },
   LEBL: { name: "Barcelona El Prat", city: "Barcelona", country: "Spain", iata: "BCN" },
-  LEPA: { name: "Palma de Mallorca", city: "Palma", country: "Spain", iata: "PMI" },
   LPPT: { name: "Lisbon Humberto Delgado", city: "Lisbon", country: "Portugal", iata: "LIS" },
   LIRF: { name: "Rome Fiumicino", city: "Rome", country: "Italy", iata: "FCO" },
   LIMC: { name: "Milan Malpensa", city: "Milan", country: "Italy", iata: "MXP" },
-  LIPZ: { name: "Venice Marco Polo", city: "Venice", country: "Italy", iata: "VCE" },
   LGAV: { name: "Athens Intl", city: "Athens", country: "Greece", iata: "ATH" },
   LTFM: { name: "Istanbul", city: "Istanbul", country: "Turkey", iata: "IST" },
-  LTAI: { name: "Antalya", city: "Antalya", country: "Turkey", iata: "AYT" },
   EKCH: { name: "Copenhagen", city: "Copenhagen", country: "Denmark", iata: "CPH" },
   ESSA: { name: "Stockholm Arlanda", city: "Stockholm", country: "Sweden", iata: "ARN" },
   ENGM: { name: "Oslo Gardermoen", city: "Oslo", country: "Norway", iata: "OSL" },
@@ -239,26 +223,19 @@ const AIRPORTS: Record<string, { name: string; city: string; country: string; ia
   EPWA: { name: "Warsaw Chopin", city: "Warsaw", country: "Poland", iata: "WAW" },
   LKPR: { name: "Vaclav Havel Prague", city: "Prague", country: "Czech Republic", iata: "PRG" },
   LHBP: { name: "Budapest Liszt Ferenc", city: "Budapest", country: "Hungary", iata: "BUD" },
-  LROP: { name: "Bucharest Henri Coanda", city: "Bucharest", country: "Romania", iata: "OTP" },
   OMDB: { name: "Dubai Intl", city: "Dubai", country: "UAE", iata: "DXB" },
-  OMDW: { name: "Al Maktoum Intl", city: "Dubai", country: "UAE", iata: "DWC" },
   OMAA: { name: "Abu Dhabi Intl", city: "Abu Dhabi", country: "UAE", iata: "AUH" },
   OTHH: { name: "Hamad Intl", city: "Doha", country: "Qatar", iata: "DOH" },
   OEJN: { name: "King Abdulaziz Intl", city: "Jeddah", country: "Saudi Arabia", iata: "JED" },
   OERK: { name: "King Khalid Intl", city: "Riyadh", country: "Saudi Arabia", iata: "RUH" },
-  OBBI: { name: "Bahrain Intl", city: "Manama", country: "Bahrain", iata: "BAH" },
   OKBK: { name: "Kuwait Intl", city: "Kuwait City", country: "Kuwait", iata: "KWI" },
-  OIIE: { name: "Imam Khomeini Intl", city: "Tehran", country: "Iran", iata: "IKA" },
   OLBA: { name: "Rafic Hariri Intl", city: "Beirut", country: "Lebanon", iata: "BEY" },
   OJAQ: { name: "Queen Alia Intl", city: "Amman", country: "Jordan", iata: "AMM" },
   LLBG: { name: "Ben Gurion", city: "Tel Aviv", country: "Israel", iata: "TLV" },
   HECA: { name: "Cairo Intl", city: "Cairo", country: "Egypt", iata: "CAI" },
   GMMN: { name: "Mohammed V Intl", city: "Casablanca", country: "Morocco", iata: "CMN" },
-  DTTA: { name: "Tunis-Carthage", city: "Tunis", country: "Tunisia", iata: "TUN" },
   HAAB: { name: "Addis Ababa Bole", city: "Addis Ababa", country: "Ethiopia", iata: "ADD" },
   FAOR: { name: "O.R. Tambo Intl", city: "Johannesburg", country: "South Africa", iata: "JNB" },
-  FACT: { name: "Cape Town Intl", city: "Cape Town", country: "South Africa", iata: "CPT" },
-  DNMM: { name: "Murtala Muhammed Intl", city: "Lagos", country: "Nigeria", iata: "LOS" },
   HKJK: { name: "Jomo Kenyatta Intl", city: "Nairobi", country: "Kenya", iata: "NBO" },
   WSSS: { name: "Changi", city: "Singapore", country: "Singapore", iata: "SIN" },
   VTBS: { name: "Suvarnabhumi", city: "Bangkok", country: "Thailand", iata: "BKK" },
@@ -268,29 +245,24 @@ const AIRPORTS: Record<string, { name: string; city: string; country: string; ia
   RKSI: { name: "Incheon Intl", city: "Seoul", country: "South Korea", iata: "ICN" },
   ZBAA: { name: "Beijing Capital", city: "Beijing", country: "China", iata: "PEK" },
   ZSPD: { name: "Shanghai Pudong", city: "Shanghai", country: "China", iata: "PVG" },
-  ZGGG: { name: "Guangzhou Baiyun", city: "Guangzhou", country: "China", iata: "CAN" },
   RCTP: { name: "Taiwan Taoyuan Intl", city: "Taipei", country: "Taiwan", iata: "TPE" },
   RPLL: { name: "Ninoy Aquino Intl", city: "Manila", country: "Philippines", iata: "MNL" },
   WMKK: { name: "Kuala Lumpur Intl", city: "Kuala Lumpur", country: "Malaysia", iata: "KUL" },
   WIII: { name: "Soekarno-Hatta Intl", city: "Jakarta", country: "Indonesia", iata: "CGK" },
   VIDP: { name: "Indira Gandhi Intl", city: "New Delhi", country: "India", iata: "DEL" },
   VABB: { name: "Chhatrapati Shivaji Intl", city: "Mumbai", country: "India", iata: "BOM" },
-  VOBL: { name: "Kempegowda Intl", city: "Bengaluru", country: "India", iata: "BLR" },
   YSSY: { name: "Sydney Kingsford Smith", city: "Sydney", country: "Australia", iata: "SYD" },
   YMML: { name: "Melbourne Tullamarine", city: "Melbourne", country: "Australia", iata: "MEL" },
-  YBBN: { name: "Brisbane", city: "Brisbane", country: "Australia", iata: "BNE" },
   NZAA: { name: "Auckland", city: "Auckland", country: "New Zealand", iata: "AKL" },
   MMMX: { name: "Mexico City Intl", city: "Mexico City", country: "Mexico", iata: "MEX" },
-  MMUN: { name: "Cancun Intl", city: "Cancun", country: "Mexico", iata: "CUN" },
   SBGR: { name: "Sao Paulo Guarulhos", city: "Sao Paulo", country: "Brazil", iata: "GRU" },
   SCEL: { name: "Santiago Intl", city: "Santiago", country: "Chile", iata: "SCL" },
   SKBO: { name: "El Dorado Intl", city: "Bogota", country: "Colombia", iata: "BOG" },
-  SPJC: { name: "Jorge Chavez Intl", city: "Lima", country: "Peru", iata: "LIM" },
   SAEZ: { name: "Ezeiza Intl", city: "Buenos Aires", country: "Argentina", iata: "EZE" },
-  MPPA: { name: "Tocumen Intl", city: "Panama City", country: "Panama", iata: "PTY" },
   UUEE: { name: "Sheremetyevo", city: "Moscow", country: "Russia", iata: "SVO" },
-  UUDD: { name: "Domodedovo", city: "Moscow", country: "Russia", iata: "DME" },
-  ULLI: { name: "Pulkovo", city: "St. Petersburg", country: "Russia", iata: "LED" },
+  CYYZ: { name: "Toronto Pearson Intl", city: "Toronto", country: "Canada", iata: "YYZ" },
+  CYVR: { name: "Vancouver Intl", city: "Vancouver", country: "Canada", iata: "YVR" },
+  CYUL: { name: "Montreal-Trudeau Intl", city: "Montreal", country: "Canada", iata: "YUL" },
 };
 
 function lookupAirline(callsign: string): string {
@@ -304,7 +276,115 @@ function lookupAirport(icao: string) {
   return AIRPORTS[icao.toUpperCase()] ?? null;
 }
 
-interface FlightRoute {
+interface CachedDetail {
+  callsign: string;
+  icao24: string;
+  fr24_id: string;
+  flight: string;
+  aircraft_type: string;
+  registration: string;
+  operating_as: string;
+  painted_as: string;
+  orig_iata: string;
+  orig_icao: string;
+  dest_iata: string;
+  dest_icao: string;
+  eta: string | null;
+  data: Record<string, unknown>;
+  cached_at: string;
+}
+
+async function getCachedDetail(callsign: string): Promise<CachedDetail | null> {
+  if (!callsign || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    const sb = getSupabase();
+    const { data } = await sb
+      .from("flight_details_cache")
+      .select("*")
+      .eq("callsign", callsign)
+      .maybeSingle();
+
+    if (!data) return null;
+
+    const cachedAt = new Date(data.cached_at).getTime();
+    if (Date.now() - cachedAt > CACHE_TTL_MS) return null;
+
+    return data as CachedDetail;
+  } catch (err) {
+    console.error("Cache read failed:", err);
+    return null;
+  }
+}
+
+async function setCachedDetail(detail: Omit<CachedDetail, "cached_at">): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
+  try {
+    const sb = getSupabase();
+    await sb
+      .from("flight_details_cache")
+      .upsert({
+        ...detail,
+        cached_at: new Date().toISOString(),
+      }, { onConflict: "callsign" });
+  } catch (err) {
+    console.error("Cache write failed:", err);
+  }
+}
+
+interface FR24Flight {
+  fr24_id?: string;
+  flight?: string;
+  callsign?: string;
+  hex?: string;
+  type?: string;
+  reg?: string;
+  painted_as?: string;
+  operating_as?: string;
+  orig_iata?: string;
+  orig_icao?: string;
+  dest_iata?: string;
+  dest_icao?: string;
+  eta?: string;
+  [key: string]: unknown;
+}
+
+async function fetchFR24Details(callsign: string): Promise<FR24Flight | null> {
+  if (!FR24_API_TOKEN || !callsign) return null;
+
+  try {
+    const url = `${FR24_API_BASE}/api/live/flight-positions/full?callsigns=${encodeURIComponent(callsign)}&limit=1`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const res = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${FR24_API_TOKEN}`,
+        "Accept-Version": "v1",
+        "Accept": "application/json",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`FR24 error ${res.status}: ${text}`);
+      return null;
+    }
+
+    const json = await res.json();
+    const flights = json?.data ?? json;
+    if (Array.isArray(flights) && flights.length > 0) {
+      return flights[0] as FR24Flight;
+    }
+    return null;
+  } catch (err) {
+    console.error("FR24 fetch failed:", err);
+    return null;
+  }
+}
+
+interface OpenSkyRoute {
   estDepartureAirport: string | null;
   estArrivalAirport: string | null;
   firstSeen: number | null;
@@ -312,7 +392,7 @@ interface FlightRoute {
   callsign: string | null;
 }
 
-async function fetchFlightRoute(icao24: string): Promise<FlightRoute | null> {
+async function fetchOpenSkyRoute(icao24: string): Promise<OpenSkyRoute | null> {
   try {
     const now = Math.floor(Date.now() / 1000);
     const begin = now - 172800;
@@ -320,14 +400,58 @@ async function fetchFlightRoute(icao24: string): Promise<FlightRoute | null> {
       icao24: icao24.toLowerCase(),
       begin: String(begin),
       end: String(now),
-    }, 12000) as FlightRoute[];
+    }, 12000) as OpenSkyRoute[];
 
     if (!Array.isArray(data) || data.length === 0) return null;
     return data[data.length - 1];
   } catch (err) {
-    console.error("Flight route lookup failed:", err);
+    console.error("OpenSky route lookup failed:", err);
     return null;
   }
+}
+
+function buildDetailResponse(
+  icao24: string,
+  callsign: string,
+  cached: CachedDetail | null,
+  fr24: FR24Flight | null,
+  openSkyRoute: OpenSkyRoute | null,
+) {
+  const origIcao = fr24?.orig_icao || cached?.orig_icao || openSkyRoute?.estDepartureAirport || "";
+  const destIcao = fr24?.dest_icao || cached?.dest_icao || openSkyRoute?.estArrivalAirport || "";
+  const origIata = fr24?.orig_iata || cached?.orig_iata || "";
+  const destIata = fr24?.dest_iata || cached?.dest_iata || "";
+  const origAirport = lookupAirport(origIcao);
+  const destAirport = lookupAirport(destIcao);
+
+  const operatingAs = fr24?.operating_as || cached?.operating_as || "";
+  const airlineName = operatingAs
+    ? (AIRLINES[operatingAs.toUpperCase()] || operatingAs)
+    : lookupAirline(callsign);
+
+  return {
+    icao24,
+    callsign,
+    fr24_id: fr24?.fr24_id || cached?.fr24_id || "",
+    flight: fr24?.flight || cached?.flight || callsign,
+    aircraft_type: fr24?.type || cached?.aircraft_type || "",
+    registration: fr24?.reg || cached?.registration || "",
+    operating_as: operatingAs,
+    painted_as: fr24?.painted_as || cached?.painted_as || "",
+    airline: airlineName,
+    orig_iata: origIata || origAirport?.iata || "",
+    orig_icao: origIcao,
+    orig_name: origAirport?.name || "",
+    orig_city: origAirport?.city || "",
+    orig_country: origAirport?.country || "",
+    dest_iata: destIata || destAirport?.iata || "",
+    dest_icao: destIcao,
+    dest_name: destAirport?.name || "",
+    dest_city: destAirport?.city || "",
+    dest_country: destAirport?.country || "",
+    eta: fr24?.eta || cached?.eta || "",
+    source: fr24 ? "fr24" : cached ? "cache" : openSkyRoute ? "opensky" : "basic",
+  };
 }
 
 Deno.serve(async (req: Request) => {
@@ -341,7 +465,6 @@ Deno.serve(async (req: Request) => {
 
     if (feed === "live-flights") {
       const params: Record<string, string> = {};
-
       const bounds = url.searchParams.get("bounds");
       if (bounds) {
         const parts = bounds.split(",").map((s) => s.trim());
@@ -360,9 +483,7 @@ Deno.serve(async (req: Request) => {
         const states = data?.states ?? [];
         const flights = states
           .map(mapStateToFlight)
-          .filter(
-            (f): f is NonNullable<typeof f> => f !== null,
-          );
+          .filter((f): f is NonNullable<typeof f> => f !== null);
 
         return jsonResponse({ flights });
       } catch (err) {
@@ -377,45 +498,51 @@ Deno.serve(async (req: Request) => {
       const callsignParam = url.searchParams.get("callsign") ?? "";
       if (!flightId) return errorResponse("Missing flightId", 400);
 
+      const callsign = callsignParam.trim();
+
       try {
-        const route = await fetchFlightRoute(flightId);
-
-        const callsign = (route?.callsign ?? callsignParam).trim();
-        const airline = lookupAirline(callsign);
-
-        const depAirport = lookupAirport(route?.estDepartureAirport ?? "");
-        const arrAirport = lookupAirport(route?.estArrivalAirport ?? "");
-
-        const firstSeen = route?.firstSeen ?? null;
-        const lastSeen = route?.lastSeen ?? null;
-        let flightTime: number | null = null;
-        if (firstSeen && lastSeen && lastSeen > firstSeen) {
-          flightTime = lastSeen - firstSeen;
+        const cached = callsign ? await getCachedDetail(callsign) : null;
+        if (cached) {
+          const detail = buildDetailResponse(flightId, callsign, cached, null, null);
+          return jsonResponse({ details: detail });
         }
 
-        const detail = {
-          icao24: flightId,
-          callsign,
-          airline,
-          orig_icao: route?.estDepartureAirport ?? "",
-          orig_iata: depAirport?.iata ?? "",
-          orig_name: depAirport?.name ?? "",
-          orig_city: depAirport?.city ?? "",
-          orig_country: depAirport?.country ?? "",
-          dest_icao: route?.estArrivalAirport ?? "",
-          dest_iata: arrAirport?.iata ?? "",
-          dest_name: arrAirport?.name ?? "",
-          dest_city: arrAirport?.city ?? "",
-          dest_country: arrAirport?.country ?? "",
-          departure_time: firstSeen ? new Date(firstSeen * 1000).toISOString() : "",
-          arrival_time: lastSeen ? new Date(lastSeen * 1000).toISOString() : "",
-          flight_time: flightTime,
-        };
+        const [fr24Result, openSkyRoute] = await Promise.allSettled([
+          callsign ? fetchFR24Details(callsign) : Promise.resolve(null),
+          fetchOpenSkyRoute(flightId),
+        ]);
+
+        const fr24 = fr24Result.status === "fulfilled" ? fr24Result.value : null;
+        const osRoute = openSkyRoute.status === "fulfilled" ? openSkyRoute.value : null;
+
+        const effectiveCallsign = callsign || fr24?.callsign?.toString().trim() || osRoute?.callsign?.toString().trim() || "";
+
+        const detail = buildDetailResponse(flightId, effectiveCallsign, null, fr24, osRoute);
+
+        if (effectiveCallsign && (fr24 || osRoute)) {
+          const cacheEntry = {
+            callsign: effectiveCallsign,
+            icao24: flightId,
+            fr24_id: detail.fr24_id,
+            flight: detail.flight,
+            aircraft_type: detail.aircraft_type,
+            registration: detail.registration,
+            operating_as: detail.operating_as,
+            painted_as: detail.painted_as,
+            orig_iata: detail.orig_iata,
+            orig_icao: detail.orig_icao,
+            dest_iata: detail.dest_iata,
+            dest_icao: detail.dest_icao,
+            eta: detail.eta || null,
+            data: fr24 ? (fr24 as Record<string, unknown>) : {},
+          };
+          EdgeRuntime.waitUntil(setCachedDetail(cacheEntry));
+        }
 
         return jsonResponse({ details: detail });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error("OpenSky flight details error:", msg);
+        console.error("Flight details error:", msg);
         return jsonResponse({ details: null, error: msg });
       }
     }
