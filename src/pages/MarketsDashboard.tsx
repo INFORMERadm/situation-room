@@ -136,6 +136,12 @@ export default function MarketsDashboard() {
     }
   }, [data.newNewsUrls, newsAlarmMuted]);
 
+  useEffect(() => {
+    if (platform.activeWorkspace !== 'markets' && ai.isExpanded) {
+      ai.collapse();
+    }
+  }, [platform.activeWorkspace]);
+
   const voicePlatformActions: PlatformActions = {
     selectSymbol: data.selectSymbol,
     setChartTimeframe: data.setChartTimeframe,
