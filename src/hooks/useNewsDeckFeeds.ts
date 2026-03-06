@@ -56,7 +56,7 @@ function parseRssXml(xml: string, feedId: string, source: string): FeedItem[] {
         feedId,
         title: title.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1'),
         url: link,
-        description: desc.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '').slice(0, 200),
+        description: desc.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]+>/g, ''),
         publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
         thumbnail,
         source,
@@ -78,7 +78,7 @@ function parseRssXml(xml: string, feedId: string, source: string): FeedItem[] {
         feedId,
         title,
         url: link,
-        description: summary.replace(/<[^>]+>/g, '').slice(0, 200),
+        description: summary.replace(/<[^>]+>/g, ''),
         publishedAt: published ? new Date(published).toISOString() : new Date().toISOString(),
         thumbnail,
         source,
@@ -86,7 +86,7 @@ function parseRssXml(xml: string, feedId: string, source: string): FeedItem[] {
     });
   }
 
-  return items.slice(0, 20);
+  return items.slice(0, 50);
 }
 
 export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsReturn {
