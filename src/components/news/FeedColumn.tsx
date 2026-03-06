@@ -115,8 +115,8 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
             src={item.thumbnail}
             alt=""
             style={{
-              width: 80,
-              height: 45,
+              width: 120,
+              height: 68,
               borderRadius: 4,
               objectFit: 'cover',
               flexShrink: 0,
