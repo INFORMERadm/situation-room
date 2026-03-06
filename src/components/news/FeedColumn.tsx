@@ -130,10 +130,6 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
             fontWeight: 600,
             color: hovered ? '#ff9800' : '#afafaf',
             lineHeight: 1.35,
-            overflow: 'hidden',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
             transition: 'color 0.15s',
           }}>
             {item.title}
@@ -144,10 +140,6 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
               color: '#afafaf',
               lineHeight: 1.3,
               marginTop: 3,
-              overflow: 'hidden',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
             }}>
               {item.description}
             </div>
