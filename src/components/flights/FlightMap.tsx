@@ -1,8 +1,12 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import type { LiveFlightPosition, AircraftTrack } from '../../types';
+import type { LiveFlightPosition, AircraftTrack, MilitaryBase, MilitaryNavalAsset, VesselPosition, MapLayerName } from '../../types';
 import FlightTrackOverlay from './FlightTrackOverlay';
+import MilitaryBasesOverlay from './MilitaryBasesOverlay';
+import NavalAssetsOverlay from './NavalAssetsOverlay';
+import CommercialShippingOverlay from './CommercialShippingOverlay';
+import MapLayerControl from './MapLayerControl';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -165,6 +169,12 @@ interface FlightMapProps {
   error: string | null;
   onSelectFlight: (flight: LiveFlightPosition) => void;
   activeTrack?: AircraftTrack | null;
+  militaryBases: MilitaryBase[];
+  navalAssets: MilitaryNavalAsset[];
+  vessels: VesselPosition[];
+  layers: Record<MapLayerName, boolean>;
+  onToggleLayer: (layer: MapLayerName) => void;
+  vesselCount: number;
 }
 
 export default function FlightMap({
@@ -174,6 +184,12 @@ export default function FlightMap({
   error,
   onSelectFlight,
   activeTrack,
+  militaryBases,
+  navalAssets,
+  vessels,
+  layers,
+  onToggleLayer,
+  vesselCount,
 }: FlightMapProps) {
   const flightCount = useMemo(() => flights.length, [flights]);
 
@@ -193,13 +209,27 @@ export default function FlightMap({
           subdomains="abcd"
           className="flight-map-tiles"
         />
-        <FlightMarkers
-          flights={flights}
-          selectedFlightId={selectedFlightId}
-          onSelect={onSelectFlight}
-        />
+        {layers.flights && (
+          <FlightMarkers
+            flights={flights}
+            selectedFlightId={selectedFlightId}
+            onSelect={onSelectFlight}
+          />
+        )}
         {activeTrack && <FlightTrackOverlay track={activeTrack} />}
+        {layers['military-bases'] && <MilitaryBasesOverlay bases={militaryBases} />}
+        {layers['naval-assets'] && <NavalAssetsOverlay navalAssets={navalAssets} />}
+        {layers['commercial-shipping'] && <CommercialShippingOverlay vessels={vessels} />}
       </MapContainer>
+
+      <MapLayerControl
+        layers={layers}
+        onToggle={onToggleLayer}
+        flightCount={flightCount}
+        baseCount={militaryBases.length}
+        navalCount={navalAssets.length}
+        vesselCount={vesselCount}
+      />
 
       <div style={{
         position: 'absolute',
@@ -244,22 +274,60 @@ export default function FlightMap({
         left: 12,
         zIndex: 1000,
         display: 'flex',
-        gap: 12,
+        flexWrap: 'wrap',
+        gap: 6,
         fontSize: 9,
         color: '#666',
+        maxWidth: 500,
       }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2196f3', display: 'inline-block' }} />
-          Airborne
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#666', display: 'inline-block' }} />
-          On Ground
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff9800', display: 'inline-block' }} />
-          Selected
-        </span>
+        {layers.flights && (
+          <>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2196f3', display: 'inline-block' }} />
+              Airborne
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#666', display: 'inline-block' }} />
+              Ground
+            </span>
+          </>
+        )}
+        {layers['military-bases'] && (
+          <>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4caf50', display: 'inline-block' }} />
+              US
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2196f3', display: 'inline-block' }} />
+              Israel
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f44336', display: 'inline-block' }} />
+              Iran
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#9c27b0', display: 'inline-block' }} />
+              Russia
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#00bcd4', display: 'inline-block' }} />
+              UK/FR
+            </span>
+          </>
+        )}
+        {layers['commercial-shipping'] && (
+          <>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff9800', display: 'inline-block' }} />
+              Tanker
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#9e9e9e', display: 'inline-block' }} />
+              Cargo
+            </span>
+          </>
+        )}
       </div>
 
       <style>{`
@@ -296,6 +364,23 @@ export default function FlightMap({
         .flight-tooltip span {
           color: #aaa;
           font-size: 10px;
+        }
+        .military-popup .leaflet-popup-content-wrapper {
+          background: rgba(0, 0, 0, 0.92) !important;
+          border: 1px solid #333 !important;
+          border-radius: 8px !important;
+          color: #fff !important;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+        }
+        .military-popup .leaflet-popup-tip {
+          background: rgba(0, 0, 0, 0.92) !important;
+          border: 1px solid #333 !important;
+        }
+        .military-popup .leaflet-popup-close-button {
+          color: #666 !important;
+        }
+        .military-popup .leaflet-popup-close-button:hover {
+          color: #fff !important;
         }
       `}</style>
     </div>

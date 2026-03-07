@@ -288,3 +288,65 @@ export type FlightSearchMode =
   | 'arrivals-airport'
   | 'departures-airport'
   | 'track-aircraft';
+
+export type BaseType = 'air_base' | 'naval_base' | 'missile_defense' | 'radar' | 'command_center' | 'mixed';
+
+export interface MilitaryBase {
+  id: string;
+  name: string;
+  country: string;
+  operator: string;
+  base_type: BaseType;
+  latitude: number;
+  longitude: number;
+  description: string;
+  equipment: Array<{ type: string; category: string; quantity: number }>;
+  is_active: boolean;
+  source_url: string;
+}
+
+export type NavalAssetType = 'carrier' | 'destroyer' | 'cruiser' | 'frigate' | 'submarine' | 'amphibious' | 'support' | 'patrol' | 'corvette';
+
+export interface MilitaryNavalAsset {
+  id: string;
+  name: string;
+  asset_type: NavalAssetType;
+  operator: string;
+  hull_number: string;
+  class_name: string;
+  latitude: number;
+  longitude: number;
+  heading: number;
+  region: string;
+  status: string;
+  last_reported_date: string;
+  source_description: string;
+  source_url: string;
+}
+
+export interface VesselPosition {
+  mmsi: number;
+  name: string;
+  shipType: string;
+  shipTypeCode: number;
+  latitude: number;
+  longitude: number;
+  courseOverGround: number;
+  speedOverGround: number;
+  heading: number;
+  destination: string;
+  timestamp: number;
+}
+
+export interface MaritimeZone {
+  id: string;
+  zone_name: string;
+  description: string;
+  bbox_south: number;
+  bbox_west: number;
+  bbox_north: number;
+  bbox_east: number;
+  is_active: boolean;
+}
+
+export type MapLayerName = 'flights' | 'military-bases' | 'naval-assets' | 'commercial-shipping';

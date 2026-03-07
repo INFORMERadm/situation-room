@@ -5,6 +5,9 @@ import FlightSearchPanel from './FlightSearchPanel';
 import { useFlightsDashboard } from '../../hooks/useFlightsDashboard';
 import { useFlightInterpolation } from '../../hooks/useFlightInterpolation';
 import useFlightSearch from '../../hooks/useFlightSearch';
+import { useMilitaryOverlay } from '../../hooks/useMilitaryOverlay';
+import { useCommercialShipping } from '../../hooks/useCommercialShipping';
+import { useMapLayers } from '../../hooks/useMapLayers';
 import type { LiveFlightPosition } from '../../types';
 
 interface FlightsDashboardProps {
@@ -24,8 +27,10 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
   } = useFlightsDashboard(active);
 
   const interpolatedFlights = useFlightInterpolation(flights);
-
   const search = useFlightSearch();
+  const { layers, toggleLayer, isLayerVisible } = useMapLayers();
+  const military = useMilitaryOverlay(active);
+  const shipping = useCommercialShipping(active && isLayerVisible('commercial-shipping'));
 
   const handleSelectFlight = useCallback((flight: LiveFlightPosition) => {
     selectFlight(flight.flightId);
@@ -46,6 +51,12 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         error={error}
         onSelectFlight={handleSelectFlight}
         activeTrack={search.activeTrack}
+        militaryBases={military.bases}
+        navalAssets={military.navalAssets}
+        vessels={shipping.vessels}
+        layers={layers}
+        onToggleLayer={toggleLayer}
+        vesselCount={shipping.vesselCount}
       />
       <FlightSearchPanel
         isOpen={search.isOpen}
