@@ -63,75 +63,7 @@ async function handleZones() {
   return jsonResponse({ zones: data });
 }
 
-interface AisMessage {
-  MessageType: string;
-  MetaData?: {
-    MMSI: number;
-    ShipName?: string;
-    latitude?: number;
-    longitude?: number;
-    time_utc?: string;
-  };
-  Message?: {
-    PositionReport?: {
-      Latitude: number;
-      Longitude: number;
-      Cog: number;
-      Sog: number;
-      TrueHeading: number;
-      NavigationalStatus: number;
-      Timestamp: number;
-    };
-    ShipStaticData?: {
-      Name: string;
-      Type: number;
-      Destination: string;
-      Imo: number;
-      CallSign: string;
-      Dimension?: {
-        A: number;
-        B: number;
-        C: number;
-        D: number;
-      };
-    };
-    StandardClassBPositionReport?: {
-      Latitude: number;
-      Longitude: number;
-      Cog: number;
-      Sog: number;
-      TrueHeading: number;
-      Timestamp: number;
-    };
-  };
-}
-
-function getShipTypeName(typeCode: number): string {
-  if (typeCode >= 70 && typeCode <= 79) return "cargo";
-  if (typeCode >= 80 && typeCode <= 89) return "tanker";
-  if (typeCode >= 60 && typeCode <= 69) return "passenger";
-  if (typeCode >= 40 && typeCode <= 49) return "high_speed";
-  if (typeCode >= 30 && typeCode <= 39) return "fishing";
-  if (typeCode >= 50 && typeCode <= 59) return "special";
-  if (typeCode >= 20 && typeCode <= 29) return "wing_in_ground";
-  return "other";
-}
-
-interface VesselEntry {
-  mmsi: number;
-  name: string;
-  shipType: string;
-  shipTypeCode: number;
-  latitude: number;
-  longitude: number;
-  courseOverGround: number;
-  speedOverGround: number;
-  heading: number;
-  destination: string;
-  timestamp: number;
-}
-
-async function handleVesselPositions(url: URL) {
+async function handleStreamConfig() {
   const apiKey = Deno.env.get("AISSTREAM_API_KEY");
   if (!apiKey) {
     return errorResponse("AISSTREAM_API_KEY not configured", 500);
@@ -140,7 +72,7 @@ async function handleVesselPositions(url: URL) {
   const supabase = getSupabaseClient();
   const { data: zones, error: zonesError } = await supabase
     .from("maritime_zones")
-    .select("bbox_south, bbox_west, bbox_north, bbox_east")
+    .select("bbox_south, bbox_west, bbox_north, bbox_east, zone_name")
     .eq("is_active", true);
 
   if (zonesError || !zones || zones.length === 0) {
@@ -159,113 +91,13 @@ async function handleVesselPositions(url: URL) {
     ]
   );
 
-  const collectDuration =
-    parseInt(url.searchParams.get("duration") || "4") * 1000;
-  const maxDuration = Math.min(collectDuration, 8000);
-
-  const vessels = new Map<number, VesselEntry>();
-  let resolved = false;
-
-  const buildResponse = () =>
-    jsonResponse({
-      vessels: Array.from(vessels.values()),
-      count: vessels.size,
-      zonesSubscribed: zones.length,
-    });
-
-  return new Promise<Response>((resolve) => {
-    const done = () => {
-      if (resolved) return;
-      resolved = true;
-      resolve(buildResponse());
-    };
-
-    let ws: WebSocket;
-    try {
-      ws = new WebSocket("wss://stream.aisstream.io/v0/stream");
-    } catch {
-      return resolve(buildResponse());
-    }
-
-    const timer = setTimeout(() => {
-      try {
-        ws.close();
-      } catch {
-        /* ignore */
-      }
-      done();
-    }, maxDuration);
-
-    ws.addEventListener("open", () => {
-      try {
-        ws.send(
-          JSON.stringify({
-            APIKey: apiKey,
-            BoundingBoxes: boundingBoxes,
-            FilterMessageTypes: [
-              "PositionReport",
-              "ShipStaticData",
-              "StandardClassBPositionReport",
-            ],
-          })
-        );
-      } catch {
-        clearTimeout(timer);
-        done();
-      }
-    });
-
-    ws.addEventListener("message", (event: MessageEvent) => {
-      try {
-        const raw = typeof event.data === "string" ? event.data : "";
-        if (!raw) return;
-        const msg: AisMessage = JSON.parse(raw);
-        const mmsi = msg.MetaData?.MMSI;
-        if (!mmsi) return;
-
-        const existing = vessels.get(mmsi);
-
-        const posReport =
-          msg.Message?.PositionReport ||
-          msg.Message?.StandardClassBPositionReport;
-        if (posReport) {
-          vessels.set(mmsi, {
-            mmsi,
-            name: msg.MetaData?.ShipName?.trim() || existing?.name || "",
-            shipType: existing?.shipType || "other",
-            shipTypeCode: existing?.shipTypeCode || 0,
-            latitude: posReport.Latitude,
-            longitude: posReport.Longitude,
-            courseOverGround: posReport.Cog,
-            speedOverGround: posReport.Sog,
-            heading:
-              posReport.TrueHeading === 511
-                ? posReport.Cog
-                : posReport.TrueHeading,
-            destination: existing?.destination || "",
-            timestamp: Date.now(),
-          });
-        } else if (msg.Message?.ShipStaticData && existing) {
-          const sd = msg.Message.ShipStaticData;
-          existing.name = sd.Name?.trim() || existing.name;
-          existing.shipType = getShipTypeName(sd.Type);
-          existing.shipTypeCode = sd.Type;
-          existing.destination = sd.Destination?.trim() || existing.destination;
-        }
-      } catch {
-        /* skip malformed */
-      }
-    });
-
-    ws.addEventListener("error", () => {
-      clearTimeout(timer);
-      done();
-    });
-
-    ws.addEventListener("close", () => {
-      clearTimeout(timer);
-      done();
-    });
+  return jsonResponse({
+    apiKey,
+    boundingBoxes,
+    wsUrl: "wss://stream.aisstream.io/v0/stream",
+    zones: zones.map(
+      (z: { zone_name: string }) => z.zone_name
+    ),
   });
 }
 
@@ -283,11 +115,11 @@ Deno.serve(async (req: Request) => {
         return await handleMilitaryData();
       case "zones":
         return await handleZones();
-      case "vessel-positions":
-        return await handleVesselPositions(url);
+      case "stream-config":
+        return await handleStreamConfig();
       default:
         return errorResponse(
-          "Unknown feed. Use: military-data, zones, vessel-positions",
+          "Unknown feed. Use: military-data, zones, stream-config",
           400
         );
     }
