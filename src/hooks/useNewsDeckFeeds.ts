@@ -30,6 +30,8 @@ interface UseNewsDeckFeedsReturn {
   feedItems: Record<string, FeedItem[]>;
   loading: boolean;
   fetchingItems: boolean;
+  telegramAlarmEnabled: boolean;
+  setTelegramAlarmEnabled: (enabled: boolean) => void;
   addFeed: (feedType: FeedType, url: string, displayName: string, columnPosition: ColumnPosition) => Promise<void>;
   removeFeed: (id: string) => Promise<void>;
   refreshFeedItems: (feedId: string) => Promise<void>;
@@ -94,6 +96,14 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
   const [feedItems, setFeedItems] = useState<Record<string, FeedItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [fetchingItems, setFetchingItems] = useState(false);
+  const [telegramAlarmEnabled, setTelegramAlarmEnabledState] = useState(() => {
+    try { return localStorage.getItem('telegramAlarmEnabled') !== 'false'; } catch { return true; }
+  });
+
+  const setTelegramAlarmEnabled = useCallback((enabled: boolean) => {
+    setTelegramAlarmEnabledState(enabled);
+    try { localStorage.setItem('telegramAlarmEnabled', String(enabled)); } catch { /* noop */ }
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -291,11 +301,11 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
     } else {
       const newIds = [...currentIds].filter(id => !telegramPostIdsRef.current.has(id));
       if (newIds.length > 0) {
-        playTelegramSiren();
+        if (telegramAlarmEnabled) playTelegramSiren();
         telegramPostIdsRef.current = currentIds;
       }
     }
-  }, [feeds, feedItems, playTelegramSiren]);
+  }, [feeds, feedItems, playTelegramSiren, telegramAlarmEnabled]);
 
   useEffect(() => {
     const tgFeeds = feeds.filter(f => f.feed_type === 'telegram');
@@ -378,5 +388,5 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
     }
   }, [userId]);
 
-  return { feeds, feedItems, loading, fetchingItems, addFeed, removeFeed, refreshFeedItems };
+  return { feeds, feedItems, loading, fetchingItems, telegramAlarmEnabled, setTelegramAlarmEnabled, addFeed, removeFeed, refreshFeedItems };
 }

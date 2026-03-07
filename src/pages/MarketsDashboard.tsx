@@ -328,6 +328,8 @@ export default function MarketsDashboard() {
                 feeds={newsDeck.feeds}
                 feedItems={newsDeck.feedItems}
                 loading={newsDeck.loading}
+                telegramAlarmEnabled={newsDeck.telegramAlarmEnabled}
+                onToggleTelegramAlarm={newsDeck.setTelegramAlarmEnabled}
                 onAddFeed={newsDeck.addFeed}
                 onRemoveFeed={newsDeck.removeFeed}
                 onRefreshFeed={newsDeck.refreshFeedItems}

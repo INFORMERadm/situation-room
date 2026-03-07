@@ -6,6 +6,8 @@ interface Props {
   feedType: FeedType;
   feeds: NewsFeed[];
   feedItems: Record<string, FeedItem[]>;
+  alarmEnabled?: boolean;
+  onToggleAlarm?: (enabled: boolean) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
   onRefresh: (id: string) => void;
@@ -357,7 +359,8 @@ function FeedSourceChip({ feed, onRemove, onRefresh }: { feed: NewsFeed; onRemov
   );
 }
 
-export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, onRemove, onRefresh }: Props) {
+export default function FeedColumn({ title, feedType, feeds, feedItems, alarmEnabled, onToggleAlarm, onAdd, onRemove, onRefresh }: Props) {
+  const [alarmHovered, setAlarmHovered] = useState(false);
   const emptyInfo = EMPTY_MESSAGES[feedType];
 
   const isMergedType = feedType === 'telegram' || feedType === 'rss' || feedType === 'youtube';
@@ -375,9 +378,37 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, o
     <div style={columnStyle}>
       <div style={headerStyle}>
         <span style={titleStyle}>{title}</span>
-        <button style={addBtnStyle} onClick={onAdd} title={`Add ${title}`}>
-          +
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {onToggleAlarm !== undefined && (
+            <button
+              onClick={() => onToggleAlarm(!alarmEnabled)}
+              onMouseEnter={() => setAlarmHovered(true)}
+              onMouseLeave={() => setAlarmHovered(false)}
+              title={alarmEnabled ? 'Alarm ON — click to mute' : 'Alarm OFF — click to enable'}
+              style={{
+                width: 24,
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: alarmHovered ? '#222' : '#1a1a1a',
+                border: `1px solid ${alarmEnabled ? '#ff9800' : '#333'}`,
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 13,
+                lineHeight: 1,
+                transition: 'all 0.15s',
+                position: 'relative',
+                color: alarmEnabled ? '#ff9800' : '#555',
+              }}
+            >
+              {alarmEnabled ? '\u{1F514}' : '\u{1F515}'}
+            </button>
+          )}
+          <button style={addBtnStyle} onClick={onAdd} title={`Add ${title}`}>
+            +
+          </button>
+        </div>
       </div>
 
       {isMergedType && feeds.length > 0 && (
