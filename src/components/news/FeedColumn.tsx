@@ -393,18 +393,29 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, alarmEna
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: alarmHovered ? '#222' : '#1a1a1a',
-                border: `1px solid ${alarmEnabled ? '#ff9800' : '#333'}`,
+                background: alarmHovered ? '#222' : 'transparent',
+                border: 'none',
                 borderRadius: 4,
                 cursor: 'pointer',
-                fontSize: 13,
-                lineHeight: 1,
                 transition: 'all 0.15s',
-                position: 'relative',
+                padding: '2px 4px',
                 color: alarmEnabled ? '#ff9800' : '#555',
               }}
             >
-              {alarmEnabled ? '\u{1F514}' : '\u{1F515}'}
+              {alarmEnabled ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  <path d="M18.63 13A17.89 17.89 0 0 1 18 8" />
+                  <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14" />
+                  <path d="M18 8a6 6 0 0 0-9.33-5" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              )}
             </button>
           )}
           <button style={addBtnStyle} onClick={onAdd} title={`Add ${title}`}>
