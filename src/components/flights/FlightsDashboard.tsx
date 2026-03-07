@@ -57,6 +57,8 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         layers={layers}
         onToggleLayer={toggleLayer}
         vesselCount={shipping.vesselCount}
+        shippingLoading={shipping.loading}
+        shippingError={shipping.error}
       />
       <FlightSearchPanel
         isOpen={search.isOpen}

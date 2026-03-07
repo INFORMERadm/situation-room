@@ -15,9 +15,11 @@ interface Props {
   baseCount: number;
   navalCount: number;
   vesselCount: number;
+  shippingLoading?: boolean;
+  shippingError?: string | null;
 }
 
-export default function MapLayerControl({ layers, onToggle, flightCount, baseCount, navalCount, vesselCount }: Props) {
+export default function MapLayerControl({ layers, onToggle, flightCount, baseCount, navalCount, vesselCount, shippingLoading, shippingError }: Props) {
   const [expanded, setExpanded] = useState(true);
 
   const layerInfos: LayerInfo[] = [
@@ -143,11 +145,15 @@ export default function MapLayerControl({ layers, onToggle, flightCount, baseCou
             {info.label}
           </span>
           <span style={{
-            color: layers[info.key] ? '#888' : '#555',
+            color: info.key === 'commercial-shipping' && shippingError ? '#f44336' :
+                   info.key === 'commercial-shipping' && shippingLoading ? '#ff9800' :
+                   layers[info.key] ? '#888' : '#555',
             fontSize: 10,
             fontVariantNumeric: 'tabular-nums',
           }}>
-            {info.count > 0 ? info.count.toLocaleString() : '--'}
+            {info.key === 'commercial-shipping' && shippingLoading ? 'connecting...' :
+             info.key === 'commercial-shipping' && shippingError ? 'error' :
+             info.count > 0 ? info.count.toLocaleString() : '--'}
           </span>
         </button>
       ))}

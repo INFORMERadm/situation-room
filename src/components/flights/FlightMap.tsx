@@ -175,6 +175,8 @@ interface FlightMapProps {
   layers: Record<MapLayerName, boolean>;
   onToggleLayer: (layer: MapLayerName) => void;
   vesselCount: number;
+  shippingLoading?: boolean;
+  shippingError?: string | null;
 }
 
 export default function FlightMap({
@@ -190,6 +192,8 @@ export default function FlightMap({
   layers,
   onToggleLayer,
   vesselCount,
+  shippingLoading,
+  shippingError,
 }: FlightMapProps) {
   const flightCount = useMemo(() => flights.length, [flights]);
 
@@ -229,6 +233,8 @@ export default function FlightMap({
         baseCount={militaryBases.length}
         navalCount={navalAssets.length}
         vesselCount={vesselCount}
+        shippingLoading={shippingLoading}
+        shippingError={shippingError}
       />
 
       <div style={{
