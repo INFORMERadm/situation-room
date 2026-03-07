@@ -161,6 +161,20 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
     setFetchingItems(false);
   }, [feeds, fetchRssFeed, fetchYoutubeFeed]);
 
+  const refreshFeedsByType = useCallback(async (type: FeedType) => {
+    const targetFeeds = feeds.filter(f => f.feed_type === type);
+    if (targetFeeds.length === 0) return;
+
+    const fetcher = type === 'rss' ? fetchRssFeed : fetchYoutubeFeed;
+    const results: Record<string, FeedItem[]> = {};
+    await Promise.all(
+      targetFeeds.map(async (feed) => {
+        results[feed.id] = await fetcher(feed);
+      })
+    );
+    setFeedItems(prev => ({ ...prev, ...results }));
+  }, [feeds, fetchRssFeed, fetchYoutubeFeed]);
+
   useEffect(() => {
     if (feeds.length === 0) return;
 
@@ -191,6 +205,28 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
 
     return () => { cancelled = true; };
   }, [feeds, fetchRssFeed, fetchYoutubeFeed]);
+
+  useEffect(() => {
+    const rssFeeds = feeds.filter(f => f.feed_type === 'rss');
+    if (rssFeeds.length === 0) return;
+
+    const interval = setInterval(() => {
+      refreshFeedsByType('rss');
+    }, 4 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [feeds, refreshFeedsByType]);
+
+  useEffect(() => {
+    const ytFeeds = feeds.filter(f => f.feed_type === 'youtube');
+    if (ytFeeds.length === 0) return;
+
+    const interval = setInterval(() => {
+      refreshFeedsByType('youtube');
+    }, 20 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [feeds, refreshFeedsByType]);
 
   const addFeed = useCallback(async (feedType: FeedType, url: string, displayName: string, columnPosition: ColumnPosition) => {
     if (!userId) return;
