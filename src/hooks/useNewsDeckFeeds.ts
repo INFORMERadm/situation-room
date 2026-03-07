@@ -32,6 +32,7 @@ interface UseNewsDeckFeedsReturn {
   fetchingItems: boolean;
   telegramAlarmEnabled: boolean;
   setTelegramAlarmEnabled: (enabled: boolean) => void;
+  newTelegramPostIds: Set<string>;
   addFeed: (feedType: FeedType, url: string, displayName: string, columnPosition: ColumnPosition) => Promise<void>;
   removeFeed: (id: string) => Promise<void>;
   refreshFeedItems: (feedId: string) => Promise<void>;
@@ -104,6 +105,9 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
     setTelegramAlarmEnabledState(enabled);
     try { localStorage.setItem('telegramAlarmEnabled', String(enabled)); } catch { /* noop */ }
   }, []);
+
+  const [newTelegramPostIds, setNewTelegramPostIds] = useState<Set<string>>(new Set());
+  const newPostTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     if (!userId) return;
@@ -303,6 +307,26 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
       if (newIds.length > 0) {
         if (telegramAlarmEnabled) playTelegramSiren();
         telegramPostIdsRef.current = currentIds;
+
+        setNewTelegramPostIds(prev => {
+          const next = new Set(prev);
+          newIds.forEach(id => next.add(id));
+          return next;
+        });
+
+        newIds.forEach(id => {
+          const existing = newPostTimersRef.current.get(id);
+          if (existing) clearTimeout(existing);
+          const timer = setTimeout(() => {
+            setNewTelegramPostIds(prev => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+            newPostTimersRef.current.delete(id);
+          }, 6000);
+          newPostTimersRef.current.set(id, timer);
+        });
       }
     }
   }, [feeds, feedItems, playTelegramSiren, telegramAlarmEnabled]);
@@ -388,5 +412,5 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
     }
   }, [userId]);
 
-  return { feeds, feedItems, loading, fetchingItems, telegramAlarmEnabled, setTelegramAlarmEnabled, addFeed, removeFeed, refreshFeedItems };
+  return { feeds, feedItems, loading, fetchingItems, telegramAlarmEnabled, setTelegramAlarmEnabled, newTelegramPostIds, addFeed, removeFeed, refreshFeedItems };
 }

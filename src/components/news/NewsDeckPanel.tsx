@@ -9,6 +9,7 @@ interface Props {
   loading: boolean;
   telegramAlarmEnabled: boolean;
   onToggleTelegramAlarm: (enabled: boolean) => void;
+  newTelegramPostIds: Set<string>;
   onAddFeed: (feedType: FeedType, url: string, displayName: string, columnPosition: ColumnPosition) => Promise<void>;
   onRemoveFeed: (id: string) => Promise<void>;
   onRefreshFeed: (id: string) => Promise<void>;
@@ -28,7 +29,7 @@ const containerStyle: React.CSSProperties = {
   background: '#0a0a0a',
 };
 
-export default function NewsDeckPanel({ feeds, feedItems, loading, telegramAlarmEnabled, onToggleTelegramAlarm, onAddFeed, onRemoveFeed, onRefreshFeed }: Props) {
+export default function NewsDeckPanel({ feeds, feedItems, loading, telegramAlarmEnabled, onToggleTelegramAlarm, newTelegramPostIds, onAddFeed, onRemoveFeed, onRefreshFeed }: Props) {
   const [modal, setModal] = useState<ModalState | null>(null);
 
   const telegramFeeds = feeds.filter(f => f.feed_type === 'telegram');
@@ -58,6 +59,7 @@ export default function NewsDeckPanel({ feeds, feedItems, loading, telegramAlarm
           feedItems={feedItems}
           alarmEnabled={telegramAlarmEnabled}
           onToggleAlarm={onToggleTelegramAlarm}
+          highlightedPostIds={newTelegramPostIds}
           onAdd={() => setModal({ feedType: 'telegram', columnPosition: 'left' })}
           onRemove={onRemoveFeed}
           onRefresh={onRefreshFeed}

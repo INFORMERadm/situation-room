@@ -8,6 +8,7 @@ interface Props {
   feedItems: Record<string, FeedItem[]>;
   alarmEnabled?: boolean;
   onToggleAlarm?: (enabled: boolean) => void;
+  highlightedPostIds?: Set<string>;
   onAdd: () => void;
   onRemove: (id: string) => void;
   onRefresh: (id: string) => void;
@@ -96,7 +97,7 @@ function timeAgo(dateStr: string) {
   return `${days}d`;
 }
 
-function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }) {
+function FeedItemCard({ item, feedType, highlighted }: { item: FeedItem; feedType: FeedType; highlighted?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const [playing, setPlaying] = useState(false);
 
@@ -186,9 +187,10 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
         padding: '10px 12px',
         borderBottom: '1px solid #1a1a1a',
         textDecoration: 'none',
-        background: hovered ? '#141414' : 'transparent',
-        transition: 'background 0.15s',
+        background: highlighted ? 'rgba(220, 38, 38, 0.18)' : hovered ? '#141414' : 'transparent',
+        transition: 'background 0.6s ease-out',
         cursor: 'pointer',
+        borderLeft: highlighted ? '3px solid #dc2626' : '3px solid transparent',
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -359,7 +361,7 @@ function FeedSourceChip({ feed, onRemove, onRefresh }: { feed: NewsFeed; onRemov
   );
 }
 
-export default function FeedColumn({ title, feedType, feeds, feedItems, alarmEnabled, onToggleAlarm, onAdd, onRemove, onRefresh }: Props) {
+export default function FeedColumn({ title, feedType, feeds, feedItems, alarmEnabled, onToggleAlarm, highlightedPostIds, onAdd, onRemove, onRefresh }: Props) {
   const [alarmHovered, setAlarmHovered] = useState(false);
   const emptyInfo = EMPTY_MESSAGES[feedType];
 
@@ -469,7 +471,7 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, alarmEna
               Loading feeds...
             </div>
           ) : (
-            mergedItems.map(item => <FeedItemCard key={item.id} item={item} feedType={feedType} />)
+            mergedItems.map(item => <FeedItemCard key={item.id} item={item} feedType={feedType} highlighted={highlightedPostIds?.has(item.id)} />)
           )
         ) : (
           feeds.map(feed => {
