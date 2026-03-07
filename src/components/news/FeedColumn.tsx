@@ -79,18 +79,98 @@ const EMPTY_MESSAGES: Record<FeedType, { icon: string; text: string }> = {
   youtube: { icon: 'YT', text: 'Add YouTube channel URLs to track videos' },
 };
 
+function extractYouTubeId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d`;
+}
+
 function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }) {
   const [hovered, setHovered] = useState(false);
+  const [playing, setPlaying] = useState(false);
 
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d`;
-  };
+  const videoId = feedType === 'youtube' ? extractYouTubeId(item.url) : null;
+
+  if (feedType === 'youtube' && videoId) {
+    return (
+      <div
+        style={{
+          padding: '10px 12px',
+          borderBottom: '1px solid #1a1a1a',
+        }}
+      >
+        {playing ? (
+          <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#000', borderRadius: 4, overflow: 'hidden' }}>
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`}
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+            />
+          </div>
+        ) : (
+          <div
+            onClick={() => setPlaying(true)}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{ position: 'relative', cursor: 'pointer' }}
+          >
+            {item.thumbnail && (
+              <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#111', borderRadius: 4, overflow: 'hidden' }}>
+                <img
+                  src={item.thumbnail}
+                  alt=""
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: 48,
+                  height: 34,
+                  background: hovered ? '#f00' : 'rgba(0,0,0,0.75)',
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.2s',
+                }}>
+                  <div style={{
+                    width: 0,
+                    height: 0,
+                    borderTop: '8px solid transparent',
+                    borderBottom: '8px solid transparent',
+                    borderLeft: '14px solid #fff',
+                    marginLeft: 2,
+                  }} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        <div style={{ marginTop: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#e0e0e0', lineHeight: 1.35 }}>
+            {item.title}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 10, color: '#777' }}>
+            <span style={{ color: '#aaa' }}>{item.source}</span>
+            <span>-</span>
+            <span>{timeAgo(item.publishedAt)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <a
@@ -109,53 +189,37 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
         cursor: 'pointer',
       }}
     >
-      <div style={{ display: 'flex', gap: 8 }}>
-        {(feedType === 'youtube' && item.thumbnail) && (
-          <img
-            src={item.thumbnail}
-            alt=""
-            style={{
-              width: 120,
-              height: 68,
-              borderRadius: 4,
-              objectFit: 'cover',
-              flexShrink: 0,
-              background: '#222',
-            }}
-          />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: hovered ? '#ff9800' : '#afafaf',
+          lineHeight: 1.35,
+          transition: 'color 0.15s',
+        }}>
+          {item.title}
+        </div>
+        {item.description && (
+          <div style={{
+            fontSize: 11,
+            color: '#afafaf',
+            lineHeight: 1.3,
+            marginTop: 3,
+          }}>
+            {item.description}
+          </div>
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: hovered ? '#ff9800' : '#afafaf',
-            lineHeight: 1.35,
-            transition: 'color 0.15s',
-          }}>
-            {item.title}
-          </div>
-          {item.description && (
-            <div style={{
-              fontSize: 11,
-              color: '#afafaf',
-              lineHeight: 1.3,
-              marginTop: 3,
-            }}>
-              {item.description}
-            </div>
-          )}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            marginTop: 4,
-            fontSize: 10,
-            color: '#777',
-          }}>
-            <span style={{ color: '#aaa' }}>{item.source}</span>
-            <span>-</span>
-            <span>{timeAgo(item.publishedAt)}</span>
-          </div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: 4,
+          fontSize: 10,
+          color: '#777',
+        }}>
+          <span style={{ color: '#aaa' }}>{item.source}</span>
+          <span>-</span>
+          <span>{timeAgo(item.publishedAt)}</span>
         </div>
       </div>
     </a>
