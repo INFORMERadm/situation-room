@@ -117,6 +117,20 @@ function getShipTypeName(typeCode: number): string {
   return "other";
 }
 
+interface VesselEntry {
+  mmsi: number;
+  name: string;
+  shipType: string;
+  shipTypeCode: number;
+  latitude: number;
+  longitude: number;
+  courseOverGround: number;
+  speedOverGround: number;
+  heading: number;
+  destination: string;
+  timestamp: number;
+}
+
 async function handleVesselPositions(url: URL) {
   const apiKey = Deno.env.get("AISSTREAM_API_KEY");
   if (!apiKey) {
@@ -133,56 +147,58 @@ async function handleVesselPositions(url: URL) {
     return errorResponse("No active maritime zones configured", 500);
   }
 
-  const boundingBoxes = zones.map((z: { bbox_south: number; bbox_west: number; bbox_north: number; bbox_east: number }) => [
-    [z.bbox_south, z.bbox_west],
-    [z.bbox_north, z.bbox_east],
-  ]);
+  const boundingBoxes = zones.map(
+    (z: {
+      bbox_south: number;
+      bbox_west: number;
+      bbox_north: number;
+      bbox_east: number;
+    }) => [
+      [z.bbox_south, z.bbox_west],
+      [z.bbox_north, z.bbox_east],
+    ]
+  );
 
-  const collectDuration = parseInt(url.searchParams.get("duration") || "4") * 1000;
+  const collectDuration =
+    parseInt(url.searchParams.get("duration") || "4") * 1000;
   const maxDuration = Math.min(collectDuration, 8000);
 
-  const vessels = new Map<
-    number,
-    {
-      mmsi: number;
-      name: string;
-      shipType: string;
-      shipTypeCode: number;
-      latitude: number;
-      longitude: number;
-      courseOverGround: number;
-      speedOverGround: number;
-      heading: number;
-      destination: string;
-      timestamp: number;
-    }
-  >();
+  const vessels = new Map<number, VesselEntry>();
+  let resolved = false;
+
+  const buildResponse = () =>
+    jsonResponse({
+      vessels: Array.from(vessels.values()),
+      count: vessels.size,
+      zonesSubscribed: zones.length,
+    });
 
   return new Promise<Response>((resolve) => {
-    let ws: WebSocket | null = null;
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-
-    const finish = () => {
-      if (timeout) clearTimeout(timeout);
-      if (ws) {
-        try { ws.close(); } catch { /* ignore */ }
-      }
-      resolve(
-        jsonResponse({
-          vessels: Array.from(vessels.values()),
-          count: vessels.size,
-          zonesSubscribed: zones.length,
-        })
-      );
+    const done = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve(buildResponse());
     };
 
+    let ws: WebSocket;
     try {
       ws = new WebSocket("wss://stream.aisstream.io/v0/stream");
+    } catch {
+      return resolve(buildResponse());
+    }
 
-      timeout = setTimeout(finish, maxDuration);
+    const timer = setTimeout(() => {
+      try {
+        ws.close();
+      } catch {
+        /* ignore */
+      }
+      done();
+    }, maxDuration);
 
-      ws.onopen = () => {
-        ws!.send(
+    ws.addEventListener("open", () => {
+      try {
+        ws.send(
           JSON.stringify({
             APIKey: apiKey,
             BoundingBoxes: boundingBoxes,
@@ -193,78 +209,63 @@ async function handleVesselPositions(url: URL) {
             ],
           })
         );
-      };
+      } catch {
+        clearTimeout(timer);
+        done();
+      }
+    });
 
-      ws.onmessage = (event: MessageEvent) => {
-        try {
-          const msg: AisMessage = JSON.parse(
-            typeof event.data === "string" ? event.data : ""
-          );
+    ws.addEventListener("message", (event: MessageEvent) => {
+      try {
+        const raw = typeof event.data === "string" ? event.data : "";
+        if (!raw) return;
+        const msg: AisMessage = JSON.parse(raw);
+        const mmsi = msg.MetaData?.MMSI;
+        if (!mmsi) return;
 
-          const mmsi = msg.MetaData?.MMSI;
-          if (!mmsi) return;
+        const existing = vessels.get(mmsi);
 
-          const existing = vessels.get(mmsi);
-
-          if (msg.Message?.PositionReport) {
-            const pr = msg.Message.PositionReport;
-            vessels.set(mmsi, {
-              mmsi,
-              name: msg.MetaData?.ShipName?.trim() || existing?.name || "",
-              shipType: existing?.shipType || "other",
-              shipTypeCode: existing?.shipTypeCode || 0,
-              latitude: pr.Latitude,
-              longitude: pr.Longitude,
-              courseOverGround: pr.Cog,
-              speedOverGround: pr.Sog,
-              heading: pr.TrueHeading === 511 ? pr.Cog : pr.TrueHeading,
-              destination: existing?.destination || "",
-              timestamp: Date.now(),
-            });
-          } else if (msg.Message?.StandardClassBPositionReport) {
-            const pr = msg.Message.StandardClassBPositionReport;
-            vessels.set(mmsi, {
-              mmsi,
-              name: msg.MetaData?.ShipName?.trim() || existing?.name || "",
-              shipType: existing?.shipType || "other",
-              shipTypeCode: existing?.shipTypeCode || 0,
-              latitude: pr.Latitude,
-              longitude: pr.Longitude,
-              courseOverGround: pr.Cog,
-              speedOverGround: pr.Sog,
-              heading: pr.TrueHeading === 511 ? pr.Cog : pr.TrueHeading,
-              destination: existing?.destination || "",
-              timestamp: Date.now(),
-            });
-          } else if (msg.Message?.ShipStaticData && existing) {
-            const sd = msg.Message.ShipStaticData;
-            existing.name = sd.Name?.trim() || existing.name;
-            existing.shipType = getShipTypeName(sd.Type);
-            existing.shipTypeCode = sd.Type;
-            existing.destination = sd.Destination?.trim() || existing.destination;
-          }
-        } catch {
-          /* skip malformed messages */
+        const posReport =
+          msg.Message?.PositionReport ||
+          msg.Message?.StandardClassBPositionReport;
+        if (posReport) {
+          vessels.set(mmsi, {
+            mmsi,
+            name: msg.MetaData?.ShipName?.trim() || existing?.name || "",
+            shipType: existing?.shipType || "other",
+            shipTypeCode: existing?.shipTypeCode || 0,
+            latitude: posReport.Latitude,
+            longitude: posReport.Longitude,
+            courseOverGround: posReport.Cog,
+            speedOverGround: posReport.Sog,
+            heading:
+              posReport.TrueHeading === 511
+                ? posReport.Cog
+                : posReport.TrueHeading,
+            destination: existing?.destination || "",
+            timestamp: Date.now(),
+          });
+        } else if (msg.Message?.ShipStaticData && existing) {
+          const sd = msg.Message.ShipStaticData;
+          existing.name = sd.Name?.trim() || existing.name;
+          existing.shipType = getShipTypeName(sd.Type);
+          existing.shipTypeCode = sd.Type;
+          existing.destination = sd.Destination?.trim() || existing.destination;
         }
-      };
+      } catch {
+        /* skip malformed */
+      }
+    });
 
-      ws.onerror = () => {
-        finish();
-      };
+    ws.addEventListener("error", () => {
+      clearTimeout(timer);
+      done();
+    });
 
-      ws.onclose = () => {
-        if (timeout) clearTimeout(timeout);
-        resolve(
-          jsonResponse({
-            vessels: Array.from(vessels.values()),
-            count: vessels.size,
-            zonesSubscribed: zones.length,
-          })
-        );
-      };
-    } catch {
-      finish();
-    }
+    ws.addEventListener("close", () => {
+      clearTimeout(timer);
+      done();
+    });
   });
 }
 
