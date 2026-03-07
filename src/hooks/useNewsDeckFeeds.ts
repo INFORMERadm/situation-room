@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 export type FeedType = 'telegram' | 'rss' | 'youtube';
@@ -256,6 +256,46 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
 
     return () => { cancelled = true; };
   }, [feeds, fetchTelegramFeed, fetchRssFeed, fetchYoutubeFeed]);
+
+  const telegramPostIdsRef = useRef<Set<string>>(new Set());
+  const telegramInitialLoadDoneRef = useRef(false);
+  const sirenAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playTelegramSiren = useCallback(() => {
+    try {
+      if (!sirenAudioRef.current) {
+        sirenAudioRef.current = new Audio(
+          'https://respective-chocolate-rwzrevkijv.edgeone.app/nuclear-siren-emergency-alarm-ra-music-1-00-11.mp3'
+        );
+        sirenAudioRef.current.volume = 0.7;
+      }
+      sirenAudioRef.current.currentTime = 0;
+      sirenAudioRef.current.play().catch(() => {});
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    const tgFeeds = feeds.filter(f => f.feed_type === 'telegram');
+    if (tgFeeds.length === 0) return;
+
+    const allTgItems = tgFeeds.flatMap(f => feedItems[f.id] || []);
+    const currentIds = new Set(allTgItems.map(item => item.id));
+
+    if (!telegramInitialLoadDoneRef.current) {
+      if (currentIds.size > 0) {
+        telegramPostIdsRef.current = currentIds;
+        telegramInitialLoadDoneRef.current = true;
+      }
+    } else {
+      const newIds = [...currentIds].filter(id => !telegramPostIdsRef.current.has(id));
+      if (newIds.length > 0) {
+        playTelegramSiren();
+        telegramPostIdsRef.current = currentIds;
+      }
+    }
+  }, [feeds, feedItems, playTelegramSiren]);
 
   useEffect(() => {
     const tgFeeds = feeds.filter(f => f.feed_type === 'telegram');
