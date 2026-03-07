@@ -371,14 +371,16 @@ function FeedSourceChip({ feed, onRemove, onRefresh }: { feed: NewsFeed; onRemov
 export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, onRemove, onRefresh }: Props) {
   const emptyInfo = EMPTY_MESSAGES[feedType];
 
-  const mergedItems: FeedItem[] = feedType === 'rss'
+  const isMergedType = feedType === 'rss' || feedType === 'youtube';
+
+  const mergedItems: FeedItem[] = isMergedType
     ? feeds
         .flatMap(f => feedItems[f.id] || [])
         .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
     : [];
 
-  const hasAnyRssItems = mergedItems.length > 0;
-  const rssLoading = feedType === 'rss' && feeds.length > 0 && !hasAnyRssItems;
+  const hasAnyMergedItems = mergedItems.length > 0;
+  const mergedLoading = isMergedType && feeds.length > 0 && !hasAnyMergedItems;
 
   return (
     <div style={columnStyle}>
@@ -389,7 +391,7 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, o
         </button>
       </div>
 
-      {feedType === 'rss' && feeds.length > 0 && (
+      {isMergedType && feeds.length > 0 && (
         <div style={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -443,8 +445,8 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, o
           </div>
         ) : feedType === 'linkedin' ? (
           feeds.map(f => <LinkedInFeedCard key={f.id} feed={f} onRemove={onRemove} />)
-        ) : feedType === 'rss' ? (
-          rssLoading ? (
+        ) : isMergedType ? (
+          mergedLoading ? (
             <div style={{ padding: '12px', fontSize: 11, color: '#666', textAlign: 'center' }}>
               Loading feeds...
             </div>
