@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { VesselPosition } from '../types';
 
-const POLL_INTERVAL = 30_000;
+const BASE_POLL_INTERVAL = 30_000;
+const MAX_POLL_INTERVAL = 120_000;
 const VESSELS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/maritime-tracker?feed=vessels`;
 
 const AUTH_HEADERS = {
@@ -13,62 +14,88 @@ export function useCommercialShipping(active: boolean) {
   const [vessels, setVessels] = useState<VesselPosition[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const abortRef = useRef<AbortController | null>(null);
+  const consecutiveFailsRef = useRef(0);
+  const mountedRef = useRef(false);
+
+  const getInterval = useCallback(() => {
+    const fails = consecutiveFailsRef.current;
+    if (fails === 0) return BASE_POLL_INTERVAL;
+    return Math.min(BASE_POLL_INTERVAL * Math.pow(2, fails), MAX_POLL_INTERVAL);
+  }, []);
+
+  const scheduleNext = useCallback(() => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(fetchVessels, getInterval());
+  }, [getInterval]);
+
+  const fetchVessels = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      if (vessels.length === 0) setLoading(true);
+
+      const res = await fetch(VESSELS_URL, {
+        headers: AUTH_HEADERS,
+        signal: controller.signal,
+      });
+
+      if (!mountedRef.current) return;
+
+      if (!res.ok) {
+        consecutiveFailsRef.current++;
+        const body = await res.json().catch(() => ({}));
+        setError(body.statusMessage || body.error || 'AIS feed unavailable');
+        setLoading(false);
+        scheduleNext();
+        return;
+      }
+
+      const data = await res.json();
+      if (!mountedRef.current) return;
+
+      if (data.vessels && Array.isArray(data.vessels)) {
+        setVessels(data.vessels);
+        if (data.offline) {
+          consecutiveFailsRef.current++;
+          setError(data.statusMessage || 'AIS feed offline');
+        } else {
+          consecutiveFailsRef.current = 0;
+          setError(data.wsConnected ? null : 'AIS stream reconnecting...');
+        }
+      } else {
+        consecutiveFailsRef.current++;
+        setError(data.statusMessage || 'Invalid response');
+      }
+      setLoading(false);
+    } catch (err) {
+      if (!mountedRef.current) return;
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      consecutiveFailsRef.current++;
+      setLoading(false);
+      setError('AIS feed unavailable');
+    }
+    scheduleNext();
+  }, [vessels.length, scheduleNext]);
 
   useEffect(() => {
     if (!active) {
-      clearInterval(timerRef.current);
+      clearTimeout(timerRef.current);
       abortRef.current?.abort();
+      mountedRef.current = false;
       return;
     }
 
-    let mounted = true;
-
-    async function fetchVessels() {
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      try {
-        setLoading(prev => vessels.length === 0 ? true : prev);
-
-        const res = await fetch(VESSELS_URL, {
-          headers: AUTH_HEADERS,
-          signal: controller.signal,
-        });
-
-        if (!mounted) return;
-
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || `HTTP ${res.status}`);
-        }
-
-        const data = await res.json();
-        if (!mounted) return;
-
-        if (data.vessels && Array.isArray(data.vessels)) {
-          setVessels(data.vessels);
-          setError(data.wsConnected ? null : 'AIS stream reconnecting...');
-        } else {
-          setError(data.error || 'Invalid response');
-        }
-        setLoading(false);
-      } catch (err) {
-        if (!mounted) return;
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setLoading(false);
-        setError(err instanceof Error ? err.message : 'Failed to fetch vessels');
-      }
-    }
-
+    mountedRef.current = true;
+    consecutiveFailsRef.current = 0;
     fetchVessels();
-    timerRef.current = setInterval(fetchVessels, POLL_INTERVAL);
 
     return () => {
-      mounted = false;
-      clearInterval(timerRef.current);
+      mountedRef.current = false;
+      clearTimeout(timerRef.current);
       abortRef.current?.abort();
     };
   }, [active]);

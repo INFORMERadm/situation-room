@@ -35,6 +35,8 @@ let cacheTimestamp = 0;
 const CACHE_TTL_MS = 25_000;
 let wsConnection: WebSocket | null = null;
 let wsConnecting = false;
+let lastFailureTime = 0;
+const RECONNECT_COOLDOWN_MS = 60_000;
 
 function getShipTypeName(typeCode: number): string {
   if (typeCode >= 70 && typeCode <= 79) return "cargo";
@@ -122,9 +124,14 @@ function processAisMessage(raw: string) {
   } catch { /* skip malformed */ }
 }
 
-async function ensureWsConnection(): Promise<void> {
-  if (wsConnection && wsConnection.readyState === WebSocket.OPEN) return;
-  if (wsConnecting) return;
+async function ensureWsConnection(): Promise<string | null> {
+  if (wsConnection && wsConnection.readyState === WebSocket.OPEN) return null;
+  if (wsConnecting) return "Connecting to AIS stream...";
+
+  const now = Date.now();
+  if (lastFailureTime && now - lastFailureTime < RECONNECT_COOLDOWN_MS) {
+    return "AIS feed offline – retrying shortly";
+  }
 
   wsConnecting = true;
   try {
@@ -134,18 +141,18 @@ async function ensureWsConnection(): Promise<void> {
     }
 
     const apiKey = Deno.env.get("AISSTREAM_API_KEY");
-    if (!apiKey) throw new Error("AISSTREAM_API_KEY not configured");
+    if (!apiKey) return "AISSTREAM_API_KEY not configured";
 
     const boundingBoxes = await getZoneBoundingBoxes();
-    if (!boundingBoxes) throw new Error("No active maritime zones");
+    if (!boundingBoxes) return "No active maritime zones";
 
     const ws = new WebSocket("wss://stream.aisstream.io/v0/stream");
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error("WebSocket connection timeout"));
+        reject(new Error("timeout"));
         try { ws.close(); } catch { /* noop */ }
-      }, 10_000);
+      }, 8_000);
 
       ws.onopen = () => {
         clearTimeout(timeout);
@@ -165,7 +172,7 @@ async function ensureWsConnection(): Promise<void> {
 
       ws.onerror = () => {
         clearTimeout(timeout);
-        reject(new Error("WebSocket connection error"));
+        reject(new Error("connection_error"));
       };
     });
 
@@ -186,6 +193,11 @@ async function ensureWsConnection(): Promise<void> {
     };
 
     wsConnection = ws;
+    lastFailureTime = 0;
+    return null;
+  } catch {
+    lastFailureTime = Date.now();
+    return "AIS feed offline – upstream service unavailable";
   } finally {
     wsConnecting = false;
   }
@@ -199,16 +211,7 @@ function pruneStaleVessels() {
 }
 
 async function handleVessels() {
-  try {
-    await ensureWsConnection();
-  } catch (err) {
-    if (vesselCache.size === 0) {
-      return errorResponse(
-        err instanceof Error ? err.message : "Failed to connect to AIS stream",
-        502
-      );
-    }
-  }
+  const statusMessage = await ensureWsConnection();
 
   if (vesselCache.size === 0 && wsConnection?.readyState === WebSocket.OPEN) {
     await new Promise((r) => setTimeout(r, 3000));
@@ -216,12 +219,15 @@ async function handleVessels() {
 
   pruneStaleVessels();
   const vessels = Array.from(vesselCache.values());
+  const wsConnected = wsConnection?.readyState === WebSocket.OPEN;
 
   return jsonResponse({
     vessels,
     count: vessels.length,
-    cacheAge: Date.now() - cacheTimestamp,
-    wsConnected: wsConnection?.readyState === WebSocket.OPEN,
+    cacheAge: cacheTimestamp ? Date.now() - cacheTimestamp : 0,
+    wsConnected,
+    offline: !wsConnected && vessels.length === 0,
+    statusMessage: statusMessage || null,
   });
 }
 

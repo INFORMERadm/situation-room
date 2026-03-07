@@ -152,7 +152,7 @@ export default function MapLayerControl({ layers, onToggle, flightCount, baseCou
             fontVariantNumeric: 'tabular-nums',
           }}>
             {info.key === 'commercial-shipping' && shippingLoading ? 'connecting...' :
-             info.key === 'commercial-shipping' && shippingError ? 'error' :
+             info.key === 'commercial-shipping' && shippingError ? 'offline' :
              info.count > 0 ? info.count.toLocaleString() : '--'}
           </span>
         </button>
