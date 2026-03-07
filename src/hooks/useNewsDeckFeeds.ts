@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
-export type FeedType = 'linkedin' | 'rss' | 'youtube';
+export type FeedType = 'telegram' | 'rss' | 'youtube';
 export type ColumnPosition = 'left' | 'center' | 'right';
 
 export interface NewsFeed {
@@ -107,14 +107,61 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
         .eq('user_id', userId)
         .order('created_at', { ascending: true });
 
-      if (!cancelled && data) {
-        setFeeds(data as NewsFeed[]);
+      if (cancelled) return;
+
+      let feedList = (data || []) as NewsFeed[];
+
+      const hasTelegram = feedList.some(f => f.feed_type === 'telegram');
+      if (!hasTelegram) {
+        const { data: inserted } = await supabase
+          .from('user_news_feeds')
+          .insert({
+            user_id: userId,
+            feed_type: 'telegram',
+            url: 'https://t.me/s/RocketAlert',
+            display_name: 'Rocket Alert',
+            column_position: 'left',
+          })
+          .select()
+          .maybeSingle();
+
+        if (!cancelled && inserted) {
+          feedList = [inserted as NewsFeed, ...feedList];
+        }
       }
-      if (!cancelled) setLoading(false);
+
+      if (!cancelled) {
+        setFeeds(feedList);
+        setLoading(false);
+      }
     })();
 
     return () => { cancelled = true; };
   }, [userId]);
+
+  const fetchTelegramFeed = useCallback(async (feed: NewsFeed): Promise<FeedItem[]> => {
+    try {
+      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rss-proxy?telegram=true&url=${encodeURIComponent(feed.url)}`;
+      const res = await fetch(proxyUrl, {
+        headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+      });
+      if (!res.ok) return [];
+      const json = await res.json();
+      const posts: { id: string; text: string; date: string; images: string[] }[] = json.posts || [];
+      return posts.map((p, i) => ({
+        id: `${feed.id}-${p.id || i}`,
+        feedId: feed.id,
+        title: p.text.split('\n')[0]?.slice(0, 200) || 'Telegram Post',
+        url: `${feed.url.replace('/s/', '/')}/${p.id}`,
+        description: p.text.split('\n').slice(1).join('\n').slice(0, 500),
+        publishedAt: p.date ? new Date(p.date).toISOString() : new Date().toISOString(),
+        thumbnail: p.images[0] || undefined,
+        source: feed.display_name,
+      }));
+    } catch {
+      return [];
+    }
+  }, []);
 
   const fetchRssFeed = useCallback(async (feed: NewsFeed) => {
     try {
@@ -151,7 +198,9 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
     setFetchingItems(true);
     let items: FeedItem[] = [];
 
-    if (feed.feed_type === 'rss') {
+    if (feed.feed_type === 'telegram') {
+      items = await fetchTelegramFeed(feed);
+    } else if (feed.feed_type === 'rss') {
       items = await fetchRssFeed(feed);
     } else if (feed.feed_type === 'youtube') {
       items = await fetchYoutubeFeed(feed);
@@ -159,13 +208,13 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
 
     setFeedItems(prev => ({ ...prev, [feedId]: items }));
     setFetchingItems(false);
-  }, [feeds, fetchRssFeed, fetchYoutubeFeed]);
+  }, [feeds, fetchTelegramFeed, fetchRssFeed, fetchYoutubeFeed]);
 
   const refreshFeedsByType = useCallback(async (type: FeedType) => {
     const targetFeeds = feeds.filter(f => f.feed_type === type);
     if (targetFeeds.length === 0) return;
 
-    const fetcher = type === 'rss' ? fetchRssFeed : fetchYoutubeFeed;
+    const fetcher = type === 'telegram' ? fetchTelegramFeed : type === 'rss' ? fetchRssFeed : fetchYoutubeFeed;
     const results: Record<string, FeedItem[]> = {};
     await Promise.all(
       targetFeeds.map(async (feed) => {
@@ -173,12 +222,12 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
       })
     );
     setFeedItems(prev => ({ ...prev, ...results }));
-  }, [feeds, fetchRssFeed, fetchYoutubeFeed]);
+  }, [feeds, fetchTelegramFeed, fetchRssFeed, fetchYoutubeFeed]);
 
   useEffect(() => {
     if (feeds.length === 0) return;
 
-    const fetchableFeeds = feeds.filter(f => f.feed_type === 'rss' || f.feed_type === 'youtube');
+    const fetchableFeeds = feeds.filter(f => f.feed_type === 'telegram' || f.feed_type === 'rss' || f.feed_type === 'youtube');
     if (fetchableFeeds.length === 0) return;
 
     let cancelled = false;
@@ -189,7 +238,9 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
       await Promise.all(
         fetchableFeeds.map(async (feed) => {
           let items: FeedItem[] = [];
-          if (feed.feed_type === 'rss') {
+          if (feed.feed_type === 'telegram') {
+            items = await fetchTelegramFeed(feed);
+          } else if (feed.feed_type === 'rss') {
             items = await fetchRssFeed(feed);
           } else if (feed.feed_type === 'youtube') {
             items = await fetchYoutubeFeed(feed);
@@ -204,7 +255,18 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
     })();
 
     return () => { cancelled = true; };
-  }, [feeds, fetchRssFeed, fetchYoutubeFeed]);
+  }, [feeds, fetchTelegramFeed, fetchRssFeed, fetchYoutubeFeed]);
+
+  useEffect(() => {
+    const tgFeeds = feeds.filter(f => f.feed_type === 'telegram');
+    if (tgFeeds.length === 0) return;
+
+    const interval = setInterval(() => {
+      refreshFeedsByType('telegram');
+    }, 4 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [feeds, refreshFeedsByType]);
 
   useEffect(() => {
     const rssFeeds = feeds.filter(f => f.feed_type === 'rss');
@@ -247,14 +309,15 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
       const newFeed = data as NewsFeed;
       setFeeds(prev => [...prev, newFeed]);
 
-      if (feedType === 'rss' || feedType === 'youtube') {
-        let items: FeedItem[] = [];
-        if (feedType === 'rss') items = await fetchRssFeed(newFeed);
-        else items = await fetchYoutubeFeed(newFeed);
+      let items: FeedItem[] = [];
+      if (feedType === 'telegram') items = await fetchTelegramFeed(newFeed);
+      else if (feedType === 'rss') items = await fetchRssFeed(newFeed);
+      else if (feedType === 'youtube') items = await fetchYoutubeFeed(newFeed);
+      if (items.length > 0) {
         setFeedItems(prev => ({ ...prev, [newFeed.id]: items }));
       }
     }
-  }, [userId, fetchRssFeed, fetchYoutubeFeed]);
+  }, [userId, fetchTelegramFeed, fetchRssFeed, fetchYoutubeFeed]);
 
   const removeFeed = useCallback(async (id: string) => {
     if (!userId) return;

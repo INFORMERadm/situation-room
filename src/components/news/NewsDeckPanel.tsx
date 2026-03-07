@@ -29,7 +29,7 @@ const containerStyle: React.CSSProperties = {
 export default function NewsDeckPanel({ feeds, feedItems, loading, onAddFeed, onRemoveFeed, onRefreshFeed }: Props) {
   const [modal, setModal] = useState<ModalState | null>(null);
 
-  const linkedinFeeds = feeds.filter(f => f.feed_type === 'linkedin');
+  const telegramFeeds = feeds.filter(f => f.feed_type === 'telegram');
   const rssFeeds = feeds.filter(f => f.feed_type === 'rss');
   const youtubeFeeds = feeds.filter(f => f.feed_type === 'youtube');
 
@@ -50,11 +50,11 @@ export default function NewsDeckPanel({ feeds, feedItems, loading, onAddFeed, on
     <>
       <div style={containerStyle}>
         <FeedColumn
-          title="LinkedIn"
-          feedType="linkedin"
-          feeds={linkedinFeeds}
+          title="Telegram"
+          feedType="telegram"
+          feeds={telegramFeeds}
           feedItems={feedItems}
-          onAdd={() => setModal({ feedType: 'linkedin', columnPosition: 'left' })}
+          onAdd={() => setModal({ feedType: 'telegram', columnPosition: 'left' })}
           onRemove={onRemoveFeed}
           onRefresh={onRefreshFeed}
         />

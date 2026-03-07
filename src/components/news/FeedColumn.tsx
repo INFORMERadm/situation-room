@@ -74,7 +74,7 @@ const emptyStyle: React.CSSProperties = {
 };
 
 const EMPTY_MESSAGES: Record<FeedType, { icon: string; text: string }> = {
-  linkedin: { icon: 'in', text: 'Add LinkedIn profile or company URLs to track' },
+  telegram: { icon: 'TG', text: 'Add Telegram channel URLs to track messages' },
   rss: { icon: 'RSS', text: 'Add RSS feed URLs to aggregate news' },
   youtube: { icon: 'YT', text: 'Add YouTube channel URLs to track videos' },
 };
@@ -226,81 +226,6 @@ function FeedItemCard({ item, feedType }: { item: FeedItem; feedType: FeedType }
   );
 }
 
-function LinkedInFeedCard({ feed, onRemove }: { feed: NewsFeed; onRemove: (id: string) => void }) {
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '10px 12px',
-        borderBottom: '1px solid #1a1a1a',
-        background: hovered ? '#141414' : 'transparent',
-        transition: 'background 0.15s',
-      }}
-    >
-      <div style={{
-        width: 28,
-        height: 28,
-        borderRadius: 4,
-        background: '#0a66c2',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 11,
-        fontWeight: 800,
-        color: '#fff',
-        flexShrink: 0,
-      }}>
-        in
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <a
-          href={feed.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: hovered ? '#ff9800' : '#e0e0e0',
-            textDecoration: 'none',
-            transition: 'color 0.15s',
-          }}
-        >
-          {feed.display_name}
-        </a>
-        <div style={{ fontSize: 10, color: '#555', marginTop: 2 }}>
-          LinkedIn Profile
-        </div>
-      </div>
-      {hovered && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onRemove(feed.id); }}
-          style={{
-            width: 20,
-            height: 20,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'transparent',
-            border: 'none',
-            color: '#666',
-            cursor: 'pointer',
-            fontSize: 14,
-            borderRadius: 3,
-          }}
-          title="Remove"
-        >
-          x
-        </button>
-      )}
-    </div>
-  );
-}
 
 function FeedSourceHeader({ feed, onRemove, onRefresh }: { feed: NewsFeed; onRemove: (id: string) => void; onRefresh: (id: string) => void }) {
   const [hovered, setHovered] = useState(false);
@@ -435,7 +360,7 @@ function FeedSourceChip({ feed, onRemove, onRefresh }: { feed: NewsFeed; onRemov
 export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, onRemove, onRefresh }: Props) {
   const emptyInfo = EMPTY_MESSAGES[feedType];
 
-  const isMergedType = feedType === 'rss' || feedType === 'youtube';
+  const isMergedType = feedType === 'telegram' || feedType === 'rss' || feedType === 'youtube';
 
   const mergedItems: FeedItem[] = isMergedType
     ? feeds
@@ -507,8 +432,6 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, onAdd, o
               + Add Feed
             </button>
           </div>
-        ) : feedType === 'linkedin' ? (
-          feeds.map(f => <LinkedInFeedCard key={f.id} feed={f} onRemove={onRemove} />)
         ) : isMergedType ? (
           mergedLoading ? (
             <div style={{ padding: '12px', fontSize: 11, color: '#666', textAlign: 'center' }}>

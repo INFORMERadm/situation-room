@@ -9,15 +9,15 @@ interface Props {
 }
 
 const TITLES: Record<FeedType, string> = {
-  linkedin: 'Add LinkedIn Feed',
+  telegram: 'Add Telegram Channel',
   rss: 'Add RSS Feed',
   youtube: 'Add YouTube Channel',
 };
 
 const PLACEHOLDERS: Record<FeedType, { url: string; name: string }> = {
-  linkedin: {
-    url: 'https://www.linkedin.com/in/username',
-    name: 'John Doe',
+  telegram: {
+    url: 'https://t.me/s/channelname',
+    name: 'Channel Name',
   },
   rss: {
     url: 'https://feeds.example.com/rss.xml',
