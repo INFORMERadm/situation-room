@@ -282,14 +282,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const res = await fetch(resolvedUrl, {
-      headers: {
-        "User-Agent": "N4-RSS-Proxy/1.0",
-        Accept:
-          "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
-      },
+    const feedHeaders = {
+      "User-Agent":
+        "Mozilla/5.0 (compatible; N4FeedReader/1.0; +https://n4.app)",
+      Accept:
+        "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+    };
+
+    let res = await fetch(resolvedUrl, {
+      headers: feedHeaders,
       signal: AbortSignal.timeout(10000),
     });
+
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 2000));
+      res = await fetch(resolvedUrl, {
+        headers: feedHeaders,
+        signal: AbortSignal.timeout(10000),
+      });
+    }
 
     if (!res.ok) {
       return new Response(
