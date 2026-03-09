@@ -112,6 +112,10 @@ async function resolveYoutubeUrl(feedUrl: string): Promise<string> {
     return feedUrl;
   }
 
+  if (parsed.pathname.startsWith("/feeds/videos.xml")) {
+    return feedUrl;
+  }
+
   const channelMatch = parsed.pathname.match(/^\/channel\/([a-zA-Z0-9_-]+)/);
   if (channelMatch) {
     return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelMatch[1]}`;
@@ -119,46 +123,64 @@ async function resolveYoutubeUrl(feedUrl: string): Promise<string> {
 
   const handleMatch = parsed.pathname.match(/^\/@([a-zA-Z0-9_.-]+)/);
   if (handleMatch) {
-    const pageRes = await fetch(`https://www.youtube.com/@${handleMatch[1]}`, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html",
-      },
-      signal: AbortSignal.timeout(8000),
-      redirect: "follow",
-    });
+    const handle = handleMatch[1];
 
-    if (pageRes.ok) {
-      const html = await pageRes.text();
-
-      const externalIdMatch = html.match(
-        /"externalId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/
+    try {
+      const oembedRes = await fetch(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/@${handle}`)}&format=json`,
+        { signal: AbortSignal.timeout(6000) }
       );
-      if (externalIdMatch) {
-        return `https://www.youtube.com/feeds/videos.xml?channel_id=${externalIdMatch[1]}`;
+      if (oembedRes.ok) {
+        const oembed = await oembedRes.json();
+        const authorUrl: string = oembed.author_url || "";
+        const oembedChannelMatch = authorUrl.match(/\/channel\/(UC[a-zA-Z0-9_-]+)/);
+        if (oembedChannelMatch) {
+          return `https://www.youtube.com/feeds/videos.xml?channel_id=${oembedChannelMatch[1]}`;
+        }
       }
+    } catch {
+      // fall through to page scrape
+    }
 
-      const browseIdMatch = html.match(
-        /"browseId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/
-      );
-      if (browseIdMatch) {
-        return `https://www.youtube.com/feeds/videos.xml?channel_id=${browseIdMatch[1]}`;
-      }
+    try {
+      const pageRes = await fetch(`https://www.youtube.com/@${handle}`, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        signal: AbortSignal.timeout(8000),
+        redirect: "follow",
+      });
 
-      const channelIdMeta = html.match(
-        /channel_id=([a-zA-Z0-9_-]+)/
-      );
-      if (channelIdMeta) {
-        return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelIdMeta[1]}`;
-      }
+      if (pageRes.ok) {
+        const html = await pageRes.text();
 
-      const rssLinkMatch = html.match(
-        /<link[^>]+type="application\/rss\+xml"[^>]+href="([^"]+)"/
-      );
-      if (rssLinkMatch) {
-        return rssLinkMatch[1];
+        const patterns = [
+          /"externalId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
+          /"browseId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
+          /channel_id=(UC[a-zA-Z0-9_-]+)/,
+          /<link[^>]+rel="canonical"[^>]+href="https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]+)"/,
+          /<meta[^>]+content="https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]+)"/,
+        ];
+
+        for (const pattern of patterns) {
+          const m = html.match(pattern);
+          if (m) {
+            return `https://www.youtube.com/feeds/videos.xml?channel_id=${m[1]}`;
+          }
+        }
+
+        const rssLinkMatch = html.match(
+          /<link[^>]+type="application\/rss\+xml"[^>]+href="([^"]+)"/
+        );
+        if (rssLinkMatch) {
+          return rssLinkMatch[1];
+        }
       }
+    } catch {
+      // fall through
     }
   }
 
