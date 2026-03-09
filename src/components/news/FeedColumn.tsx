@@ -127,38 +127,38 @@ function FeedItemCard({ item, feedType, highlighted }: { item: FeedItem; feedTyp
             onMouseLeave={() => setHovered(false)}
             style={{ position: 'relative', cursor: 'pointer' }}
           >
-            <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#111', borderRadius: 4, overflow: 'hidden' }}>
-              {item.thumbnail && (
+            {item.thumbnail && (
+              <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#111', borderRadius: 4, overflow: 'hidden' }}>
                 <img
                   src={item.thumbnail}
                   alt=""
                   style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                 />
-              )}
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 48,
-                height: 34,
-                background: hovered ? '#f00' : 'rgba(0,0,0,0.75)',
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'background 0.2s',
-              }}>
                 <div style={{
-                  width: 0,
-                  height: 0,
-                  borderTop: '8px solid transparent',
-                  borderBottom: '8px solid transparent',
-                  borderLeft: '14px solid #fff',
-                  marginLeft: 2,
-                }} />
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: 48,
+                  height: 34,
+                  background: hovered ? '#f00' : 'rgba(0,0,0,0.75)',
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.2s',
+                }}>
+                  <div style={{
+                    width: 0,
+                    height: 0,
+                    borderTop: '8px solid transparent',
+                    borderBottom: '8px solid transparent',
+                    borderLeft: '14px solid #fff',
+                    marginLeft: 2,
+                  }} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
         <div style={{ marginTop: 6 }}>

@@ -69,26 +69,12 @@ function parseRssXml(xml: string, feedId: string, source: string): FeedItem[] {
     const entries = doc.querySelectorAll('entry');
     entries.forEach((entry, i) => {
       const title = entry.querySelector('title')?.textContent || '';
-      const linkEl = entry.querySelector('link[rel="alternate"]') || entry.querySelector('link');
+      const linkEl = entry.querySelector('link');
       const link = linkEl?.getAttribute('href') || linkEl?.textContent || '';
       const summary = entry.querySelector('summary')?.textContent || entry.querySelector('content')?.textContent || '';
       const published = entry.querySelector('published')?.textContent || entry.querySelector('updated')?.textContent || '';
-
-      const mediaGroup = entry.querySelector('group')
-        || entry.getElementsByTagName('media:group')[0]
-        || null;
-      let thumbnail = mediaGroup?.querySelector('thumbnail')?.getAttribute('url')
-        || mediaGroup?.getElementsByTagName('media:thumbnail')[0]?.getAttribute('url')
-        || entry.querySelector('thumbnail')?.getAttribute('url')
-        || entry.getElementsByTagName('media:thumbnail')[0]?.getAttribute('url')
-        || undefined;
-
-      if (!thumbnail) {
-        const ytIdMatch = link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-        if (ytIdMatch) {
-          thumbnail = `https://i.ytimg.com/vi/${ytIdMatch[1]}/hqdefault.jpg`;
-        }
-      }
+      const mediaGroup = entry.querySelector('group');
+      const thumbnail = mediaGroup?.querySelector('thumbnail')?.getAttribute('url') || undefined;
 
       items.push({
         id: `${feedId}-${i}`,
