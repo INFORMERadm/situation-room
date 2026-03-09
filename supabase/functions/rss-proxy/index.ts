@@ -194,6 +194,27 @@ Deno.serve(async (req: Request) => {
     }
 
     const url = new URL(req.url);
+
+    const resolveYt = url.searchParams.get("resolve_yt") === "true";
+    if (resolveYt) {
+      const handle = url.searchParams.get("handle") || "";
+      if (!handle) {
+        return new Response(
+          JSON.stringify({ error: "Missing handle parameter" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const resolved = await resolveYoutubeUrl(`https://www.youtube.com/@${handle}`);
+      const isResolved = resolved.includes("/feeds/videos.xml");
+      return new Response(
+        JSON.stringify({ feedUrl: isResolved ? resolved : null }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     const feedUrl = url.searchParams.get("url");
 
     if (!feedUrl) {
@@ -247,6 +268,19 @@ Deno.serve(async (req: Request) => {
     }
 
     const resolvedUrl = await resolveYoutubeUrl(feedUrl);
+
+    const resolvedParsed = new URL(resolvedUrl);
+    const isYoutubeHandle = (resolvedParsed.hostname === "www.youtube.com" || resolvedParsed.hostname === "youtube.com")
+      && resolvedParsed.pathname.startsWith("/@");
+    if (isYoutubeHandle) {
+      return new Response(
+        JSON.stringify({ error: "Could not resolve YouTube channel to RSS feed" }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     const res = await fetch(resolvedUrl, {
       headers: {

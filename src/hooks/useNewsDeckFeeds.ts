@@ -367,12 +367,42 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
   const addFeed = useCallback(async (feedType: FeedType, url: string, displayName: string, columnPosition: ColumnPosition) => {
     if (!userId) return;
 
+    let resolvedUrl = url;
+    if (feedType === 'youtube') {
+      try {
+        const parsed = new URL(url);
+        if (
+          (parsed.hostname === 'www.youtube.com' || parsed.hostname === 'youtube.com') &&
+          !parsed.pathname.startsWith('/feeds/videos.xml')
+        ) {
+          const channelMatch = parsed.pathname.match(/^\/channel\/([a-zA-Z0-9_-]+)/);
+          if (channelMatch) {
+            resolvedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelMatch[1]}`;
+          } else {
+            const handleMatch = parsed.pathname.match(/^\/@([a-zA-Z0-9_.-]+)/);
+            if (handleMatch) {
+              const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rss-proxy?resolve_yt=true&handle=${encodeURIComponent(handleMatch[1])}`;
+              const res = await fetch(proxyUrl, {
+                headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+              });
+              if (res.ok) {
+                const json = await res.json();
+                if (json.feedUrl) resolvedUrl = json.feedUrl;
+              }
+            }
+          }
+        }
+      } catch {
+        // keep original url
+      }
+    }
+
     const { data, error } = await supabase
       .from('user_news_feeds')
       .insert({
         user_id: userId,
         feed_type: feedType,
-        url,
+        url: resolvedUrl,
         display_name: displayName,
         column_position: columnPosition,
       })
