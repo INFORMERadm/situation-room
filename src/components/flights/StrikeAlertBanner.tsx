@@ -51,8 +51,8 @@ export default function StrikeAlertBanner({ events, newEventIds, onClearNew }: P
   return (
     <div style={{
       position: 'absolute',
-      top: 48,
-      left: 12,
+      top: 12,
+      right: 200,
       zIndex: 1000,
       display: 'flex',
       flexDirection: 'column',
