@@ -480,7 +480,7 @@ UI TOOLS:
     }
 
     const sessionConfig: Record<string, unknown> = {
-      model: "gpt-4o-realtime-preview",
+      model: "gpt-realtime-1.5",
       voice: "marin",
       modalities: ["text", "audio"],
       instructions: fullInstructions,
@@ -527,7 +527,7 @@ UI TOOLS:
       );
     }
 
-    const sdpResponse = await fetch(`https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview`, {
+    const sdpResponse = await fetch(`https://api.openai.com/v1/realtime?model=gpt-realtime-1.5`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${ephemeralKey}`,
