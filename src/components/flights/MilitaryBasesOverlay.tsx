@@ -3,31 +3,47 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { MilitaryBase, BaseType } from '../../types';
 
-const OPERATOR_COLORS: Record<string, string> = {
-  'US Air Force': '#4caf50',
-  'US Navy': '#4caf50',
-  'US Army': '#4caf50',
-  'US Military': '#4caf50',
-  'US/Coalition': '#4caf50',
-  'US Air Force / Turkish Air Force': '#4caf50',
-  'Israeli Air Force': '#2196f3',
-  'Israeli Navy': '#2196f3',
-  'Iranian Air Force': '#f44336',
-  'Iranian Navy': '#f44336',
-  'Iranian Air Defense Force': '#f44336',
-  'IRGC Navy': '#f44336',
-  'IRGC': '#f44336',
-  'IRGC Aerospace': '#f44336',
-  'Russian Air Force': '#9c27b0',
-  'Russian Navy': '#9c27b0',
-  'Royal Air Force': '#00bcd4',
-  'Royal Navy': '#00bcd4',
-  'French Navy': '#00bcd4',
-  'French Military': '#00bcd4',
-};
+const OPERATOR_PREFIX_COLORS: [string, string][] = [
+  ['US ', '#4caf50'],
+  ['US/', '#4caf50'],
+  ['JMSDF', '#e91e63'],
+  ['JASDF', '#e91e63'],
+  ['ROK ', '#e91e63'],
+  ['ROC ', '#ff9800'],
+  ['PLA ', '#e53935'],
+  ['Israeli', '#2196f3'],
+  ['Iranian', '#f44336'],
+  ['IRGC', '#f44336'],
+  ['Russian', '#9c27b0'],
+  ['Royal Air Force', '#00bcd4'],
+  ['Royal Navy', '#00bcd4'],
+  ['Royal Australian', '#00897b'],
+  ['Royal Canadian', '#ef5350'],
+  ['Royal Norwegian', '#0277bd'],
+  ['Royal Saudi', '#2e7d32'],
+  ['Royal Netherlands', '#ff6f00'],
+  ['French ', '#00bcd4'],
+  ['German ', '#ffa000'],
+  ['Italian ', '#43a047'],
+  ['Turkish ', '#d32f2f'],
+  ['Polish ', '#c62828'],
+  ['Belgian ', '#5d4037'],
+  ['Indian ', '#ff6f00'],
+  ['Pakistan ', '#1b5e20'],
+  ['Korean People', '#b71c1c'],
+  ['Egyptian ', '#795548'],
+  ['Brazilian ', '#2e7d32'],
+  ['UAE ', '#00838f'],
+  ['Spanish ', '#e65100'],
+  ['Republic of Singapore', '#d84315'],
+  ['NATO', '#1565c0'],
+];
 
 function getOperatorColor(operator: string): string {
-  return OPERATOR_COLORS[operator] || '#c8a96e';
+  for (const [prefix, color] of OPERATOR_PREFIX_COLORS) {
+    if (operator.startsWith(prefix)) return color;
+  }
+  return '#c8a96e';
 }
 
 function getBaseIcon(baseType: BaseType, color: string): string {

@@ -305,20 +305,40 @@ export default function FlightMap({
               US
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#1565c0', display: 'inline-block' }} />
+              NATO
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#00bcd4', display: 'inline-block' }} />
+              UK/FR
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2196f3', display: 'inline-block' }} />
               Israel
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f44336', display: 'inline-block' }} />
-              Iran
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#e53935', display: 'inline-block' }} />
+              China
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#9c27b0', display: 'inline-block' }} />
               Russia
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#00bcd4', display: 'inline-block' }} />
-              UK/FR
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f44336', display: 'inline-block' }} />
+              Iran
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#b71c1c', display: 'inline-block' }} />
+              DPRK
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff6f00', display: 'inline-block' }} />
+              India
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c8a96e', display: 'inline-block' }} />
+              Other
             </span>
           </>
         )}
