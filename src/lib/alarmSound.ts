@@ -49,6 +49,32 @@ export function playNewsAlarm() {
   }
 }
 
+export function playStrikeAlarm() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+
+  for (let rep = 0; rep < 3; rep++) {
+    const baseTime = now + rep * 0.35;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(440, baseTime);
+    osc.frequency.linearRampToValueAtTime(880, baseTime + 0.15);
+
+    gain.gain.setValueAtTime(0.15, baseTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, baseTime + 0.25);
+
+    osc.start(baseTime);
+    osc.stop(baseTime + 0.26);
+  }
+}
+
 export function playChatNotification() {
   const ctx = getAudioContext();
   if (!ctx) return;

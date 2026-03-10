@@ -268,6 +268,19 @@ async function handleZones() {
   return jsonResponse({ zones: data });
 }
 
+async function handleStrikeEvents() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("strike_events")
+    .select("*")
+    .eq("status", "active")
+    .gte("expires_at", new Date().toISOString())
+    .order("detected_at", { ascending: false });
+
+  if (error) return errorResponse(error.message, 500);
+  return jsonResponse({ events: data || [] });
+}
+
 async function handleStreamConfig() {
   const apiKey = Deno.env.get("AISSTREAM_API_KEY");
   if (!apiKey) {
@@ -322,9 +335,11 @@ Deno.serve(async (req: Request) => {
         return await handleStreamConfig();
       case "vessels":
         return await handleVessels();
+      case "strike-events":
+        return await handleStrikeEvents();
       default:
         return errorResponse(
-          "Unknown feed. Use: military-data, zones, stream-config, vessels",
+          "Unknown feed. Use: military-data, zones, stream-config, vessels, strike-events",
           400
         );
     }

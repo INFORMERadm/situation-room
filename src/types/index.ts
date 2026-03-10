@@ -349,4 +349,25 @@ export interface MaritimeZone {
   is_active: boolean;
 }
 
-export type MapLayerName = 'flights' | 'military-bases' | 'naval-assets' | 'commercial-shipping';
+export interface StrikeEvent {
+  id: string;
+  event_type: string;
+  source_country: string;
+  source_label: string;
+  source_lat: number;
+  source_lng: number;
+  target_label: string;
+  target_lat: number;
+  target_lng: number;
+  projectile_count: number;
+  estimated_flight_time_seconds: number;
+  weapon_name: string;
+  headline: string;
+  confidence: number;
+  status: string;
+  detected_at: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export type MapLayerName = 'flights' | 'military-bases' | 'naval-assets' | 'commercial-shipping' | 'strike-events';

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import type { LiveFlightPosition, AircraftTrack, MilitaryBase, MilitaryNavalAsset, VesselPosition, MapLayerName } from '../../types';
+import type { LiveFlightPosition, AircraftTrack, MilitaryBase, MilitaryNavalAsset, VesselPosition, StrikeEvent, MapLayerName } from '../../types';
 import FlightTrackOverlay from './FlightTrackOverlay';
 import MilitaryBasesOverlay from './MilitaryBasesOverlay';
 import NavalAssetsOverlay from './NavalAssetsOverlay';
 import CommercialShippingOverlay from './CommercialShippingOverlay';
+import StrikeAnimationOverlay from './StrikeAnimationOverlay';
+import StrikeAlertBanner from './StrikeAlertBanner';
 import MapLayerControl from './MapLayerControl';
 
 import 'leaflet/dist/leaflet.css';
@@ -177,6 +179,9 @@ interface FlightMapProps {
   vesselCount: number;
   shippingLoading?: boolean;
   shippingError?: string | null;
+  strikeEvents: StrikeEvent[];
+  strikeNewEventIds: Set<string>;
+  onClearStrikeNew: () => void;
 }
 
 export default function FlightMap({
@@ -194,6 +199,9 @@ export default function FlightMap({
   vesselCount,
   shippingLoading,
   shippingError,
+  strikeEvents,
+  strikeNewEventIds,
+  onClearStrikeNew,
 }: FlightMapProps) {
   const flightCount = useMemo(() => flights.length, [flights]);
 
@@ -224,6 +232,7 @@ export default function FlightMap({
         {layers['military-bases'] && <MilitaryBasesOverlay bases={militaryBases} />}
         {layers['naval-assets'] && <NavalAssetsOverlay navalAssets={navalAssets} />}
         {layers['commercial-shipping'] && <CommercialShippingOverlay vessels={vessels} />}
+        {layers['strike-events'] && <StrikeAnimationOverlay events={strikeEvents} />}
       </MapContainer>
 
       <MapLayerControl
@@ -235,7 +244,16 @@ export default function FlightMap({
         vesselCount={vesselCount}
         shippingLoading={shippingLoading}
         shippingError={shippingError}
+        strikeCount={strikeEvents.length}
       />
+
+      {layers['strike-events'] && (
+        <StrikeAlertBanner
+          events={strikeEvents}
+          newEventIds={strikeNewEventIds}
+          onClearNew={onClearStrikeNew}
+        />
+      )}
 
       <div style={{
         position: 'absolute',
@@ -351,6 +369,18 @@ export default function FlightMap({
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#9e9e9e', display: 'inline-block' }} />
               Cargo
+            </span>
+          </>
+        )}
+        {layers['strike-events'] && strikeEvents.length > 0 && (
+          <>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff3d00', display: 'inline-block' }} />
+              Strike
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff1744', display: 'inline-block' }} />
+              Impact
             </span>
           </>
         )}

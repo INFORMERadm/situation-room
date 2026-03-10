@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import FlightMap from './FlightMap';
 import FlightDetailPanel from './FlightDetailPanel';
 import FlightSearchPanel from './FlightSearchPanel';
@@ -7,7 +7,9 @@ import { useFlightInterpolation } from '../../hooks/useFlightInterpolation';
 import useFlightSearch from '../../hooks/useFlightSearch';
 import { useMilitaryOverlay } from '../../hooks/useMilitaryOverlay';
 import { useCommercialShipping } from '../../hooks/useCommercialShipping';
+import { useStrikeEvents } from '../../hooks/useStrikeEvents';
 import { useMapLayers } from '../../hooks/useMapLayers';
+import { playStrikeAlarm } from '../../lib/alarmSound';
 import type { LiveFlightPosition } from '../../types';
 
 interface FlightsDashboardProps {
@@ -31,6 +33,23 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
   const { layers, toggleLayer, isLayerVisible } = useMapLayers();
   const military = useMilitaryOverlay(active);
   const shipping = useCommercialShipping(active && isLayerVisible('commercial-shipping'));
+  const strikes = useStrikeEvents(active && isLayerVisible('strike-events'));
+  const alarmPlayedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (strikes.newEventIds.size > 0) {
+      let played = false;
+      for (const id of strikes.newEventIds) {
+        if (!alarmPlayedRef.current.has(id)) {
+          alarmPlayedRef.current.add(id);
+          if (!played) {
+            playStrikeAlarm();
+            played = true;
+          }
+        }
+      }
+    }
+  }, [strikes.newEventIds]);
 
   const handleSelectFlight = useCallback((flight: LiveFlightPosition) => {
     selectFlight(flight.flightId);
@@ -59,6 +78,9 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         vesselCount={shipping.vesselCount}
         shippingLoading={shipping.loading}
         shippingError={shipping.error}
+        strikeEvents={strikes.events}
+        strikeNewEventIds={strikes.newEventIds}
+        onClearStrikeNew={strikes.clearNewEvents}
       />
       <FlightSearchPanel
         isOpen={search.isOpen}
