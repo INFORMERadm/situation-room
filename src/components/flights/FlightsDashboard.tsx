@@ -10,6 +10,7 @@ import { useCommercialShipping } from '../../hooks/useCommercialShipping';
 import { useStrikeEvents } from '../../hooks/useStrikeEvents';
 import { useMapLayers } from '../../hooks/useMapLayers';
 import { playStrikeAlarm } from '../../lib/alarmSound';
+import LiveCamButton from './LiveCamButton';
 import type { LiveFlightPosition } from '../../types';
 
 interface FlightsDashboardProps {
@@ -99,6 +100,7 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         onSearchDepartures={search.searchDeparturesByAirport}
         onSearchTrack={search.searchAircraftTrack}
       />
+      <LiveCamButton />
       {selectedFlightId && (
         <FlightDetailPanel
           detail={selectedFlight}
