@@ -11,7 +11,7 @@ const MODES: { key: Mode; label: string }[] = [
   { key: 'news', label: 'News' },
   { key: 'pa', label: 'PA' },
   { key: 'law', label: 'Law' },
-  { key: 'flights', label: 'Flights' },
+  { key: 'flights', label: 'War Map' },
   { key: 'chat', label: 'Chat' },
   { key: 'mail', label: 'Mail' },
 ];
@@ -63,7 +63,9 @@ function LawIcon({ active }: { active: boolean }) {
 function FlightsIcon({ active }: { active: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#ff9800' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+      <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+      <line x1="9" y1="3" x2="9" y2="18" />
+      <line x1="15" y1="6" x2="15" y2="21" />
     </svg>
   );
 }
