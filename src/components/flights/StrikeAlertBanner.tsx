@@ -29,6 +29,7 @@ function formatFlightTime(seconds: number): string {
 
 export default function StrikeAlertBanner({ events, newEventIds, onClearNew }: Props) {
   const [, setTick] = useState(0);
+  const [minimized, setMinimized] = useState(false);
   const timeoutRef = useRef<number>(0);
 
   useEffect(() => {
@@ -56,11 +57,65 @@ export default function StrikeAlertBanner({ events, newEventIds, onClearNew }: P
       zIndex: 1000,
       display: 'flex',
       flexDirection: 'column',
-      gap: 6,
+      gap: 0,
       maxWidth: 380,
       maxHeight: 'calc(100% - 120px)',
-      overflowY: 'auto',
     }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: 'rgba(0, 0, 0, 0.92)',
+        border: '1px solid #333',
+        borderRadius: minimized ? 6 : '6px 6px 0 0',
+        padding: '4px 10px',
+        cursor: 'pointer',
+        userSelect: 'none',
+      }} onClick={() => setMinimized(m => !m)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: '#ff1744',
+            animation: 'strike-pulse 1.5s ease-in-out infinite',
+          }} />
+          <span style={{
+            color: '#ff1744',
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: 0.8,
+          }}>
+            Threats ({events.length})
+          </span>
+        </div>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#888"
+          strokeWidth="2"
+          strokeLinecap="round"
+          style={{
+            transition: 'transform 0.2s ease',
+            transform: minimized ? 'rotate(180deg)' : 'rotate(0deg)',
+          }}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </div>
+
+      {!minimized && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          paddingTop: 6,
+          overflowY: 'auto',
+          maxHeight: 'calc(100vh - 200px)',
+        }}>
       {events.map((event) => {
         const profile = getWeaponProfile(event.event_type);
         const isNew = newEventIds.has(event.id);
@@ -162,6 +217,8 @@ export default function StrikeAlertBanner({ events, newEventIds, onClearNew }: P
           </div>
         );
       })}
+        </div>
+      )}
 
       <style>{`
         @keyframes strike-flash {
