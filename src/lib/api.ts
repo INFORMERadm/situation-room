@@ -468,6 +468,9 @@ export async function fetchLiveFlights(bounds?: string) {
     throw new Error(`Live flights failed: ${res.status} ${body}`);
   }
   const json = await res.json();
+  if (json.error && (!json.flights || json.flights.length === 0)) {
+    throw new Error(json.error);
+  }
   return json.flights ?? [];
 }
 
