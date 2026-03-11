@@ -59,6 +59,7 @@ export function useFlightsDashboard(active: boolean) {
   const [detailLoading, setDetailLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
+  const hasFlightsRef = useRef(false);
 
   const loadFlights = useCallback(async () => {
     try {
@@ -69,15 +70,13 @@ export function useFlightsDashboard(active: boolean) {
             .filter((f: LiveFlightPosition) => f.latitude !== 0 || f.longitude !== 0)
         : [];
       setFlights(list);
+      hasFlightsRef.current = list.length > 0;
       setError(null);
     } catch (err) {
       if (!mountedRef.current) return;
-      setFlights(prev => {
-        if (prev.length === 0) {
-          setError(err instanceof Error ? err.message : 'Failed to load flights');
-        }
-        return prev;
-      });
+      if (!hasFlightsRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to load flights');
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
