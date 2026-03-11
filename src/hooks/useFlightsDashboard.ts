@@ -48,7 +48,7 @@ function normalizeFlight(raw: RawFlightData, idx: number): LiveFlightPosition {
   };
 }
 
-const POLL_INTERVAL = 30000;
+const POLL_INTERVAL = 60000;
 
 export function useFlightsDashboard(active: boolean) {
   const [flights, setFlights] = useState<LiveFlightPosition[]>([]);

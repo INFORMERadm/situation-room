@@ -18,7 +18,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
-const FLIGHT_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const LIVE_FLIGHTS_CACHE_TTL_MS = 60 * 1000;
+const LIVE_FLIGHTS_STALE_TTL_MS = 5 * 60 * 1000;
 
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
@@ -331,6 +332,41 @@ async function setCachedDetail(detail: Omit<CachedDetail, "cached_at">): Promise
   }
 }
 
+async function getDbCachedFlights(): Promise<{ flights: unknown[]; fetchedAt: number } | null> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    const sb = getSupabase();
+    const { data } = await sb
+      .from("live_flights_cache")
+      .select("flights_data, fetched_at")
+      .eq("id", 1)
+      .maybeSingle();
+    if (!data || !data.flights_data) return null;
+    const fetchedAt = new Date(data.fetched_at).getTime();
+    return { flights: data.flights_data as unknown[], fetchedAt };
+  } catch (err) {
+    console.error("DB cache read failed:", err);
+    return null;
+  }
+}
+
+async function setDbCachedFlights(flights: unknown[]): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
+  try {
+    const sb = getSupabase();
+    await sb
+      .from("live_flights_cache")
+      .upsert({
+        id: 1,
+        flights_data: flights,
+        flight_count: flights.length,
+        fetched_at: new Date().toISOString(),
+      }, { onConflict: "id" });
+  } catch (err) {
+    console.error("DB cache write failed:", err);
+  }
+}
+
 interface OpenSkyRoute {
   estDepartureAirport: string | null;
   estArrivalAirport: string | null;
@@ -436,8 +472,21 @@ Deno.serve(async (req: Request) => {
     const feed = url.searchParams.get("feed") ?? "";
 
     if (feed === "live-flights") {
-      const params: Record<string, string> = {};
+      const now = Date.now();
       const bounds = url.searchParams.get("bounds");
+
+      if (!bounds) {
+        const dbCache = await getDbCachedFlights();
+        if (dbCache && (now - dbCache.fetchedAt) < LIVE_FLIGHTS_CACHE_TTL_MS) {
+          return jsonResponse({ flights: dbCache.flights, cached: true });
+        }
+
+        if (cachedFlights && (now - cachedFlightsAt) < LIVE_FLIGHTS_CACHE_TTL_MS) {
+          return jsonResponse({ flights: cachedFlights, cached: true });
+        }
+      }
+
+      const params: Record<string, string> = {};
       if (bounds) {
         const parts = bounds.split(",").map((s) => s.trim());
         if (parts.length === 4) {
@@ -460,6 +509,9 @@ Deno.serve(async (req: Request) => {
         if (flights.length > 0) {
           cachedFlights = flights;
           cachedFlightsAt = Date.now();
+          if (!bounds) {
+            EdgeRuntime.waitUntil(setDbCachedFlights(flights));
+          }
         }
 
         return jsonResponse({ flights });
@@ -467,9 +519,13 @@ Deno.serve(async (req: Request) => {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("OpenSky live flights error:", msg);
 
-        if (cachedFlights && (Date.now() - cachedFlightsAt) < FLIGHT_CACHE_MAX_AGE_MS) {
-          console.log("Serving cached flights due to OpenSky error");
+        if (cachedFlights && (now - cachedFlightsAt) < LIVE_FLIGHTS_STALE_TTL_MS) {
           return jsonResponse({ flights: cachedFlights, stale: true });
+        }
+
+        const dbCache = await getDbCachedFlights();
+        if (dbCache && (now - dbCache.fetchedAt) < LIVE_FLIGHTS_STALE_TTL_MS) {
+          return jsonResponse({ flights: dbCache.flights, stale: true });
         }
 
         return jsonResponse({ flights: [], error: msg, partial: true });
