@@ -72,7 +72,12 @@ export function useFlightsDashboard(active: boolean) {
       setError(null);
     } catch (err) {
       if (!mountedRef.current) return;
-      setError(err instanceof Error ? err.message : 'Failed to load flights');
+      setFlights(prev => {
+        if (prev.length === 0) {
+          setError(err instanceof Error ? err.message : 'Failed to load flights');
+        }
+        return prev;
+      });
     } finally {
       if (mountedRef.current) setLoading(false);
     }
