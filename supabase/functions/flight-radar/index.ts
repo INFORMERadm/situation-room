@@ -18,9 +18,13 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const FLIGHT_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
+
+let cachedFlights: unknown[] | null = null;
+let cachedFlightsAt = 0;
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -453,10 +457,21 @@ Deno.serve(async (req: Request) => {
           .map(mapStateToFlight)
           .filter((f): f is NonNullable<typeof f> => f !== null);
 
+        if (flights.length > 0) {
+          cachedFlights = flights;
+          cachedFlightsAt = Date.now();
+        }
+
         return jsonResponse({ flights });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("OpenSky live flights error:", msg);
+
+        if (cachedFlights && (Date.now() - cachedFlightsAt) < FLIGHT_CACHE_MAX_AGE_MS) {
+          console.log("Serving cached flights due to OpenSky error");
+          return jsonResponse({ flights: cachedFlights, stale: true });
+        }
+
         return jsonResponse({ flights: [], error: msg, partial: true });
       }
     }
