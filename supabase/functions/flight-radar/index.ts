@@ -18,14 +18,17 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
-const LIVE_FLIGHTS_CACHE_TTL_MS = 60 * 1000;
-const LIVE_FLIGHTS_STALE_TTL_MS = 5 * 60 * 1000;
+const LIVE_FLIGHTS_CACHE_TTL_MS = 120 * 1000;
+const LIVE_FLIGHTS_STALE_TTL_MS = 15 * 60 * 1000;
+const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 5 * 60 * 1000;
 
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
 
 let cachedFlights: unknown[] | null = null;
 let cachedFlightsAt = 0;
+
+let rateLimitedUntil = 0;
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -40,6 +43,55 @@ function errorResponse(message: string, status = 500) {
 
 function getSupabase() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+}
+
+function isRateLimited(): boolean {
+  return Date.now() < rateLimitedUntil;
+}
+
+async function checkDbRateLimit(): Promise<boolean> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return false;
+  try {
+    const sb = getSupabase();
+    const { data } = await sb
+      .from("live_flights_cache")
+      .select("rate_limited_until")
+      .eq("id", 1)
+      .maybeSingle();
+    if (!data?.rate_limited_until) return false;
+    const until = new Date(data.rate_limited_until).getTime();
+    if (until > Date.now()) {
+      rateLimitedUntil = until;
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function setRateLimitCooldown(retryAfterSec?: number): Promise<void> {
+  const cooldownMs = retryAfterSec
+    ? retryAfterSec * 1000
+    : DEFAULT_RATE_LIMIT_COOLDOWN_MS;
+  rateLimitedUntil = Date.now() + cooldownMs;
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
+  try {
+    const sb = getSupabase();
+    await sb
+      .from("live_flights_cache")
+      .update({ rate_limited_until: new Date(rateLimitedUntil).toISOString() })
+      .eq("id", 1);
+  } catch (err) {
+    console.error("Failed to persist rate limit:", err);
+  }
+}
+
+class RateLimitError extends Error {
+  constructor() {
+    super("OpenSky rate limited");
+    this.name = "RateLimitError";
+  }
 }
 
 async function getOpenSkyToken(): Promise<string | null> {
@@ -87,6 +139,10 @@ async function fetchOpenSky(
   params: Record<string, string> = {},
   timeoutMs = 25000,
 ): Promise<unknown> {
+  if (isRateLimited()) {
+    throw new RateLimitError();
+  }
+
   const url = new URL(`${OPENSKY_API}${endpoint}`);
   for (const [k, v] of Object.entries(params)) {
     if (v) url.searchParams.set(k, v);
@@ -104,6 +160,20 @@ async function fetchOpenSky(
       signal: controller.signal,
     });
     clearTimeout(timeout);
+
+    if (res.status === 429) {
+      const retryHeader = res.headers.get("X-Rate-Limit-Retry-After-Seconds") ||
+        res.headers.get("Retry-After");
+      const retryAfterSec = retryHeader ? parseInt(retryHeader, 10) : undefined;
+      await setRateLimitCooldown(
+        retryAfterSec && !isNaN(retryAfterSec) ? retryAfterSec : undefined,
+      );
+      console.error(
+        `OpenSky 429 rate limited. Cooldown set for ${Math.round((rateLimitedUntil - Date.now()) / 1000)}s`,
+      );
+      throw new RateLimitError();
+    }
+
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`OpenSky ${res.status}: ${text || res.statusText}`);
@@ -342,8 +412,10 @@ async function getDbCachedFlights(): Promise<{ flights: unknown[]; fetchedAt: nu
       .eq("id", 1)
       .maybeSingle();
     if (!data || !data.flights_data) return null;
+    const flightsArr = data.flights_data as unknown[];
+    if (!Array.isArray(flightsArr) || flightsArr.length === 0) return null;
     const fetchedAt = new Date(data.fetched_at).getTime();
-    return { flights: data.flights_data as unknown[], fetchedAt };
+    return { flights: flightsArr, fetchedAt };
   } catch (err) {
     console.error("DB cache read failed:", err);
     return null;
@@ -376,6 +448,7 @@ interface OpenSkyRoute {
 }
 
 async function fetchOpenSkyRoute(icao24: string): Promise<OpenSkyRoute | null> {
+  if (isRateLimited()) return null;
   try {
     const now = Math.floor(Date.now() / 1000);
     const begin = now - 172800;
@@ -388,6 +461,7 @@ async function fetchOpenSkyRoute(icao24: string): Promise<OpenSkyRoute | null> {
     if (!Array.isArray(data) || data.length === 0) return null;
     return data[data.length - 1];
   } catch (err) {
+    if (err instanceof RateLimitError) return null;
     console.error("OpenSky route lookup failed:", err);
     return null;
   }
@@ -462,6 +536,21 @@ function enrichFlightResult(f: Record<string, unknown>) {
   };
 }
 
+async function serveCachedOrEmpty(): Promise<Response> {
+  const now = Date.now();
+  if (cachedFlights && cachedFlights.length > 0) {
+    return jsonResponse({ flights: cachedFlights, stale: true });
+  }
+  const dbCache = await getDbCachedFlights();
+  if (dbCache && (now - dbCache.fetchedAt) < LIVE_FLIGHTS_STALE_TTL_MS) {
+    return jsonResponse({ flights: dbCache.flights, stale: true });
+  }
+  if (dbCache && dbCache.flights.length > 0) {
+    return jsonResponse({ flights: dbCache.flights, stale: true });
+  }
+  return jsonResponse({ flights: [], stale: true });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -475,15 +564,20 @@ Deno.serve(async (req: Request) => {
       const now = Date.now();
       const bounds = url.searchParams.get("bounds");
 
-      if (!bounds) {
-        const dbCache = await getDbCachedFlights();
-        if (dbCache && (now - dbCache.fetchedAt) < LIVE_FLIGHTS_CACHE_TTL_MS) {
-          return jsonResponse({ flights: dbCache.flights, cached: true });
-        }
+      const dbCache = await getDbCachedFlights();
+      if (dbCache && (now - dbCache.fetchedAt) < LIVE_FLIGHTS_CACHE_TTL_MS) {
+        return jsonResponse({ flights: dbCache.flights, cached: true });
+      }
 
-        if (cachedFlights && (now - cachedFlightsAt) < LIVE_FLIGHTS_CACHE_TTL_MS) {
-          return jsonResponse({ flights: cachedFlights, cached: true });
-        }
+      if (cachedFlights && (now - cachedFlightsAt) < LIVE_FLIGHTS_CACHE_TTL_MS) {
+        return jsonResponse({ flights: cachedFlights, cached: true });
+      }
+
+      if (!isRateLimited()) {
+        await checkDbRateLimit();
+      }
+      if (isRateLimited()) {
+        return await serveCachedOrEmpty();
       }
 
       const params: Record<string, string> = {};
@@ -516,6 +610,9 @@ Deno.serve(async (req: Request) => {
 
         return jsonResponse({ flights });
       } catch (err) {
+        if (err instanceof RateLimitError) {
+          return await serveCachedOrEmpty();
+        }
         const msg = err instanceof Error ? err.message : String(err);
         console.error("OpenSky live flights error:", msg);
 
@@ -523,12 +620,11 @@ Deno.serve(async (req: Request) => {
           return jsonResponse({ flights: cachedFlights, stale: true });
         }
 
-        const dbCache = await getDbCachedFlights();
         if (dbCache && (now - dbCache.fetchedAt) < LIVE_FLIGHTS_STALE_TTL_MS) {
           return jsonResponse({ flights: dbCache.flights, stale: true });
         }
 
-        return jsonResponse({ flights: [], error: msg, partial: true });
+        return jsonResponse({ flights: [], stale: true });
       }
     }
 
@@ -589,11 +685,18 @@ Deno.serve(async (req: Request) => {
       if (e - b > 7200) return errorResponse("Time interval must not exceed 2 hours", 400);
       if (e <= b) return errorResponse("end must be after begin", 400);
 
+      if (isRateLimited() || await checkDbRateLimit()) {
+        return jsonResponse({ flights: [], message: "Flight data temporarily unavailable, try again later" });
+      }
+
       try {
         const data = await fetchOpenSky("/flights/all", { begin, end }) as unknown[];
         const flights = Array.isArray(data) ? data.map((f: Record<string, unknown>) => enrichFlightResult(f)) : [];
         return jsonResponse({ flights });
       } catch (err) {
+        if (err instanceof RateLimitError) {
+          return jsonResponse({ flights: [], message: "Flight data temporarily unavailable, try again later" });
+        }
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("404")) return jsonResponse({ flights: [] });
         return errorResponse(msg);
@@ -611,6 +714,10 @@ Deno.serve(async (req: Request) => {
       if (e - b > 172800) return errorResponse("Time interval must not exceed 2 days", 400);
       if (e <= b) return errorResponse("end must be after begin", 400);
 
+      if (isRateLimited() || await checkDbRateLimit()) {
+        return jsonResponse({ flights: [], message: "Flight data temporarily unavailable, try again later" });
+      }
+
       try {
         const data = await fetchOpenSky("/flights/aircraft", {
           icao24: icao24.toLowerCase(),
@@ -620,6 +727,9 @@ Deno.serve(async (req: Request) => {
         const flights = Array.isArray(data) ? data.map((f: Record<string, unknown>) => enrichFlightResult(f)) : [];
         return jsonResponse({ flights });
       } catch (err) {
+        if (err instanceof RateLimitError) {
+          return jsonResponse({ flights: [], message: "Flight data temporarily unavailable, try again later" });
+        }
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("404")) return jsonResponse({ flights: [] });
         return errorResponse(msg);
@@ -637,6 +747,10 @@ Deno.serve(async (req: Request) => {
       if (e - b > 604800) return errorResponse("Time interval must not exceed 7 days", 400);
       if (e <= b) return errorResponse("end must be after begin", 400);
 
+      if (isRateLimited() || await checkDbRateLimit()) {
+        return jsonResponse({ flights: [], message: "Flight data temporarily unavailable, try again later" });
+      }
+
       try {
         const data = await fetchOpenSky("/flights/arrival", {
           airport: airport.toUpperCase(),
@@ -646,6 +760,9 @@ Deno.serve(async (req: Request) => {
         const flights = Array.isArray(data) ? data.map((f: Record<string, unknown>) => enrichFlightResult(f)) : [];
         return jsonResponse({ flights });
       } catch (err) {
+        if (err instanceof RateLimitError) {
+          return jsonResponse({ flights: [], message: "Flight data temporarily unavailable, try again later" });
+        }
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("404")) return jsonResponse({ flights: [] });
         return errorResponse(msg);
@@ -663,6 +780,10 @@ Deno.serve(async (req: Request) => {
       if (e - b > 604800) return errorResponse("Time interval must not exceed 7 days", 400);
       if (e <= b) return errorResponse("end must be after begin", 400);
 
+      if (isRateLimited() || await checkDbRateLimit()) {
+        return jsonResponse({ flights: [], message: "Flight data temporarily unavailable, try again later" });
+      }
+
       try {
         const data = await fetchOpenSky("/flights/departure", {
           airport: airport.toUpperCase(),
@@ -672,6 +793,9 @@ Deno.serve(async (req: Request) => {
         const flights = Array.isArray(data) ? data.map((f: Record<string, unknown>) => enrichFlightResult(f)) : [];
         return jsonResponse({ flights });
       } catch (err) {
+        if (err instanceof RateLimitError) {
+          return jsonResponse({ flights: [], message: "Flight data temporarily unavailable, try again later" });
+        }
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("404")) return jsonResponse({ flights: [] });
         return errorResponse(msg);
@@ -682,6 +806,10 @@ Deno.serve(async (req: Request) => {
       const icao24 = url.searchParams.get("icao24") ?? "";
       if (!icao24) return errorResponse("Missing icao24", 400);
       const time = url.searchParams.get("time") ?? "";
+
+      if (isRateLimited() || await checkDbRateLimit()) {
+        return jsonResponse({ track: null, message: "Flight data temporarily unavailable, try again later" });
+      }
 
       const params: Record<string, string> = { icao24: icao24.toLowerCase() };
       if (time) params.time = time;
@@ -699,6 +827,9 @@ Deno.serve(async (req: Request) => {
           },
         });
       } catch (err) {
+        if (err instanceof RateLimitError) {
+          return jsonResponse({ track: null, message: "Flight data temporarily unavailable, try again later" });
+        }
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("404")) return jsonResponse({ track: null });
         return errorResponse(msg);

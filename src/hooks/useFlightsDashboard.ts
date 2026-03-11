@@ -48,7 +48,8 @@ function normalizeFlight(raw: RawFlightData, idx: number): LiveFlightPosition {
   };
 }
 
-const POLL_INTERVAL = 60000;
+const POLL_INTERVAL = 120_000;
+const MAX_POLL_INTERVAL = 300_000;
 
 export function useFlightsDashboard(active: boolean) {
   const [flights, setFlights] = useState<LiveFlightPosition[]>([]);
@@ -57,9 +58,23 @@ export function useFlightsDashboard(active: boolean) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const hasFlightsRef = useRef(false);
+  const consecutiveFailsRef = useRef(0);
+
+  const getInterval = useCallback(() => {
+    const fails = consecutiveFailsRef.current;
+    if (fails === 0) return POLL_INTERVAL;
+    return Math.min(POLL_INTERVAL * Math.pow(2, fails), MAX_POLL_INTERVAL);
+  }, []);
+
+  const scheduleNext = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (mountedRef.current) loadFlights();
+    }, getInterval());
+  }, [getInterval]);
 
   const loadFlights = useCallback(async () => {
     try {
@@ -69,18 +84,27 @@ export function useFlightsDashboard(active: boolean) {
         ? raw.map((f: RawFlightData, i: number) => normalizeFlight(f, i))
             .filter((f: LiveFlightPosition) => f.latitude !== 0 || f.longitude !== 0)
         : [];
-      setFlights(list);
-      hasFlightsRef.current = list.length > 0;
+      if (list.length > 0) {
+        setFlights(list);
+        hasFlightsRef.current = true;
+      }
+      consecutiveFailsRef.current = 0;
       setError(null);
     } catch (err) {
       if (!mountedRef.current) return;
-      if (!hasFlightsRef.current) {
-        setError(err instanceof Error ? err.message : 'Failed to load flights');
+      consecutiveFailsRef.current++;
+      const msg = err instanceof Error ? err.message : 'Failed to load flights';
+      const isRateLimit = msg.includes('429') || msg.toLowerCase().includes('rate limit');
+      if (!isRateLimit && !hasFlightsRef.current) {
+        setError(msg);
       }
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        scheduleNext();
+      }
     }
-  }, []);
+  }, [scheduleNext]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -89,21 +113,21 @@ export function useFlightsDashboard(active: boolean) {
 
   useEffect(() => {
     if (!active) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
       }
       return;
     }
 
+    consecutiveFailsRef.current = 0;
     setLoading(true);
     loadFlights();
-    intervalRef.current = setInterval(loadFlights, POLL_INTERVAL);
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
       }
     };
   }, [active, loadFlights]);

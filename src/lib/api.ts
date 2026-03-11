@@ -68,6 +68,7 @@ async function fetchWithRetry(
       const res = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(timer);
       if (res.ok || attempt === retries) return res;
+      if (res.status === 429) return res;
       if (res.status === 401) {
         const token = await refreshTokenOnce();
         if (token) {
