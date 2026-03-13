@@ -479,35 +479,17 @@ UI TOOLS:
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }
 
-    const sessionConfig: Record<string, unknown> = {
+    const callSessionConfig = {
       type: "realtime",
       model: "gpt-realtime-1.5",
-      instructions: fullInstructions,
-      modalities: ["audio"],
       audio: {
-        input: {
-          transcription: {
-            model: "gpt-4o-transcribe",
-          },
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.7,
-            prefix_padding_ms: 500,
-            silence_duration_ms: 700,
-          },
-        },
         output: { voice: "marin" },
       },
     };
 
-    if (realtimeTools.length > 0) {
-      sessionConfig.tools = realtimeTools;
-      sessionConfig.tool_choice = "auto";
-    }
-
     const formData = new FormData();
     formData.set("sdp", sdp);
-    formData.set("session", JSON.stringify(sessionConfig));
+    formData.set("session", JSON.stringify(callSessionConfig));
 
     const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
       method: "POST",
@@ -551,6 +533,9 @@ UI TOOLS:
       clientSessionConfig.tools = realtimeTools;
       clientSessionConfig.tool_choice = "auto";
     }
+
+    console.log(`[realtime] Call config (minimal): ${JSON.stringify(callSessionConfig)}`);
+    console.log(`[realtime] Client session.update config keys: ${Object.keys(clientSessionConfig).join(', ')}`);
 
     return new Response(
       JSON.stringify({
