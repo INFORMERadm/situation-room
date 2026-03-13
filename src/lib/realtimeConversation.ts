@@ -315,6 +315,7 @@ export async function startConversationSession(
           break;
 
         case 'response.audio_transcript.delta':
+        case 'response.output_audio_transcript.delta':
           if (message.delta) {
             currentResponseText += message.delta;
             handlers.onResponseText?.(currentResponseText, false);
@@ -322,6 +323,7 @@ export async function startConversationSession(
           break;
 
         case 'response.audio_transcript.done':
+        case 'response.output_audio_transcript.done':
           if (message.transcript) {
             currentResponseText = message.transcript;
             handlers.onResponseText?.(currentResponseText, true);
@@ -330,6 +332,7 @@ export async function startConversationSession(
           break;
 
         case 'response.audio.delta':
+        case 'response.output_audio.delta':
           if (currentSession?.status !== 'speaking') {
             updateStatus('speaking');
             handlers.onSpeakingStart?.();
@@ -337,6 +340,7 @@ export async function startConversationSession(
           break;
 
         case 'response.audio.done':
+        case 'response.output_audio.done':
           handlers.onSpeakingEnd?.();
           break;
 
