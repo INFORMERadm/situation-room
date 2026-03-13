@@ -483,18 +483,20 @@ UI TOOLS:
       type: "realtime",
       model: "gpt-realtime-1.5",
       instructions: fullInstructions,
-      modalities: ["text", "audio"],
+      modalities: ["audio"],
       audio: {
+        input: {
+          transcription: {
+            model: "gpt-4o-transcribe",
+          },
+          turn_detection: {
+            type: "server_vad",
+            threshold: 0.7,
+            prefix_padding_ms: 500,
+            silence_duration_ms: 700,
+          },
+        },
         output: { voice: "marin" },
-      },
-      input_audio_transcription: {
-        model: "whisper-1",
-      },
-      turn_detection: {
-        type: "server_vad",
-        threshold: 0.7,
-        prefix_padding_ms: 500,
-        silence_duration_ms: 700,
       },
     };
 
@@ -528,16 +530,20 @@ UI TOOLS:
     const clientSessionConfig: Record<string, unknown> = {
       type: "realtime",
       instructions: fullInstructions,
-      modalities: ["text", "audio"],
+      modalities: ["audio"],
       audio: {
+        input: {
+          transcription: {
+            model: "gpt-4o-transcribe",
+          },
+          turn_detection: {
+            type: "server_vad",
+            threshold: 0.7,
+            prefix_padding_ms: 500,
+            silence_duration_ms: 700,
+          },
+        },
         output: { voice: "marin" },
-      },
-      input_audio_transcription: { model: "whisper-1" },
-      turn_detection: {
-        type: "server_vad",
-        threshold: 0.7,
-        prefix_padding_ms: 500,
-        silence_duration_ms: 700,
       },
     };
 
