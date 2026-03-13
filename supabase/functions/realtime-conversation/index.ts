@@ -512,7 +512,7 @@ UI TOOLS:
     const clientSessionConfig: Record<string, unknown> = {
       type: "realtime",
       instructions: fullInstructions,
-      modalities: ["audio"],
+      output_modalities: ["audio"],
       audio: {
         input: {
           transcription: {
