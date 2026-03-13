@@ -136,7 +136,7 @@ export function useMarketsDashboard(): MarketsDashboardData {
           isInitialNewsLoadRef.current = false;
         }
         newsUrlSetRef.current = fetchedUrls;
-        setNews(data);
+        setNews([...data].sort((a, b) => new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime()));
         return;
       }
 
@@ -151,6 +151,7 @@ export function useMarketsDashboard(): MarketsDashboardData {
 
       setNews(prev => {
         const merged = [...freshItems, ...prev];
+        merged.sort((a, b) => new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime());
         return merged.slice(0, MAX_NEWS_ITEMS);
       });
 
