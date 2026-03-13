@@ -480,10 +480,13 @@ UI TOOLS:
     }
 
     const sessionConfig: Record<string, unknown> = {
+      type: "realtime",
       model: "gpt-realtime-1.5",
-      voice: "marin",
-      modalities: ["text", "audio"],
       instructions: fullInstructions,
+      modalities: ["text", "audio"],
+      audio: {
+        output: { voice: "marin" },
+      },
       input_audio_transcription: {
         model: "whisper-1",
       },
@@ -500,46 +503,22 @@ UI TOOLS:
       sessionConfig.tool_choice = "auto";
     }
 
-    const sessionResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
+    const formData = new FormData();
+    formData.set("sdp", sdp);
+    formData.set("session", JSON.stringify(sessionConfig));
+
+    const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify(sessionConfig),
-    });
-
-    if (!sessionResponse.ok) {
-      const errorText = await sessionResponse.text();
-      return new Response(
-        JSON.stringify({ error: `OpenAI session creation failed: ${errorText}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const sessionData = await sessionResponse.json();
-    const ephemeralKey = sessionData.client_secret?.value;
-
-    if (!ephemeralKey) {
-      return new Response(
-        JSON.stringify({ error: "Failed to obtain ephemeral key from OpenAI" }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const sdpResponse = await fetch(`https://api.openai.com/v1/realtime?model=gpt-realtime-1.5`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${ephemeralKey}`,
-        "Content-Type": "application/sdp",
-      },
-      body: sdp,
+      body: formData,
     });
 
     if (!sdpResponse.ok) {
       const errorText = await sdpResponse.text();
       return new Response(
-        JSON.stringify({ error: `WebRTC SDP exchange failed: ${errorText}` }),
+        JSON.stringify({ error: `OpenAI realtime call failed: ${errorText}` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -547,9 +526,12 @@ UI TOOLS:
     const answerSdp = await sdpResponse.text();
 
     const clientSessionConfig: Record<string, unknown> = {
+      type: "realtime",
       instructions: fullInstructions,
-      voice: "marin",
       modalities: ["text", "audio"],
+      audio: {
+        output: { voice: "marin" },
+      },
       input_audio_transcription: { model: "whisper-1" },
       turn_detection: {
         type: "server_vad",
