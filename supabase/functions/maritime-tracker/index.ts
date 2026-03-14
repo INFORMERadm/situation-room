@@ -114,35 +114,48 @@ async function fetchZoneVessels(
   const json = await res.json();
   const credits = parseInt(res.headers.get("X-Credit-Charged") || "0", 10);
 
-  if (json.status !== "success" || !Array.isArray(json.data)) {
+  const dataArray = Array.isArray(json.data)
+    ? json.data
+    : Array.isArray(json)
+      ? json
+      : null;
+
+  if (!dataArray) {
+    console.error(
+      `[maritime] Zone ${zone.zone_name}: unexpected response shape, keys: ${Object.keys(json).join(",")}`
+    );
     return { vessels: [], credits };
   }
 
-  const vessels: VesselData[] = json.data.map(
-    (v: {
-      vessel_name?: string;
-      mmsi?: number;
-      vtype?: number;
-      lat?: number;
-      lng?: number;
-      course?: number;
-      speed?: number;
-      received?: string;
-      destination?: string;
-    }) => ({
-      mmsi: v.mmsi || 0,
-      name: (v.vessel_name || "").trim(),
-      shipTypeCode: v.vtype || 0,
-      shipType: getShipTypeName(v.vtype || 0),
-      latitude: v.lat || 0,
-      longitude: v.lng || 0,
-      courseOverGround: v.course || 0,
-      speedOverGround: v.speed || 0,
-      heading: v.course || 0,
-      destination: (v.destination || "").trim(),
-      timestamp: v.received ? new Date(v.received).getTime() : Date.now(),
-    })
+  console.log(
+    `[maritime] Zone ${zone.zone_name}: ${dataArray.length} raw vessels, ${credits} credits`
   );
+
+  const vessels: VesselData[] = [];
+  for (const v of dataArray) {
+    const lat = typeof v.lat === "number" ? v.lat : parseFloat(v.lat);
+    const lng = typeof v.lng === "number" ? v.lng : parseFloat(v.lng);
+    const mmsi = typeof v.mmsi === "number" ? v.mmsi : parseInt(v.mmsi, 10);
+    if (!mmsi || isNaN(lat) || isNaN(lng)) continue;
+
+    const course = typeof v.course === "number" ? v.course : parseFloat(v.course) || 0;
+    const speed = typeof v.speed === "number" ? v.speed : parseFloat(v.speed) || 0;
+    const heading = course < 360 ? course : 0;
+
+    vessels.push({
+      mmsi,
+      name: String(v.vessel_name || v.name || "").trim(),
+      shipTypeCode: Number(v.vtype || v.ship_type || 0),
+      shipType: getShipTypeName(Number(v.vtype || v.ship_type || 0)),
+      latitude: lat,
+      longitude: lng,
+      courseOverGround: course < 360 ? course : 0,
+      speedOverGround: speed,
+      heading,
+      destination: String(v.destination || "").trim(),
+      timestamp: v.received ? new Date(v.received).getTime() : Date.now(),
+    });
+  }
 
   return { vessels, credits };
 }
@@ -241,8 +254,20 @@ async function handleVessels() {
     }
   }
 
-  if (allVessels.size === 0 && memoryCache.length > 0) {
-    return jsonResponse({ vessels: memoryCache, count: memoryCache.length });
+  console.log(`[maritime] Collected ${allVessels.size} unique vessels from ${selected.length} zones`);
+
+  if (allVessels.size === 0) {
+    if (memoryCache.length > 0) {
+      return jsonResponse({ vessels: memoryCache, count: memoryCache.length });
+    }
+    if (cacheRow && Array.isArray(cacheRow.vessels_data) && cacheRow.vessels_data.length > 0) {
+      return jsonResponse({ vessels: cacheRow.vessels_data, count: cacheRow.vessel_count });
+    }
+    await supabase.from("vessel_cache").update({
+      next_rotation_index: newRotationIndex,
+      credits_used_total: (cacheRow?.credits_used_total ?? 0) + totalCredits,
+    }).eq("id", 1);
+    return jsonResponse({ vessels: [], count: 0 });
   }
 
   const vesselArray = Array.from(allVessels.values());
