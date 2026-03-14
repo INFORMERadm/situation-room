@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const YOUTUBE_VIDEO_ID = 'QZBOJkQCJb8';
+const YOUTUBE_VIDEO_ID = 'toZ1WJFVYVk';
 
 export default function LiveCamButton() {
   const [open, setOpen] = useState(false);
