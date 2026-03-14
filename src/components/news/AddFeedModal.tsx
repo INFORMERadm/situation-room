@@ -11,7 +11,7 @@ interface Props {
 const TITLES: Record<FeedType, string> = {
   telegram: 'Add Telegram Channel',
   rss: 'Add RSS Feed',
-  youtube: 'Add YouTube Feed',
+  youtube: 'Add YouTube Channel',
 };
 
 const PLACEHOLDERS: Record<FeedType, { url: string; name: string }> = {
@@ -24,7 +24,7 @@ const PLACEHOLDERS: Record<FeedType, { url: string; name: string }> = {
     name: 'Tech News Daily',
   },
   youtube: {
-    url: 'https://rss.app/feeds/your-feed-id.xml',
+    url: 'https://www.youtube.com/channel/UC...',
     name: 'Channel Name',
   },
 };
