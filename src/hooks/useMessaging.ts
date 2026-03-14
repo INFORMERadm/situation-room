@@ -8,6 +8,7 @@ export function useMessaging(conversationId: string | null, userId: string | und
   const [messages, setMessages] = useState<DecryptedMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const profileCacheRef = useRef(new Map<string, ChatUserProfile>());
   const keyRef = useRef<CryptoKey | null>(null);
 
@@ -49,41 +50,57 @@ export function useMessaging(conversationId: string | null, userId: string | und
   const loadMessages = useCallback(async () => {
     if (!conversationId || !userId) return;
     setLoading(true);
+    setError(null);
 
-    const key = await getConversationKey(conversationId, userId);
-    if (!key) {
+    try {
+      const key = await getConversationKey(conversationId, userId);
+      if (!key) {
+        setError('Unable to retrieve encryption key. Try refreshing.');
+        setLoading(false);
+        return;
+      }
+      keyRef.current = key;
+
+      const { data: rows, error: queryError } = await supabase
+        .from('messaging_messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+        .limit(200);
+
+      if (queryError) {
+        console.error('[messaging] Failed to load messages:', queryError);
+        setError('Failed to load messages');
+        setLoading(false);
+        return;
+      }
+
+      if (!rows || rows.length === 0) {
+        setMessages([]);
+        setLoading(false);
+        return;
+      }
+
+      const senderIds = [...new Set(rows.map(r => r.sender_id))];
+      await fetchProfiles(senderIds);
+
+      const decrypted = await Promise.all(
+        rows.map(r => decryptRow(r as EncryptedMessageRow, key))
+      );
+
+      setMessages(decrypted);
       setLoading(false);
-      return;
-    }
-    keyRef.current = key;
-
-    const { data: rows } = await supabase
-      .from('messaging_messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: true })
-      .limit(200);
-
-    if (!rows || rows.length === 0) {
-      setMessages([]);
+    } catch (e) {
+      console.error('[messaging] loadMessages error:', e);
+      setError('Failed to decrypt messages');
       setLoading(false);
-      return;
     }
-
-    const senderIds = [...new Set(rows.map(r => r.sender_id))];
-    await fetchProfiles(senderIds);
-
-    const decrypted = await Promise.all(
-      rows.map(r => decryptRow(r as EncryptedMessageRow, key))
-    );
-
-    setMessages(decrypted);
-    setLoading(false);
   }, [conversationId, userId, fetchProfiles, decryptRow]);
 
   useEffect(() => {
     setMessages([]);
+    setError(null);
     keyRef.current = null;
     if (conversationId && userId) {
       loadMessages();
@@ -104,14 +121,18 @@ export function useMessaging(conversationId: string | null, userId: string | und
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
-          const row = payload.new as EncryptedMessageRow;
-          if (!keyRef.current) return;
-          await fetchProfiles([row.sender_id]);
-          const msg = await decryptRow(row, keyRef.current);
-          setMessages(prev => {
-            if (prev.some(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
+          try {
+            const row = payload.new as EncryptedMessageRow;
+            if (!keyRef.current) return;
+            await fetchProfiles([row.sender_id]);
+            const msg = await decryptRow(row, keyRef.current);
+            setMessages(prev => {
+              if (prev.some(m => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+          } catch (e) {
+            console.error('[messaging] realtime decrypt error:', e);
+          }
         }
       )
       .subscribe();
@@ -123,28 +144,32 @@ export function useMessaging(conversationId: string | null, userId: string | und
     if (!conversationId || !userId || !text.trim()) return;
     setSending(true);
 
-    let key = keyRef.current;
-    if (!key) {
-      key = await getConversationKey(conversationId, userId);
-      if (!key) { setSending(false); return; }
-      keyRef.current = key;
+    try {
+      let key = keyRef.current;
+      if (!key) {
+        key = await getConversationKey(conversationId, userId);
+        if (!key) { setSending(false); return; }
+        keyRef.current = key;
+      }
+
+      const { ciphertext, iv } = await encryptAES(text, key);
+
+      await supabase.from('messaging_messages').insert({
+        conversation_id: conversationId,
+        sender_id: userId,
+        encrypted_content: ciphertext,
+        iv,
+        message_type: messageType,
+        metadata: metadata || {},
+      });
+
+      await supabase
+        .from('messaging_conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
+    } catch (e) {
+      console.error('[messaging] sendMessage error:', e);
     }
-
-    const { ciphertext, iv } = await encryptAES(text, key);
-
-    await supabase.from('messaging_messages').insert({
-      conversation_id: conversationId,
-      sender_id: userId,
-      encrypted_content: ciphertext,
-      iv,
-      message_type: messageType,
-      metadata: metadata || {},
-    });
-
-    await supabase
-      .from('messaging_conversations')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', conversationId);
 
     setSending(false);
   }, [conversationId, userId]);
@@ -163,6 +188,7 @@ export function useMessaging(conversationId: string | null, userId: string | und
     messages,
     loading,
     sending,
+    error,
     sendMessage,
     deleteMessage,
     refresh: loadMessages,

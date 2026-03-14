@@ -116,11 +116,15 @@ export async function getConversationKey(
 
   if (!participant?.encrypted_conversation_key) return null;
 
-  const aesKey = await unwrapAESKey(participant.encrypted_conversation_key, privateKey);
-  const aesKeyB64 = await exportAESKey(aesKey);
-  await idbPut(db, CONV_KEY_STORE, { conversationId, aesKeyB64 });
-
-  return aesKey;
+  try {
+    const aesKey = await unwrapAESKey(participant.encrypted_conversation_key, privateKey);
+    const aesKeyB64 = await exportAESKey(aesKey);
+    await idbPut(db, CONV_KEY_STORE, { conversationId, aesKeyB64 });
+    return aesKey;
+  } catch (e) {
+    console.error('[keyManager] Failed to unwrap conversation key (key mismatch or corruption):', e);
+    return null;
+  }
 }
 
 export async function createConversationKey(

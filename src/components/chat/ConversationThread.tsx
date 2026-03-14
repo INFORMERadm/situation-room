@@ -261,13 +261,34 @@ export default function ConversationThread({ conversation, userId, onBack, onDel
       )}
 
       <div style={messagesContainerStyle}>
-        {messaging.loading && (
+        {messaging.loading && !messaging.error && (
           <div style={{ textAlign: 'center', padding: 20, color: '#555', fontSize: 11 }}>
             Decrypting messages...
           </div>
         )}
 
-        {!messaging.loading && messaging.messages.length === 0 && (
+        {messaging.error && (
+          <div style={{ textAlign: 'center', padding: 20, color: '#f44336', fontSize: 11 }}>
+            <div>{messaging.error}</div>
+            <button
+              onClick={messaging.refresh}
+              style={{
+                marginTop: 8,
+                padding: '4px 12px',
+                background: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: 4,
+                color: '#ff9800',
+                fontSize: 10,
+                cursor: 'pointer',
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!messaging.loading && !messaging.error && messaging.messages.length === 0 && (
           <div style={{ textAlign: 'center', padding: 20, color: '#555', fontSize: 11 }}>
             No messages yet. Say hello!
           </div>
