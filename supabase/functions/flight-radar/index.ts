@@ -564,13 +564,47 @@ Deno.serve(async (req: Request) => {
       const now = Date.now();
       const bounds = url.searchParams.get("bounds");
 
+      if (cachedFlights && (now - cachedFlightsAt) < LIVE_FLIGHTS_CACHE_TTL_MS) {
+        return jsonResponse({ flights: cachedFlights, cached: true });
+      }
+
       const dbCache = await getDbCachedFlights();
       if (dbCache && (now - dbCache.fetchedAt) < LIVE_FLIGHTS_CACHE_TTL_MS) {
+        cachedFlights = dbCache.flights as unknown[];
+        cachedFlightsAt = dbCache.fetchedAt;
         return jsonResponse({ flights: dbCache.flights, cached: true });
       }
 
-      if (cachedFlights && (now - cachedFlightsAt) < LIVE_FLIGHTS_CACHE_TTL_MS) {
-        return jsonResponse({ flights: cachedFlights, cached: true });
+      if (dbCache && dbCache.flights.length > 0 && (now - dbCache.fetchedAt) < LIVE_FLIGHTS_STALE_TTL_MS) {
+        cachedFlights = dbCache.flights as unknown[];
+        cachedFlightsAt = dbCache.fetchedAt;
+
+        if (!isRateLimited()) {
+          await checkDbRateLimit();
+        }
+        if (!isRateLimited()) {
+          EdgeRuntime.waitUntil((async () => {
+            try {
+              const params: Record<string, string> = {};
+              const data = (await fetchOpenSky("/states/all", params)) as {
+                states: StateVector[] | null;
+              };
+              const states = data?.states ?? [];
+              const flights = states
+                .map(mapStateToFlight)
+                .filter((f): f is NonNullable<typeof f> => f !== null);
+              if (flights.length > 0) {
+                cachedFlights = flights;
+                cachedFlightsAt = Date.now();
+                await setDbCachedFlights(flights);
+              }
+            } catch (err) {
+              console.error("Background flight refresh failed:", err instanceof Error ? err.message : err);
+            }
+          })());
+        }
+
+        return jsonResponse({ flights: dbCache.flights, stale: true });
       }
 
       if (!isRateLimited()) {

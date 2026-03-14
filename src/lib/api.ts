@@ -463,7 +463,7 @@ export async function fetchLiveFlights(bounds?: string) {
   const headers = await getAuthHeaders();
   const params = new URLSearchParams({ feed: 'live-flights' });
   if (bounds) params.set('bounds', bounds);
-  const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers });
+  const res = await fetchWithRetry(`${API_BASE}/flight-radar?${params.toString()}`, { headers }, 1, 1500, 30000);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`Live flights failed: ${res.status} ${body}`);
