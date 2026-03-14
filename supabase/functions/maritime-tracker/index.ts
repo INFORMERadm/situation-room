@@ -22,21 +22,28 @@ interface VesselData {
   timestamp: number;
 }
 
-interface AisPositionReport {
-  Latitude: number;
-  Longitude: number;
-  Cog: number;
-  Sog: number;
-  TrueHeading: number;
+interface MaritimeZone {
+  id: string;
+  zone_name: string;
+  bbox_south: number;
+  bbox_west: number;
+  bbox_north: number;
+  bbox_east: number;
+  priority: number;
 }
 
-const vesselCache: Map<number, VesselData> = new Map();
-let cacheTimestamp = 0;
-const CACHE_TTL_MS = 25_000;
-let wsConnection: WebSocket | null = null;
-let wsConnecting = false;
-let lastFailureTime = 0;
-const RECONNECT_COOLDOWN_MS = 60_000;
+interface VesselCacheRow {
+  vessels_data: VesselData[];
+  vessel_count: number;
+  last_zones_queried: string[];
+  next_rotation_index: number;
+  credits_used_total: number;
+  fetched_at: string;
+}
+
+let memoryCache: VesselData[] = [];
+let memoryCacheTime = 0;
+const CACHE_TTL_MS = 120_000;
 
 function getShipTypeName(typeCode: number): string {
   if (typeCode >= 70 && typeCode <= 79) return "cargo";
@@ -67,168 +74,194 @@ function getSupabaseClient() {
   );
 }
 
-async function getZoneBoundingBoxes(): Promise<number[][][] | null> {
-  const supabase = getSupabaseClient();
-  const { data: zones, error } = await supabase
-    .from("maritime_zones")
-    .select("bbox_south, bbox_west, bbox_north, bbox_east")
-    .eq("is_active", true);
+async function fetchZoneVessels(
+  zone: MaritimeZone,
+  apiKey: string
+): Promise<{ vessels: VesselData[]; credits: number }> {
+  const url = new URL("https://api.myshiptracking.com/api/v2/vessel/zone");
+  url.searchParams.set("minlat", String(zone.bbox_south));
+  url.searchParams.set("maxlat", String(zone.bbox_north));
+  url.searchParams.set("minlon", String(zone.bbox_west));
+  url.searchParams.set("maxlon", String(zone.bbox_east));
+  url.searchParams.set("response", "simple");
+  url.searchParams.set("minutesBack", "60");
 
-  if (error || !zones || zones.length === 0) return null;
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+  });
 
-  return zones.map(
-    (z: {
-      bbox_south: number;
-      bbox_west: number;
-      bbox_north: number;
-      bbox_east: number;
-    }) => [
-      [z.bbox_south, z.bbox_west],
-      [z.bbox_north, z.bbox_east],
-    ]
+  if (res.status === 429) {
+    console.warn(`[maritime] Rate limited on zone: ${zone.zone_name}`);
+    return { vessels: [], credits: 0 };
+  }
+
+  if (res.status === 402) {
+    console.error("[maritime] No API credits remaining");
+    return { vessels: [], credits: 0 };
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(
+      `[maritime] Zone ${zone.zone_name} HTTP ${res.status}: ${body}`
+    );
+    return { vessels: [], credits: 0 };
+  }
+
+  const json = await res.json();
+  const credits = parseInt(res.headers.get("X-Credit-Charged") || "0", 10);
+
+  if (json.status !== "success" || !Array.isArray(json.data)) {
+    return { vessels: [], credits };
+  }
+
+  const vessels: VesselData[] = json.data.map(
+    (v: {
+      vessel_name?: string;
+      mmsi?: number;
+      vtype?: number;
+      lat?: number;
+      lng?: number;
+      course?: number;
+      speed?: number;
+      received?: string;
+      destination?: string;
+    }) => ({
+      mmsi: v.mmsi || 0,
+      name: (v.vessel_name || "").trim(),
+      shipTypeCode: v.vtype || 0,
+      shipType: getShipTypeName(v.vtype || 0),
+      latitude: v.lat || 0,
+      longitude: v.lng || 0,
+      courseOverGround: v.course || 0,
+      speedOverGround: v.speed || 0,
+      heading: v.course || 0,
+      destination: (v.destination || "").trim(),
+      timestamp: v.received ? new Date(v.received).getTime() : Date.now(),
+    })
   );
+
+  return { vessels, credits };
 }
 
-function processAisMessage(raw: string) {
-  try {
-    const msg = JSON.parse(raw);
-    const mmsi = msg?.MetaData?.MMSI;
-    if (!mmsi) return;
+function selectZonesForCycle(
+  allZones: MaritimeZone[],
+  nextRotationIndex: number
+): { selected: MaritimeZone[]; newRotationIndex: number } {
+  const highPriority = allZones.filter((z) => z.priority === 1);
+  const normalPriority = allZones.filter((z) => z.priority !== 1);
 
-    const existing = vesselCache.get(mmsi);
-    const posReport: AisPositionReport | undefined =
-      msg?.Message?.PositionReport || msg?.Message?.StandardClassBPositionReport;
+  const selected = [...highPriority];
 
-    if (posReport) {
-      vesselCache.set(mmsi, {
-        mmsi,
-        name: msg.MetaData?.ShipName?.trim() || existing?.name || "",
-        shipType: existing?.shipType || "other",
-        shipTypeCode: existing?.shipTypeCode || 0,
-        latitude: posReport.Latitude,
-        longitude: posReport.Longitude,
-        courseOverGround: posReport.Cog,
-        speedOverGround: posReport.Sog,
-        heading:
-          posReport.TrueHeading === 511 ? posReport.Cog : posReport.TrueHeading,
-        destination: existing?.destination || "",
-        timestamp: Date.now(),
-      });
-    } else if (msg?.Message?.ShipStaticData && existing) {
-      const sd = msg.Message.ShipStaticData;
-      existing.name = sd.Name?.trim() || existing.name;
-      existing.shipType = getShipTypeName(sd.Type);
-      existing.shipTypeCode = sd.Type;
-      existing.destination = sd.Destination?.trim() || existing.destination;
-    }
-  } catch { /* skip malformed */ }
-}
-
-async function ensureWsConnection(): Promise<string | null> {
-  if (wsConnection && wsConnection.readyState === WebSocket.OPEN) return null;
-  if (wsConnecting) return "Connecting to AIS stream...";
-
-  const now = Date.now();
-  if (lastFailureTime && now - lastFailureTime < RECONNECT_COOLDOWN_MS) {
-    return "AIS feed offline – retrying shortly";
+  if (normalPriority.length > 0) {
+    const idx = nextRotationIndex % normalPriority.length;
+    selected.push(normalPriority[idx]);
+    return { selected, newRotationIndex: idx + 1 };
   }
 
-  wsConnecting = true;
-  try {
-    if (wsConnection) {
-      try { wsConnection.close(); } catch { /* noop */ }
-      wsConnection = null;
-    }
-
-    const apiKey = Deno.env.get("AISSTREAM_API_KEY");
-    if (!apiKey) return "AISSTREAM_API_KEY not configured";
-
-    const boundingBoxes = await getZoneBoundingBoxes();
-    if (!boundingBoxes) return "No active maritime zones";
-
-    const ws = new WebSocket("wss://stream.aisstream.io/v0/stream");
-
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error("timeout"));
-        try { ws.close(); } catch { /* noop */ }
-      }, 8_000);
-
-      ws.onopen = () => {
-        clearTimeout(timeout);
-        ws.send(
-          JSON.stringify({
-            APIKey: apiKey,
-            BoundingBoxes: boundingBoxes,
-            FilterMessageTypes: [
-              "PositionReport",
-              "ShipStaticData",
-              "StandardClassBPositionReport",
-            ],
-          })
-        );
-        resolve();
-      };
-
-      ws.onerror = () => {
-        clearTimeout(timeout);
-        reject(new Error("connection_error"));
-      };
-    });
-
-    ws.onmessage = (event) => {
-      if (typeof event.data === "string") {
-        processAisMessage(event.data);
-        cacheTimestamp = Date.now();
-      }
-    };
-
-    ws.onclose = () => {
-      wsConnection = null;
-    };
-
-    ws.onerror = () => {
-      try { ws.close(); } catch { /* noop */ }
-      wsConnection = null;
-    };
-
-    wsConnection = ws;
-    lastFailureTime = 0;
-    return null;
-  } catch {
-    lastFailureTime = Date.now();
-    return "AIS feed offline – upstream service unavailable";
-  } finally {
-    wsConnecting = false;
-  }
-}
-
-function pruneStaleVessels() {
-  const cutoff = Date.now() - 300_000;
-  for (const [mmsi, v] of vesselCache) {
-    if (v.timestamp < cutoff) vesselCache.delete(mmsi);
-  }
+  return { selected, newRotationIndex: 0 };
 }
 
 async function handleVessels() {
-  const statusMessage = await ensureWsConnection();
-
-  if (vesselCache.size === 0 && wsConnection?.readyState === WebSocket.OPEN) {
-    await new Promise((r) => setTimeout(r, 3000));
+  if (memoryCache.length > 0 && Date.now() - memoryCacheTime < CACHE_TTL_MS) {
+    return jsonResponse({ vessels: memoryCache, count: memoryCache.length });
   }
 
-  pruneStaleVessels();
-  const vessels = Array.from(vesselCache.values());
-  const wsConnected = wsConnection?.readyState === WebSocket.OPEN;
+  const supabase = getSupabaseClient();
 
-  return jsonResponse({
-    vessels,
-    count: vessels.length,
-    cacheAge: cacheTimestamp ? Date.now() - cacheTimestamp : 0,
-    wsConnected,
-    offline: !wsConnected && vessels.length === 0,
-    statusMessage: statusMessage || null,
+  const { data: cacheRow, error: cacheError } = await supabase
+    .from("vessel_cache")
+    .select("*")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (!cacheError && cacheRow) {
+    const cacheAge = Date.now() - new Date(cacheRow.fetched_at).getTime();
+    if (cacheAge < CACHE_TTL_MS && Array.isArray(cacheRow.vessels_data) && cacheRow.vessels_data.length > 0) {
+      memoryCache = cacheRow.vessels_data;
+      memoryCacheTime = new Date(cacheRow.fetched_at).getTime();
+      return jsonResponse({
+        vessels: cacheRow.vessels_data,
+        count: cacheRow.vessel_count,
+      });
+    }
+  }
+
+  const apiKey = Deno.env.get("MYSHIPTRACKING_API_KEY");
+  if (!apiKey) {
+    if (memoryCache.length > 0) {
+      return jsonResponse({ vessels: memoryCache, count: memoryCache.length });
+    }
+    return errorResponse("MYSHIPTRACKING_API_KEY not configured", 500);
+  }
+
+  const { data: zones, error: zonesError } = await supabase
+    .from("maritime_zones")
+    .select("id, zone_name, bbox_south, bbox_west, bbox_north, bbox_east, priority")
+    .eq("is_active", true)
+    .order("priority")
+    .order("zone_name");
+
+  if (zonesError || !zones || zones.length === 0) {
+    if (memoryCache.length > 0) {
+      return jsonResponse({ vessels: memoryCache, count: memoryCache.length });
+    }
+    return errorResponse("No active maritime zones configured", 500);
+  }
+
+  const currentRotationIndex = cacheRow?.next_rotation_index ?? 0;
+  const { selected, newRotationIndex } = selectZonesForCycle(
+    zones as MaritimeZone[],
+    currentRotationIndex
+  );
+
+  const allVessels = new Map<number, VesselData>();
+  let totalCredits = 0;
+
+  for (const zone of selected) {
+    try {
+      const { vessels, credits } = await fetchZoneVessels(zone, apiKey);
+      totalCredits += credits;
+      for (const v of vessels) {
+        if (v.mmsi <= 0 || v.latitude === 0 || v.longitude === 0) continue;
+        const existing = allVessels.get(v.mmsi);
+        if (!existing || v.timestamp > existing.timestamp) {
+          allVessels.set(v.mmsi, v);
+        }
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    } catch (err) {
+      console.error(
+        `[maritime] Error fetching zone ${zone.zone_name}:`,
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
+  if (allVessels.size === 0 && memoryCache.length > 0) {
+    return jsonResponse({ vessels: memoryCache, count: memoryCache.length });
+  }
+
+  const vesselArray = Array.from(allVessels.values());
+  const queriedZoneNames = selected.map((z) => z.zone_name);
+
+  await supabase.from("vessel_cache").upsert({
+    id: 1,
+    vessels_data: vesselArray,
+    vessel_count: vesselArray.length,
+    last_zones_queried: queriedZoneNames,
+    next_rotation_index: newRotationIndex,
+    credits_used_total: (cacheRow?.credits_used_total ?? 0) + totalCredits,
+    fetched_at: new Date().toISOString(),
   });
+
+  memoryCache = vesselArray;
+  memoryCacheTime = Date.now();
+
+  return jsonResponse({ vessels: vesselArray, count: vesselArray.length });
 }
 
 async function handleMilitaryData() {
@@ -281,42 +314,6 @@ async function handleStrikeEvents() {
   return jsonResponse({ events: data || [] });
 }
 
-async function handleStreamConfig() {
-  const apiKey = Deno.env.get("AISSTREAM_API_KEY");
-  if (!apiKey) {
-    return errorResponse("AISSTREAM_API_KEY not configured", 500);
-  }
-
-  const supabase = getSupabaseClient();
-  const { data: zones, error: zonesError } = await supabase
-    .from("maritime_zones")
-    .select("bbox_south, bbox_west, bbox_north, bbox_east, zone_name")
-    .eq("is_active", true);
-
-  if (zonesError || !zones || zones.length === 0) {
-    return errorResponse("No active maritime zones configured", 500);
-  }
-
-  const boundingBoxes = zones.map(
-    (z: {
-      bbox_south: number;
-      bbox_west: number;
-      bbox_north: number;
-      bbox_east: number;
-    }) => [
-      [z.bbox_south, z.bbox_west],
-      [z.bbox_north, z.bbox_east],
-    ]
-  );
-
-  return jsonResponse({
-    apiKey,
-    boundingBoxes,
-    wsUrl: "wss://stream.aisstream.io/v0/stream",
-    zones: zones.map((z: { zone_name: string }) => z.zone_name),
-  });
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -331,15 +328,13 @@ Deno.serve(async (req: Request) => {
         return await handleMilitaryData();
       case "zones":
         return await handleZones();
-      case "stream-config":
-        return await handleStreamConfig();
       case "vessels":
         return await handleVessels();
       case "strike-events":
         return await handleStrikeEvents();
       default:
         return errorResponse(
-          "Unknown feed. Use: military-data, zones, stream-config, vessels, strike-events",
+          "Unknown feed. Use: military-data, zones, vessels, strike-events",
           400
         );
     }

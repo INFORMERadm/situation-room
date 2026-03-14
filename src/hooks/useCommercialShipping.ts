@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { VesselPosition } from '../types';
 
-const BASE_POLL_INTERVAL = 30_000;
-const MAX_POLL_INTERVAL = 120_000;
+const BASE_POLL_INTERVAL = 120_000;
+const MAX_POLL_INTERVAL = 300_000;
 const VESSELS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/maritime-tracker?feed=vessels`;
 
 const AUTH_HEADERS = {
@@ -48,7 +48,7 @@ export function useCommercialShipping(active: boolean) {
       if (!res.ok) {
         consecutiveFailsRef.current++;
         const body = await res.json().catch(() => ({}));
-        setError(body.statusMessage || body.error || 'AIS feed unavailable');
+        setError(body.error || 'Vessel data unavailable');
         setLoading(false);
         scheduleNext();
         return;
@@ -59,16 +59,11 @@ export function useCommercialShipping(active: boolean) {
 
       if (data.vessels && Array.isArray(data.vessels)) {
         setVessels(data.vessels);
-        if (data.offline) {
-          consecutiveFailsRef.current++;
-          setError(data.statusMessage || 'AIS feed offline');
-        } else {
-          consecutiveFailsRef.current = 0;
-          setError(data.wsConnected ? null : 'AIS stream reconnecting...');
-        }
+        consecutiveFailsRef.current = 0;
+        setError(null);
       } else {
         consecutiveFailsRef.current++;
-        setError(data.statusMessage || 'Invalid response');
+        setError('Vessel data unavailable');
       }
       setLoading(false);
     } catch (err) {
@@ -76,7 +71,7 @@ export function useCommercialShipping(active: boolean) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       consecutiveFailsRef.current++;
       setLoading(false);
-      setError('AIS feed unavailable');
+      setError('Vessel data unavailable');
     }
     scheduleNext();
   }, [vessels.length, scheduleNext]);
