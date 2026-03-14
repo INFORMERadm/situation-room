@@ -76,11 +76,7 @@ export async function getOrCreateIdentity(userId: string): Promise<{ publicKey: 
   const publicKeyB64 = await exportPublicKey(keyPair.publicKey);
   const privateKeyB64 = await exportPrivateKey(keyPair.privateKey);
 
-  await idbPut(db, IDENTITY_STORE, {
-    userId,
-    publicKeyB64,
-    privateKeyB64,
-  });
+  await idbPut(db, IDENTITY_STORE, { userId, publicKeyB64, privateKeyB64 });
 
   await supabase.from('messaging_key_bundles').upsert(
     {
@@ -95,6 +91,51 @@ export async function getOrCreateIdentity(userId: string): Promise<{ publicKey: 
   return { publicKey: publicKeyB64, privateKey: keyPair.privateKey };
 }
 
+async function rekeyConversation(conversationId: string, _userId: string): Promise<CryptoKey | null> {
+  try {
+    const { data: participants } = await supabase
+      .from('messaging_participants')
+      .select('user_id')
+      .eq('conversation_id', conversationId);
+
+    if (!participants || participants.length === 0) return null;
+
+    const participantIds = participants.map(p => p.user_id);
+    const aesKey = await generateAESKey();
+    const aesKeyB64 = await exportAESKey(aesKey);
+
+    const { data: bundles } = await supabase
+      .from('messaging_key_bundles')
+      .select('user_id, identity_public_key')
+      .in('user_id', participantIds);
+
+    if (!bundles || bundles.length === 0) return null;
+
+    for (const bundle of bundles) {
+      try {
+        const pubKey = await importPublicKey(bundle.identity_public_key);
+        const wrapped = await wrapAESKey(aesKey, pubKey);
+        await supabase
+          .from('messaging_participants')
+          .update({ encrypted_conversation_key: wrapped })
+          .eq('conversation_id', conversationId)
+          .eq('user_id', bundle.user_id);
+      } catch (e) {
+        console.error('[keyManager] Failed to wrap key for participant:', bundle.user_id, e);
+      }
+    }
+
+    const db = await openDB();
+    await idbPut(db, CONV_KEY_STORE, { conversationId, aesKeyB64 });
+
+    console.log('[keyManager] Conversation re-keyed successfully:', conversationId);
+    return aesKey;
+  } catch (e) {
+    console.error('[keyManager] Re-key failed:', e);
+    return null;
+  }
+}
+
 export async function getConversationKey(
   conversationId: string,
   userId: string
@@ -105,7 +146,7 @@ export async function getConversationKey(
     return importAESKey(stored.aesKeyB64);
   }
 
-  const { publicKey: _pk, privateKey } = await getOrCreateIdentity(userId);
+  const { publicKey: currentPublicKey, privateKey } = await getOrCreateIdentity(userId);
 
   const { data: participant } = await supabase
     .from('messaging_participants')
@@ -114,16 +155,40 @@ export async function getConversationKey(
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (!participant?.encrypted_conversation_key) return null;
+  if (!participant?.encrypted_conversation_key) {
+    return null;
+  }
 
   try {
     const aesKey = await unwrapAESKey(participant.encrypted_conversation_key, privateKey);
     const aesKeyB64 = await exportAESKey(aesKey);
     await idbPut(db, CONV_KEY_STORE, { conversationId, aesKeyB64 });
     return aesKey;
-  } catch (e) {
-    console.error('[keyManager] Failed to unwrap conversation key (key mismatch or corruption):', e);
-    return null;
+  } catch {
+    console.warn('[keyManager] Key mismatch detected -- re-keying conversation:', conversationId);
+
+    const { data: serverBundle } = await supabase
+      .from('messaging_key_bundles')
+      .select('identity_public_key')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const serverHasSameKey = serverBundle?.identity_public_key === currentPublicKey;
+
+    if (!serverHasSameKey) {
+      console.warn('[keyManager] Server key bundle is stale -- updating with current key');
+      await supabase.from('messaging_key_bundles').upsert(
+        {
+          user_id: userId,
+          identity_public_key: currentPublicKey,
+          signed_pre_key: currentPublicKey,
+          one_time_pre_keys: [],
+        },
+        { onConflict: 'user_id' }
+      );
+    }
+
+    return rekeyConversation(conversationId, userId);
   }
 }
 
