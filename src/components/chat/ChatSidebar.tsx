@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { useConversations } from '../../hooks/useConversations';
 import ConversationList from './ConversationList';
 import ConversationThread from './ConversationThread';
 import NewChat from './NewChat';
 import CreateGroup from './CreateGroup';
+import { requestNotificationPermission, testNotification } from '../../hooks/useMessageNotifications';
 
 interface Props {
   userId: string | undefined;
@@ -42,8 +44,49 @@ const lockIconStyle: React.CSSProperties = {
   color: '#4caf50',
 };
 
+const testBtnStyle: React.CSSProperties = {
+  background: 'none',
+  border: '1px solid #333',
+  borderRadius: 4,
+  color: '#888',
+  fontSize: 9,
+  padding: '2px 6px',
+  cursor: 'pointer',
+  marginLeft: 8,
+  letterSpacing: 0.3,
+};
+
+const bannerStyle: React.CSSProperties = {
+  padding: '6px 12px',
+  fontSize: 10,
+  lineHeight: 1.5,
+  borderBottom: '1px solid #2a2a2a',
+};
+
 export default function ChatSidebar({ userId }: Props) {
   const convs = useConversations(userId);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
+
+  const handleRequestPermission = () => {
+    requestNotificationPermission();
+    setTimeout(() => {
+      if ('Notification' in window) setNotifPermission(Notification.permission);
+    }, 500);
+  };
+
+  const handleTestNotification = () => {
+    if (notifPermission === 'default') {
+      handleRequestPermission();
+    } else {
+      testNotification();
+    }
+  };
 
   const handleNewChat = () => convs.setView('new-chat');
   const handleNewGroup = () => convs.setView('new-group');
@@ -68,7 +111,29 @@ export default function ChatSidebar({ userId }: Props) {
           </svg>
           E2E
         </span>
+        <button
+          style={testBtnStyle}
+          onClick={handleTestNotification}
+          title="Test notifications"
+        >
+          Test Notif
+        </button>
       </div>
+
+      {notifPermission === 'denied' && (
+        <div style={{ ...bannerStyle, background: '#1a1200', color: '#ff9800', borderLeft: '2px solid #ff9800' }}>
+          Notifications are blocked. Enable them in your browser site settings to receive message alerts.
+        </div>
+      )}
+
+      {notifPermission === 'default' && (
+        <div
+          style={{ ...bannerStyle, background: '#0d1a0d', color: '#81c784', borderLeft: '2px solid #4caf50', cursor: 'pointer' }}
+          onClick={handleRequestPermission}
+        >
+          Click to enable desktop notifications for new messages.
+        </div>
+      )}
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {convs.view === 'list' && (

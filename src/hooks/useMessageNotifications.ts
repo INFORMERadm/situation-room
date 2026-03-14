@@ -2,13 +2,15 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { playChatNotification } from '../lib/alarmSound';
 
-function requestNotificationPermission() {
+export function requestNotificationPermission() {
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
+    Notification.requestPermission().then(result => {
+      console.info('[notifications] Permission result:', result);
+    });
   }
 }
 
-function showDesktopNotification(title: string, body: string) {
+export function showDesktopNotification(title: string, body: string) {
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
       new Notification(title, {
@@ -20,6 +22,11 @@ function showDesktopNotification(title: string, body: string) {
       // silent
     }
   }
+}
+
+export function testNotification() {
+  playChatNotification();
+  showDesktopNotification('N4 Notifications', 'Notifications are working correctly.');
 }
 
 interface Options {
@@ -40,10 +47,6 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
   useEffect(() => {
     userIdRef.current = userId;
   }, [userId]);
-
-  useEffect(() => {
-    requestNotificationPermission();
-  }, []);
 
   const loadConversationIds = useCallback(async () => {
     if (!userId) return;
@@ -123,7 +126,13 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
         { event: '*', schema: 'public', table: 'messaging_participants', filter: `user_id=eq.${userId}` },
         () => { loadConversationIds(); },
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status !== 'SUBSCRIBED') {
+          console.warn('[notifications] participant-changes channel status:', status, err);
+        } else {
+          console.info('[notifications] participant-changes channel SUBSCRIBED');
+        }
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [userId, loadConversationIds]);
@@ -166,7 +175,13 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
             );
           },
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          if (status !== 'SUBSCRIBED') {
+            console.warn(`[notifications] notify-msgs-${convId} channel status:`, status, err);
+          } else {
+            console.info(`[notifications] notify-msgs-${convId} channel SUBSCRIBED`);
+          }
+        });
 
       return ch;
     });
