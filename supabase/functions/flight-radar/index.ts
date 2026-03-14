@@ -615,16 +615,7 @@ Deno.serve(async (req: Request) => {
         }
         const msg = err instanceof Error ? err.message : String(err);
         console.error("OpenSky live flights error:", msg);
-
-        if (cachedFlights && (now - cachedFlightsAt) < LIVE_FLIGHTS_STALE_TTL_MS) {
-          return jsonResponse({ flights: cachedFlights, stale: true });
-        }
-
-        if (dbCache && (now - dbCache.fetchedAt) < LIVE_FLIGHTS_STALE_TTL_MS) {
-          return jsonResponse({ flights: dbCache.flights, stale: true });
-        }
-
-        return jsonResponse({ flights: [], stale: true });
+        return await serveCachedOrEmpty();
       }
     }
 
