@@ -100,7 +100,7 @@ async function fetchZoneVessels(
 
   if (res.status === 402) {
     console.error("[maritime] No API credits remaining");
-    return { vessels: [], credits: 0 };
+    throw new Error("NO_CREDITS");
   }
 
   if (!res.ok) {
@@ -111,8 +111,17 @@ async function fetchZoneVessels(
     return { vessels: [], credits: 0 };
   }
 
-  const json = await res.json();
+  const rawText = await res.text();
+  let json: Record<string, unknown>;
+  try {
+    json = JSON.parse(rawText);
+  } catch {
+    console.error(`[maritime] Zone ${zone.zone_name}: JSON parse failed, raw response (first 500 chars): ${rawText.slice(0, 500)}`);
+    return { vessels: [], credits: 0 };
+  }
   const credits = parseInt(res.headers.get("X-Credit-Charged") || "0", 10);
+
+  console.log(`[maritime] Zone ${zone.zone_name}: response keys: ${Object.keys(json).join(",")}, status field: ${json.status}, credits: ${credits}`);
 
   const dataArray = Array.isArray(json.data)
     ? json.data
@@ -122,14 +131,16 @@ async function fetchZoneVessels(
 
   if (!dataArray) {
     console.error(
-      `[maritime] Zone ${zone.zone_name}: unexpected response shape, keys: ${Object.keys(json).join(",")}`
+      `[maritime] Zone ${zone.zone_name}: unexpected response shape, keys: ${Object.keys(json).join(",")}, raw (first 500): ${rawText.slice(0, 500)}`
     );
     return { vessels: [], credits };
   }
 
-  console.log(
-    `[maritime] Zone ${zone.zone_name}: ${dataArray.length} raw vessels, ${credits} credits`
-  );
+  if (dataArray.length > 0) {
+    console.log(`[maritime] Zone ${zone.zone_name}: ${dataArray.length} raw vessels, sample: ${JSON.stringify(dataArray[0]).slice(0, 300)}`);
+  } else {
+    console.log(`[maritime] Zone ${zone.zone_name}: 0 raw vessels returned by API`);
+  }
 
   const vessels: VesselData[] = [];
   for (const v of dataArray) {
@@ -234,6 +245,7 @@ async function handleVessels() {
   const allVessels = new Map<number, VesselData>();
   let totalCredits = 0;
 
+  let noCredits = false;
   for (const zone of selected) {
     try {
       const { vessels, credits } = await fetchZoneVessels(zone, apiKey);
@@ -247,11 +259,25 @@ async function handleVessels() {
       }
       await new Promise((r) => setTimeout(r, 200));
     } catch (err) {
+      if (err instanceof Error && err.message === "NO_CREDITS") {
+        noCredits = true;
+        break;
+      }
       console.error(
         `[maritime] Error fetching zone ${zone.zone_name}:`,
         err instanceof Error ? err.message : err
       );
     }
+  }
+
+  if (noCredits && allVessels.size === 0) {
+    if (memoryCache.length > 0) {
+      return jsonResponse({ vessels: memoryCache, count: memoryCache.length, warning: "API credits exhausted, showing cached data" });
+    }
+    if (cacheRow && Array.isArray(cacheRow.vessels_data) && cacheRow.vessels_data.length > 0) {
+      return jsonResponse({ vessels: cacheRow.vessels_data, count: cacheRow.vessel_count, warning: "API credits exhausted, showing cached data" });
+    }
+    return errorResponse("MyShipTracking API credits exhausted. Please top up your account.", 402);
   }
 
   console.log(`[maritime] Collected ${allVessels.size} unique vessels from ${selected.length} zones`);

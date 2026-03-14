@@ -48,7 +48,11 @@ export function useCommercialShipping(active: boolean) {
       if (!res.ok) {
         consecutiveFailsRef.current++;
         const body = await res.json().catch(() => ({}));
-        setError(body.error || 'Vessel data unavailable');
+        if (res.status === 402) {
+          setError('Shipping API credits exhausted');
+        } else {
+          setError(body.error || 'Vessel data unavailable');
+        }
         setLoading(false);
         scheduleNext();
         return;
