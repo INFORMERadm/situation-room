@@ -31,10 +31,15 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
   const [convIds, setConvIds] = useState<string[]>([]);
   const [convNames, setConvNames] = useState<Map<string, string>>(new Map());
   const chatOpenRef = useRef(chatSidebarOpen);
+  const userIdRef = useRef(userId);
 
   useEffect(() => {
     chatOpenRef.current = chatSidebarOpen;
   }, [chatSidebarOpen]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   useEffect(() => {
     requestNotificationPermission();
@@ -62,7 +67,7 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
         const names = new Map<string, string>();
 
         const directIds = convs.filter(c => c.type === 'direct').map(c => c.id);
-        let otherProfiles = new Map<string, string>();
+        const otherProfiles = new Map<string, string>();
 
         if (directIds.length > 0) {
           const { data: parts } = await supabase
@@ -123,49 +128,51 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
     return () => { supabase.removeChannel(channel); };
   }, [userId, loadConversationIds]);
 
-  const convIdsRef = useRef(convIds);
-  useEffect(() => { convIdsRef.current = convIds; }, [convIds]);
-
   const convNamesRef = useRef(convNames);
   useEffect(() => { convNamesRef.current = convNames; }, [convNames]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || convIds.length === 0) return;
 
-    const channel = supabase
-      .channel('global-msg-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messaging_messages',
-        },
-        (payload) => {
-          const row = payload.new as {
-            sender_id?: string;
-            conversation_id?: string;
-            message_type?: string;
-          };
+    const channels = convIds.map((convId) => {
+      const ch = supabase
+        .channel(`notify-msgs-${convId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messaging_messages',
+            filter: `conversation_id=eq.${convId}`,
+          },
+          (payload) => {
+            const row = payload.new as {
+              sender_id?: string;
+              conversation_id?: string;
+              message_type?: string;
+            };
 
-          if (!row.conversation_id) return;
-          if (row.sender_id === userId) return;
-          if (row.message_type === 'system') return;
-          if (!convIdsRef.current.includes(row.conversation_id)) return;
+            if (!row.conversation_id) return;
+            if (row.sender_id === userIdRef.current) return;
+            if (row.message_type === 'system') return;
+            if (chatOpenRef.current) return;
 
-          if (chatOpenRef.current) return;
+            playChatNotification();
 
-          playChatNotification();
+            const name = convNamesRef.current.get(row.conversation_id);
+            showDesktopNotification(
+              'New message',
+              name ? `Message from ${name}` : 'You have a new message',
+            );
+          },
+        )
+        .subscribe();
 
-          const name = convNamesRef.current.get(row.conversation_id);
-          showDesktopNotification(
-            'New message',
-            name ? `Message in ${name}` : 'You have a new message',
-          );
-        },
-      )
-      .subscribe();
+      return ch;
+    });
 
-    return () => { supabase.removeChannel(channel); };
-  }, [userId]);
+    return () => {
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
+  }, [userId, convIds]);
 }
