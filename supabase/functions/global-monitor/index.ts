@@ -657,7 +657,7 @@ async function fetchMarketNews() {
       const xml = await res.text();
       const itemRegex = /<item>([\s\S]*?)<\/item>/g;
       let match;
-      while ((match = itemRegex.exec(xml)) !== null && rssItems.length < 50) {
+      while ((match = itemRegex.exec(xml)) !== null && rssItems.length < 100) {
         const block = match[1];
         const title = (block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || block.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim() ?? "";
         const link = (block.match(/<link>([\s\S]*?)<\/link>/))?.[1]?.trim() ?? "";
@@ -677,10 +677,10 @@ async function fetchMarketNews() {
     }
   } catch { /* ignore, will supplement with FMP */ }
 
-  const remaining = 50 - rssItems.length;
+  const remaining = 100 - rssItems.length;
   if (remaining > 0) {
     try {
-      const data = await fmpFetch("stock-news", { limit: String(remaining) });
+      const data = await fmpFetch("stock-news", { limit: String(Math.min(remaining, 50)) });
       const rssUrls = new Set(rssItems.map(i => i.url));
       fmpItems = (data as Record<string, unknown>[])
         .map((n) => ({
@@ -695,7 +695,7 @@ async function fetchMarketNews() {
     } catch { /* ignore */ }
   }
 
-  const result = [...rssItems, ...fmpItems].slice(0, 50);
+  const result = [...rssItems, ...fmpItems].slice(0, 100);
 
   if (result.length > 0) {
     await setCache("market-news", result);
