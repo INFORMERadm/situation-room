@@ -140,54 +140,51 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
   const convNamesRef = useRef(convNames);
   useEffect(() => { convNamesRef.current = convNames; }, [convNames]);
 
+  const convIdsRef = useRef(convIds);
+  useEffect(() => { convIdsRef.current = convIds; }, [convIds]);
+
   useEffect(() => {
-    if (!userId || convIds.length === 0) return;
+    if (!userId) return;
 
-    const channels = convIds.map((convId) => {
-      const ch = supabase
-        .channel(`notify-msgs-${convId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messaging_messages',
-            filter: `conversation_id=eq.${convId}`,
-          },
-          (payload) => {
-            const row = payload.new as {
-              sender_id?: string;
-              conversation_id?: string;
-              message_type?: string;
-            };
+    const ch = supabase
+      .channel('notify-msgs-global')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messaging_messages',
+        },
+        (payload) => {
+          const row = payload.new as {
+            sender_id?: string;
+            conversation_id?: string;
+            message_type?: string;
+          };
 
-            if (!row.conversation_id) return;
-            if (row.sender_id === userIdRef.current) return;
-            if (row.message_type === 'system') return;
-            if (chatOpenRef.current) return;
+          if (!row.conversation_id) return;
+          if (!convIdsRef.current.includes(row.conversation_id)) return;
+          if (row.sender_id === userIdRef.current) return;
+          if (row.message_type === 'system') return;
+          if (chatOpenRef.current) return;
 
-            playChatNotification();
+          playChatNotification();
 
-            const name = convNamesRef.current.get(row.conversation_id);
-            showDesktopNotification(
-              'New message',
-              name ? `Message from ${name}` : 'You have a new message',
-            );
-          },
-        )
-        .subscribe((status, err) => {
-          if (status !== 'SUBSCRIBED') {
-            console.warn(`[notifications] notify-msgs-${convId} channel status:`, status, err);
-          } else {
-            console.info(`[notifications] notify-msgs-${convId} channel SUBSCRIBED`);
-          }
-        });
+          const name = convNamesRef.current.get(row.conversation_id);
+          showDesktopNotification(
+            'New message',
+            name ? `Message from ${name}` : 'You have a new message',
+          );
+        },
+      )
+      .subscribe((status, err) => {
+        if (status !== 'SUBSCRIBED') {
+          console.warn('[notifications] notify-msgs-global channel status:', status, err);
+        } else {
+          console.info('[notifications] notify-msgs-global channel SUBSCRIBED');
+        }
+      });
 
-      return ch;
-    });
-
-    return () => {
-      channels.forEach(ch => supabase.removeChannel(ch));
-    };
-  }, [userId, convIds]);
+    return () => { supabase.removeChannel(ch); };
+  }, [userId]);
 }
