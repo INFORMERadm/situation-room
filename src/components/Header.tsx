@@ -41,7 +41,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           style={{ height: 32, objectFit: 'contain' }}
         />
         <span style={{
-          fontSize: 8,
+          fontSize: 10,
           fontWeight: 600,
           letterSpacing: 1.5,
           textTransform: 'uppercase',
