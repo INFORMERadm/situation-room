@@ -26,7 +26,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 3,
+          gap: 0,
           color: '#1a1a1a',
           fontWeight: 700,
           fontSize: 13,
