@@ -18,6 +18,13 @@ interface RawFlightData {
   geo_alt?: number;
   last_contact?: number;
   category?: number;
+  registration?: string;
+  aircraft_type?: string;
+  flight_number?: string;
+  operating_as?: string;
+  painted_as?: string;
+  orig_iata?: string;
+  dest_iata?: string;
   [key: string]: unknown;
 }
 
@@ -27,21 +34,21 @@ function normalizeFlight(raw: RawFlightData, idx: number): LiveFlightPosition {
   return {
     flightId: String(raw.icao24 ?? `fl-${idx}`),
     callsign,
-    registration: '',
-    aircraftType: '',
+    registration: String(raw.registration ?? ''),
+    aircraftType: String(raw.aircraft_type ?? ''),
     airlineName: String(raw.origin_country ?? ''),
-    airlineIcao: '',
+    airlineIcao: String(raw.operating_as ?? ''),
     latitude: Number(raw.lat ?? 0),
     longitude: Number(raw.lon ?? 0),
     altitude: alt,
     groundSpeed: Number(raw.gspd ?? 0),
     heading: Number(raw.track ?? 0),
     verticalSpeed: Number(raw.vspd ?? 0),
-    originIata: '',
+    originIata: String(raw.orig_iata ?? ''),
     originName: '',
-    destinationIata: '',
+    destinationIata: String(raw.dest_iata ?? ''),
     destinationName: '',
-    flightNumber: callsign,
+    flightNumber: String(raw.flight_number ?? callsign),
     squawk: String(raw.squawk ?? ''),
     isOnGround: raw.on_ground ?? alt === 0,
     timestamp: raw.last_contact ?? Date.now() / 1000,

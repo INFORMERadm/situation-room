@@ -8,6 +8,9 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const FR24_API_TOKEN = Deno.env.get("FR24_API_TOKEN") ?? "";
+const FR24_API_BASE = "https://fr24api.flightradar24.com/api";
+
 const OPENSKY_CLIENT_ID = Deno.env.get("OPENSKY_CLIENT_ID") ?? "";
 const OPENSKY_CLIENT_SECRET = Deno.env.get("OPENSKY_CLIENT_SECRET") ?? "";
 const OPENSKY_TOKEN_URL =
@@ -89,8 +92,116 @@ async function setRateLimitCooldown(retryAfterSec?: number): Promise<void> {
 
 class RateLimitError extends Error {
   constructor() {
-    super("OpenSky rate limited");
+    super("Rate limited");
     this.name = "RateLimitError";
+  }
+}
+
+interface FR24Flight {
+  fr24_id?: string;
+  flight?: string;
+  callsign?: string;
+  lat?: number;
+  lon?: number;
+  alt?: number;
+  gspd?: number;
+  track?: number;
+  vspd?: number;
+  squawk?: string;
+  orig_iata?: string;
+  dest_iata?: string;
+  type?: string;
+  reg?: string;
+  painted_as?: string;
+  operating_as?: string;
+  timestamp?: number;
+  on_ground?: boolean;
+}
+
+function mapFR24Flight(f: FR24Flight, idx: number) {
+  const lat = f.lat ?? 0;
+  const lon = f.lon ?? 0;
+  if (lat === 0 && lon === 0) return null;
+
+  return {
+    icao24: f.fr24_id ?? `fr24-${idx}`,
+    callsign: (f.callsign ?? f.flight ?? "").trim(),
+    origin_country: "",
+    lat,
+    lon,
+    alt: f.alt ?? 0,
+    gspd: f.gspd ?? 0,
+    track: f.track ?? 0,
+    vspd: f.vspd ?? 0,
+    on_ground: f.on_ground ?? (f.alt === 0),
+    squawk: f.squawk ?? "",
+    geo_alt: f.alt ?? 0,
+    baro_alt: f.alt ?? 0,
+    last_contact: f.timestamp ?? Math.floor(Date.now() / 1000),
+    category: 0,
+    registration: f.reg ?? "",
+    aircraft_type: f.type ?? "",
+    flight_number: f.flight ?? "",
+    operating_as: f.operating_as ?? "",
+    painted_as: f.painted_as ?? "",
+    orig_iata: f.orig_iata ?? "",
+    dest_iata: f.dest_iata ?? "",
+  };
+}
+
+async function fetchFR24Flights(bounds?: string, timeoutMs = 25000): Promise<unknown[]> {
+  if (!FR24_API_TOKEN) throw new Error("FR24_API_TOKEN not configured");
+
+  const url = new URL(`${FR24_API_BASE}/live/flight-positions/full`);
+  url.searchParams.set("limit", "10000");
+
+  if (bounds) {
+    const parts = bounds.split(",").map((s) => s.trim());
+    if (parts.length === 4) {
+      url.searchParams.set("bounds", `${parts[0]},${parts[2]},${parts[3]},${parts[1]}`);
+    }
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: {
+        "Accept-Version": "v1",
+        "Authorization": `Bearer ${FR24_API_TOKEN}`,
+        "Accept": "application/json",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (res.status === 429) {
+      const retryHeader = res.headers.get("Retry-After");
+      const retryAfterSec = retryHeader ? parseInt(retryHeader, 10) : undefined;
+      await setRateLimitCooldown(retryAfterSec && !isNaN(retryAfterSec) ? retryAfterSec : undefined);
+      throw new RateLimitError();
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`FR24 ${res.status}: ${text || res.statusText}`);
+    }
+
+    const json = await res.json();
+    const data: FR24Flight[] = json.data ?? json.flights ?? json ?? [];
+
+    if (!Array.isArray(data)) {
+      console.error("FR24 unexpected response shape:", JSON.stringify(json).slice(0, 200));
+      return [];
+    }
+
+    return data
+      .map((f, i) => mapFR24Flight(f, i))
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
   }
 }
 
@@ -137,7 +248,7 @@ async function getOpenSkyToken(): Promise<string | null> {
 async function fetchOpenSky(
   endpoint: string,
   params: Record<string, string> = {},
-  timeoutMs = 25000,
+  timeoutMs = 20000,
 ): Promise<unknown> {
   if (isRateLimited()) {
     throw new RateLimitError();
@@ -536,6 +647,30 @@ function enrichFlightResult(f: Record<string, unknown>) {
   };
 }
 
+async function fetchLiveFlightsWithFallback(bounds?: string): Promise<unknown[]> {
+  if (FR24_API_TOKEN) {
+    try {
+      const flights = await fetchFR24Flights(bounds);
+      if (flights.length > 0) {
+        console.log(`FR24: fetched ${flights.length} flights`);
+        return flights;
+      }
+      console.warn("FR24 returned 0 flights, falling back to OpenSky");
+    } catch (err) {
+      if (err instanceof RateLimitError) throw err;
+      console.error("FR24 failed, falling back to OpenSky:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  const data = (await fetchOpenSky("/states/all", {})) as {
+    states: StateVector[] | null;
+  };
+  const states = data?.states ?? [];
+  return states
+    .map(mapStateToFlight)
+    .filter((f): f is NonNullable<typeof f> => f !== null);
+}
+
 async function serveCachedOrEmpty(): Promise<Response> {
   const now = Date.now();
   if (cachedFlights && cachedFlights.length > 0) {
@@ -585,14 +720,7 @@ Deno.serve(async (req: Request) => {
         if (!isRateLimited()) {
           EdgeRuntime.waitUntil((async () => {
             try {
-              const params: Record<string, string> = {};
-              const data = (await fetchOpenSky("/states/all", params)) as {
-                states: StateVector[] | null;
-              };
-              const states = data?.states ?? [];
-              const flights = states
-                .map(mapStateToFlight)
-                .filter((f): f is NonNullable<typeof f> => f !== null);
+              const flights = await fetchLiveFlightsWithFallback(bounds ?? undefined);
               if (flights.length > 0) {
                 cachedFlights = flights;
                 cachedFlightsAt = Date.now();
@@ -614,25 +742,8 @@ Deno.serve(async (req: Request) => {
         return await serveCachedOrEmpty();
       }
 
-      const params: Record<string, string> = {};
-      if (bounds) {
-        const parts = bounds.split(",").map((s) => s.trim());
-        if (parts.length === 4) {
-          params.lamin = parts[1];
-          params.lamax = parts[0];
-          params.lomin = parts[2];
-          params.lomax = parts[3];
-        }
-      }
-
       try {
-        const data = (await fetchOpenSky("/states/all", params)) as {
-          states: StateVector[] | null;
-        };
-        const states = data?.states ?? [];
-        const flights = states
-          .map(mapStateToFlight)
-          .filter((f): f is NonNullable<typeof f> => f !== null);
+        const flights = await fetchLiveFlightsWithFallback(bounds ?? undefined);
 
         if (flights.length > 0) {
           cachedFlights = flights;
@@ -648,7 +759,7 @@ Deno.serve(async (req: Request) => {
           return await serveCachedOrEmpty();
         }
         const msg = err instanceof Error ? err.message : String(err);
-        console.error("OpenSky live flights error:", msg);
+        console.error("Live flights error:", msg);
         return await serveCachedOrEmpty();
       }
     }
