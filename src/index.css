@@ -57,8 +57,23 @@ html, body, #root {
   background: transparent;
 }
 
-.flight-map-tiles {
+.flight-map-tiles img {
   filter: brightness(1.8) contrast(1.1) saturate(0.15);
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+.leaflet-label,
+.leaflet-tooltip,
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip,
+.leaflet-marker-icon,
+.leaflet-pane:not(.leaflet-tile-pane) {
+  filter: none !important;
+  -webkit-filter: none !important;
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 @keyframes newsStreamIn {
