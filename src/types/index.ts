@@ -356,4 +356,39 @@ export interface StrikeEvent {
   created_at: string;
 }
 
-export type MapLayerName = 'flights' | 'military-bases' | 'naval-assets' | 'strike-events';
+export type InfrastructureType =
+  | 'airport'
+  | 'port'
+  | 'highway'
+  | 'electricity'
+  | 'nuclear'
+  | 'government'
+  | 'military_intel'
+  | 'pipeline'
+  | 'refinery'
+  | 'undersea_cable'
+  | 'water'
+  | 'telecom'
+  | 'other';
+
+export type InfrastructureStatus = 'intact' | 'damaged' | 'destroyed' | 'unknown';
+
+export interface CriticalInfrastructure {
+  id: string;
+  name: string;
+  country: string;
+  region: string;
+  infra_type: InfrastructureType;
+  status: InfrastructureStatus;
+  latitude: number;
+  longitude: number;
+  description: string;
+  last_incident_date: string;
+  incident_notes: string;
+  source_url: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MapLayerName = 'flights' | 'military-bases' | 'naval-assets' | 'strike-events' | 'critical-infrastructure';

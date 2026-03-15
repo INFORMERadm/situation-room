@@ -1,12 +1,13 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import type { LiveFlightPosition, AircraftTrack, MilitaryBase, MilitaryNavalAsset, StrikeEvent, MapLayerName } from '../../types';
+import type { LiveFlightPosition, AircraftTrack, MilitaryBase, MilitaryNavalAsset, StrikeEvent, CriticalInfrastructure, MapLayerName } from '../../types';
 import FlightTrackOverlay from './FlightTrackOverlay';
 import MilitaryBasesOverlay from './MilitaryBasesOverlay';
 import NavalAssetsOverlay from './NavalAssetsOverlay';
 import StrikeAnimationOverlay from './StrikeAnimationOverlay';
 import StrikeAlertBanner from './StrikeAlertBanner';
+import CriticalInfrastructureOverlay from './CriticalInfrastructureOverlay';
 import MapLayerControl from './MapLayerControl';
 
 import 'leaflet/dist/leaflet.css';
@@ -177,6 +178,7 @@ interface FlightMapProps {
   strikeEvents: StrikeEvent[];
   strikeNewEventIds: Set<string>;
   onClearStrikeNew: () => void;
+  criticalInfrastructure: CriticalInfrastructure[];
 }
 
 export default function FlightMap({
@@ -193,6 +195,7 @@ export default function FlightMap({
   strikeEvents,
   strikeNewEventIds,
   onClearStrikeNew,
+  criticalInfrastructure,
 }: FlightMapProps) {
   const flightCount = useMemo(() => flights.length, [flights]);
 
@@ -223,6 +226,7 @@ export default function FlightMap({
         {layers['military-bases'] && <MilitaryBasesOverlay bases={militaryBases} />}
         {layers['naval-assets'] && <NavalAssetsOverlay navalAssets={navalAssets} />}
         {layers['strike-events'] && <StrikeAnimationOverlay events={strikeEvents} />}
+        {layers['critical-infrastructure'] && <CriticalInfrastructureOverlay infrastructure={criticalInfrastructure} />}
       </MapContainer>
 
       <MapLayerControl
@@ -232,6 +236,7 @@ export default function FlightMap({
         baseCount={militaryBases.length}
         navalCount={navalAssets.length}
         strikeCount={strikeEvents.length}
+        infraCount={criticalInfrastructure.length}
       />
 
       {layers['strike-events'] && (
@@ -356,6 +361,22 @@ export default function FlightMap({
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff1744', display: 'inline-block' }} />
               Impact
+            </span>
+          </>
+        )}
+        {layers['critical-infrastructure'] && criticalInfrastructure.length > 0 && (
+          <>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4caf50', display: 'inline-block' }} />
+              Intact
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff9800', display: 'inline-block' }} />
+              Damaged
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f44336', display: 'inline-block' }} />
+              Destroyed
             </span>
           </>
         )}

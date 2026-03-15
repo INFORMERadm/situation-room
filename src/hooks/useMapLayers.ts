@@ -10,6 +10,7 @@ const DEFAULT_LAYERS: LayerState = {
   'military-bases': true,
   'naval-assets': true,
   'strike-events': true,
+  'critical-infrastructure': true,
 };
 
 function loadSavedLayers(): LayerState {

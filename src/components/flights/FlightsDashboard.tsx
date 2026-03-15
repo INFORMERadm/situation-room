@@ -8,6 +8,7 @@ import useFlightSearch from '../../hooks/useFlightSearch';
 import { useMilitaryOverlay } from '../../hooks/useMilitaryOverlay';
 import { useStrikeEvents } from '../../hooks/useStrikeEvents';
 import { useMapLayers } from '../../hooks/useMapLayers';
+import { useCriticalInfrastructure } from '../../hooks/useCriticalInfrastructure';
 import { playStrikeAlarm } from '../../lib/alarmSound';
 import LiveCamButton from './LiveCamButton';
 import type { LiveFlightPosition } from '../../types';
@@ -33,6 +34,7 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
   const { layers, toggleLayer, isLayerVisible } = useMapLayers();
   const military = useMilitaryOverlay(active);
   const strikes = useStrikeEvents(active && isLayerVisible('strike-events'));
+  const { infrastructure } = useCriticalInfrastructure(active && isLayerVisible('critical-infrastructure'));
   const alarmPlayedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -76,6 +78,7 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         strikeEvents={strikes.events}
         strikeNewEventIds={strikes.newEventIds}
         onClearStrikeNew={strikes.clearNewEvents}
+        criticalInfrastructure={infrastructure}
       />
       <FlightSearchPanel
         isOpen={search.isOpen}

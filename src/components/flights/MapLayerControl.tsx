@@ -15,9 +15,10 @@ interface Props {
   baseCount: number;
   navalCount: number;
   strikeCount?: number;
+  infraCount?: number;
 }
 
-export default function MapLayerControl({ layers, onToggle, flightCount, baseCount, navalCount, strikeCount = 0 }: Props) {
+export default function MapLayerControl({ layers, onToggle, flightCount, baseCount, navalCount, strikeCount = 0, infraCount = 0 }: Props) {
   const [expanded, setExpanded] = useState(true);
 
   const layerInfos: LayerInfo[] = [
@@ -25,6 +26,7 @@ export default function MapLayerControl({ layers, onToggle, flightCount, baseCou
     { key: 'military-bases', label: 'Military Bases', count: baseCount, color: '#4caf50' },
     { key: 'naval-assets', label: 'Naval Assets', count: navalCount, color: '#00bcd4' },
     { key: 'strike-events', label: 'Strike Events', count: strikeCount, color: '#ff1744' },
+    { key: 'critical-infrastructure', label: 'Infrastructure', count: infraCount, color: '#ffc107' },
   ];
 
   if (!expanded) {
