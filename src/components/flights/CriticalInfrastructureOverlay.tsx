@@ -17,6 +17,13 @@ const STATUS_PULSE: Record<InfrastructureStatus, boolean> = {
   unknown: false,
 };
 
+const PIPELINE_DASH: Record<InfrastructureStatus, string | undefined> = {
+  intact: undefined,
+  damaged: '8 5',
+  destroyed: '4 6',
+  unknown: '2 4',
+};
+
 function getInfraIcon(type: InfrastructureType, status: InfrastructureStatus): string {
   const color = STATUS_COLORS[status];
   const pulse = STATUS_PULSE[status];
@@ -32,7 +39,7 @@ function getInfraIcon(type: InfrastructureType, status: InfrastructureStatus): s
     nuclear: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">${pulseRing}<circle cx="12" cy="12" r="9" fill="#111" stroke="${color}" stroke-width="1.5"/><g transform="scale(0.5) translate(12,12)"><circle cx="12" cy="12" r="3" fill="${color}"/><path d="M12 9C10 5.5 7 4 4 5L7 10.5M12 9C14 5.5 17 4 20 5L17 10.5M12 15C12 19 10 21.5 7.5 22L10.5 16.5M12 15C12 19 14 21.5 16.5 22L13.5 16.5M7 10.5C3.5 10 2 12 2.5 15L8 13.5M17 10.5C20.5 10 22 12 21.5 15L16 13.5M10.5 16.5C9 19.5 6.5 20 4 19L7.5 15M13.5 16.5C15 19.5 17.5 20 20 19L16.5 15" stroke="${color}" stroke-width="1.5" fill="none"/></g></svg>`,
     government: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">${pulseRing}<circle cx="12" cy="12" r="9" fill="#111" stroke="${color}" stroke-width="1.5"/><g transform="scale(0.5) translate(12,12)"><rect x="3" y="11" width="18" height="11" stroke="${color}" stroke-width="2" fill="none"/><path d="M3 11L12 2l9 9" stroke="${color}" stroke-width="2" fill="none"/><rect x="9" y="16" width="6" height="6" stroke="${color}" stroke-width="1.5" fill="none"/></g></svg>`,
     military_intel: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">${pulseRing}<circle cx="12" cy="12" r="9" fill="#111" stroke="${color}" stroke-width="1.5"/><g transform="scale(0.5) translate(12,12)"><path d="M12 2L2 7v5c0 5.5 4.3 10.7 10 12 5.7-1.3 10-6.5 10-12V7L12 2z" stroke="${color}" stroke-width="2" fill="none"/><path d="M9 12l2 2 4-4" stroke="${color}" stroke-width="2.5" fill="none"/></g></svg>`,
-    pipeline: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">${pulseRing}<circle cx="12" cy="12" r="9" fill="#111" stroke="${color}" stroke-width="1.5"/><g transform="scale(0.5) translate(12,12)"><path d="M2 9h20M2 15h20" stroke="${color}" stroke-width="2.5" fill="none"/><path d="M6 9v6M18 9v6" stroke="${color}" stroke-width="2" fill="none"/><circle cx="4" cy="12" r="2" fill="${color}"/><circle cx="20" cy="12" r="2" fill="${color}"/></g></svg>`,
+    pipeline: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="${color}" opacity="0.9"/><path d="M2 9h20M2 15h20" stroke="#111" stroke-width="2.5" fill="none"/><path d="M6 9v6M18 9v6" stroke="#111" stroke-width="1.5" fill="none"/></svg>`,
     refinery: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">${pulseRing}<circle cx="12" cy="12" r="9" fill="#111" stroke="${color}" stroke-width="1.5"/><g transform="scale(0.5) translate(12,12)"><rect x="8" y="10" width="8" height="12" stroke="${color}" stroke-width="2" fill="none"/><path d="M10 10V6M14 10V4M12 10V7" stroke="${color}" stroke-width="1.5" fill="none"/><path d="M8 22H16" stroke="${color}" stroke-width="2"/><circle cx="10" cy="6" r="1.5" fill="${color}"/><circle cx="14" cy="4" r="1.5" fill="${color}"/></g></svg>`,
     undersea_cable: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">${pulseRing}<circle cx="12" cy="12" r="9" fill="#111" stroke="${color}" stroke-width="1.5"/><g transform="scale(0.5) translate(12,12)"><path d="M2 12c2-4 4-6 6-6s4 4 6 4 4-6 6-6" stroke="${color}" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M2 16c2-4 4-6 6-6s4 4 6 4 4-6 6-6" stroke="${color}" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5"/></g></svg>`,
     water: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">${pulseRing}<circle cx="12" cy="12" r="9" fill="#111" stroke="${color}" stroke-width="1.5"/><g transform="scale(0.5) translate(12,12)"><path d="M12 2C6 10 4 13 4 16a8 8 0 0 0 16 0c0-3-2-6-8-14z" fill="${color}" opacity="0.8"/></g></svg>`,
@@ -88,6 +95,11 @@ function buildPopupContent(item: CriticalInfrastructure): string {
   </div>`;
 }
 
+type PipelineLayer = {
+  polyline: L.Polyline;
+  marker: L.Marker;
+};
+
 interface Props {
   infrastructure: CriticalInfrastructure[];
 }
@@ -95,69 +107,143 @@ interface Props {
 export default function CriticalInfrastructureOverlay({ infrastructure }: Props) {
   const map = useMap();
   const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
+  const pipelineMapRef = useRef<Map<string, PipelineLayer>>(new Map());
   const infraRef = useRef(infrastructure);
   infraRef.current = infrastructure;
 
-  const syncMarkers = useCallback(() => {
+  const getMidpoint = (coords: [number, number][]): [number, number] => {
+    const mid = Math.floor(coords.length / 2);
+    return coords[mid];
+  };
+
+  const syncLayers = useCallback(() => {
     const bounds = map.getBounds();
-    const existing = markerMapRef.current;
+    const existingMarkers = markerMapRef.current;
+    const existingPipelines = pipelineMapRef.current;
     const activeIds = new Set<string>();
 
     for (const item of infraRef.current) {
-      if (!bounds.contains([item.latitude, item.longitude])) continue;
-      activeIds.add(item.id);
+      const isPipeline = item.infra_type === 'pipeline' && item.route_coordinates && item.route_coordinates.length >= 2;
 
-      if (!existing.has(item.id)) {
-        const iconHtml = getInfraIcon(item.infra_type, item.status);
-        const icon = L.divIcon({
-          html: iconHtml,
-          className: '',
-          iconSize: [18, 18],
-          iconAnchor: [9, 9],
-        });
+      if (isPipeline) {
+        const coords = item.route_coordinates as [number, number][];
+        const routeBounds = L.latLngBounds(coords.map(c => L.latLng(c[0], c[1])));
+        if (!bounds.intersects(routeBounds)) continue;
+        activeIds.add(item.id);
 
-        const color = STATUS_COLORS[item.status];
-        const typeLabel = INFRA_TYPE_LABELS[item.infra_type] || item.infra_type;
+        if (!existingPipelines.has(item.id)) {
+          const color = STATUS_COLORS[item.status];
+          const dash = PIPELINE_DASH[item.status];
 
-        const marker = L.marker([item.latitude, item.longitude], { icon }).addTo(map);
-        marker.bindTooltip(
-          `<div style="padding:4px 6px"><strong style="color:${color};font-size:11px">${item.name}</strong><br/><span style="color:#999;font-size:9px">${typeLabel} &bull; ${item.country}</span></div>`,
-          { direction: 'top', offset: [0, -10], opacity: 1, className: 'flight-marker-tooltip' }
-        );
-        marker.bindPopup(buildPopupContent(item), {
-          className: 'military-popup',
-          maxWidth: 320,
-        });
-        existing.set(item.id, marker);
+          const polyline = L.polyline(
+            coords.map(c => [c[0], c[1]] as L.LatLngTuple),
+            {
+              color,
+              weight: 2.5,
+              opacity: 0.85,
+              dashArray: dash,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }
+          ).addTo(map);
+
+          const midpoint = getMidpoint(coords);
+          const iconHtml = getInfraIcon(item.infra_type, item.status);
+          const icon = L.divIcon({
+            html: iconHtml,
+            className: '',
+            iconSize: [14, 14],
+            iconAnchor: [7, 7],
+          });
+
+          const typeLabel = INFRA_TYPE_LABELS[item.infra_type] || item.infra_type;
+          const marker = L.marker([midpoint[0], midpoint[1]], { icon, zIndexOffset: -100 }).addTo(map);
+          marker.bindTooltip(
+            `<div style="padding:4px 6px"><strong style="color:${color};font-size:11px">${item.name}</strong><br/><span style="color:#999;font-size:9px">${typeLabel} &bull; ${item.country}</span></div>`,
+            { direction: 'top', offset: [0, -8], opacity: 1, className: 'flight-marker-tooltip' }
+          );
+          const popup = buildPopupContent(item);
+          marker.bindPopup(popup, { className: 'military-popup', maxWidth: 320 });
+          polyline.bindPopup(popup, { className: 'military-popup', maxWidth: 320 });
+
+          polyline.on('mouseover', () => {
+            polyline.setStyle({ weight: 4, opacity: 1 });
+          });
+          polyline.on('mouseout', () => {
+            polyline.setStyle({ weight: 2.5, opacity: 0.85 });
+          });
+
+          existingPipelines.set(item.id, { polyline, marker });
+        }
+      } else {
+        if (!bounds.contains([item.latitude, item.longitude])) continue;
+        activeIds.add(item.id);
+
+        if (!existingMarkers.has(item.id)) {
+          const iconHtml = getInfraIcon(item.infra_type, item.status);
+          const icon = L.divIcon({
+            html: iconHtml,
+            className: '',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+          });
+
+          const color = STATUS_COLORS[item.status];
+          const typeLabel = INFRA_TYPE_LABELS[item.infra_type] || item.infra_type;
+
+          const marker = L.marker([item.latitude, item.longitude], { icon }).addTo(map);
+          marker.bindTooltip(
+            `<div style="padding:4px 6px"><strong style="color:${color};font-size:11px">${item.name}</strong><br/><span style="color:#999;font-size:9px">${typeLabel} &bull; ${item.country}</span></div>`,
+            { direction: 'top', offset: [0, -10], opacity: 1, className: 'flight-marker-tooltip' }
+          );
+          marker.bindPopup(buildPopupContent(item), {
+            className: 'military-popup',
+            maxWidth: 320,
+          });
+          existingMarkers.set(item.id, marker);
+        }
       }
     }
 
-    for (const [id, marker] of existing) {
+    for (const [id, marker] of existingMarkers) {
       if (!activeIds.has(id)) {
         marker.remove();
-        existing.delete(id);
+        existingMarkers.delete(id);
+      }
+    }
+
+    for (const [id, layer] of existingPipelines) {
+      if (!activeIds.has(id)) {
+        layer.polyline.remove();
+        layer.marker.remove();
+        existingPipelines.delete(id);
       }
     }
   }, [map]);
 
   useEffect(() => {
-    syncMarkers();
-  }, [infrastructure, syncMarkers]);
+    syncLayers();
+  }, [infrastructure, syncLayers]);
 
   useEffect(() => {
-    const onMove = () => syncMarkers();
+    const onMove = () => syncLayers();
     map.on('moveend', onMove);
     map.on('zoomend', onMove);
     return () => {
       map.off('moveend', onMove);
       map.off('zoomend', onMove);
     };
-  }, [map, syncMarkers]);
+  }, [map, syncLayers]);
 
   useEffect(() => {
     return () => {
       for (const [, marker] of markerMapRef.current) marker.remove();
       markerMapRef.current.clear();
+      for (const [, layer] of pipelineMapRef.current) {
+        layer.polyline.remove();
+        layer.marker.remove();
+      }
+      pipelineMapRef.current.clear();
     };
   }, []);
 

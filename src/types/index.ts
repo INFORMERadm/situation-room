@@ -382,6 +382,7 @@ export interface CriticalInfrastructure {
   status: InfrastructureStatus;
   latitude: number;
   longitude: number;
+  route_coordinates: [number, number][] | null;
   description: string;
   last_incident_date: string;
   incident_notes: string;
