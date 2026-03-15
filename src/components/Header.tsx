@@ -42,7 +42,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         />
         <span style={{
           fontSize: 10,
-          fontWeight: 600,
+          fontWeight: 700,
           letterSpacing: 1.2,
           textTransform: 'uppercase',
           color: 'rgba(0,0,0,0.55)',
