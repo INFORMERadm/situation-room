@@ -36,7 +36,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img
-          src="/noBgBlack.png"
+          src="/noBgBlack_(1).png"
           alt="N4-AI Logo"
           style={{ height: 32, objectFit: 'contain' }}
         />
