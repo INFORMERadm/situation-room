@@ -36,11 +36,10 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img
-          src="/Black_Transparent.png"
-          alt="N4 Logo"
-          style={{ width: 28, height: 28, objectFit: 'contain' }}
+          src="/noBgBlack.png"
+          alt="N4-AI Logo"
+          style={{ height: 22, objectFit: 'contain' }}
         />
-        <span style={{ position: 'relative', top: 1, fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 15 }}>4-AI</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks
