@@ -40,7 +40,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           alt="N4 Logo"
           style={{ width: 28, height: 28, objectFit: 'contain' }}
         />
-        <span style={{ position: 'relative', top: 1 }}>4-AI</span>
+        <span style={{ position: 'relative', top: 1, fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 15 }}>4-AI</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks
