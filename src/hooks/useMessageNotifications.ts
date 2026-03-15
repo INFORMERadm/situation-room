@@ -144,10 +144,11 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
   useEffect(() => { convIdsRef.current = convIds; }, [convIds]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || convIds.length === 0) return;
 
+    const channelName = `notify-msgs-global-${userId}-${Date.now()}`;
     const ch = supabase
-      .channel('notify-msgs-global')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -186,5 +187,5 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
       });
 
     return () => { supabase.removeChannel(ch); };
-  }, [userId]);
+  }, [userId, convIds]);
 }
