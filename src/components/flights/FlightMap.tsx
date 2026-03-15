@@ -1,11 +1,10 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import type { LiveFlightPosition, AircraftTrack, MilitaryBase, MilitaryNavalAsset, VesselPosition, StrikeEvent, MapLayerName } from '../../types';
+import type { LiveFlightPosition, AircraftTrack, MilitaryBase, MilitaryNavalAsset, StrikeEvent, MapLayerName } from '../../types';
 import FlightTrackOverlay from './FlightTrackOverlay';
 import MilitaryBasesOverlay from './MilitaryBasesOverlay';
 import NavalAssetsOverlay from './NavalAssetsOverlay';
-import CommercialShippingOverlay from './CommercialShippingOverlay';
 import StrikeAnimationOverlay from './StrikeAnimationOverlay';
 import StrikeAlertBanner from './StrikeAlertBanner';
 import MapLayerControl from './MapLayerControl';
@@ -173,12 +172,8 @@ interface FlightMapProps {
   activeTrack?: AircraftTrack | null;
   militaryBases: MilitaryBase[];
   navalAssets: MilitaryNavalAsset[];
-  vessels: VesselPosition[];
   layers: Record<MapLayerName, boolean>;
   onToggleLayer: (layer: MapLayerName) => void;
-  vesselCount: number;
-  shippingLoading?: boolean;
-  shippingError?: string | null;
   strikeEvents: StrikeEvent[];
   strikeNewEventIds: Set<string>;
   onClearStrikeNew: () => void;
@@ -193,12 +188,8 @@ export default function FlightMap({
   activeTrack,
   militaryBases,
   navalAssets,
-  vessels,
   layers,
   onToggleLayer,
-  vesselCount,
-  shippingLoading,
-  shippingError,
   strikeEvents,
   strikeNewEventIds,
   onClearStrikeNew,
@@ -231,7 +222,6 @@ export default function FlightMap({
         {activeTrack && <FlightTrackOverlay track={activeTrack} />}
         {layers['military-bases'] && <MilitaryBasesOverlay bases={militaryBases} />}
         {layers['naval-assets'] && <NavalAssetsOverlay navalAssets={navalAssets} />}
-        {layers['commercial-shipping'] && <CommercialShippingOverlay vessels={vessels} />}
         {layers['strike-events'] && <StrikeAnimationOverlay events={strikeEvents} />}
       </MapContainer>
 
@@ -241,9 +231,6 @@ export default function FlightMap({
         flightCount={flightCount}
         baseCount={militaryBases.length}
         navalCount={navalAssets.length}
-        vesselCount={vesselCount}
-        shippingLoading={shippingLoading}
-        shippingError={shippingError}
         strikeCount={strikeEvents.length}
       />
 
@@ -357,18 +344,6 @@ export default function FlightMap({
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c8a96e', display: 'inline-block' }} />
               Other
-            </span>
-          </>
-        )}
-        {layers['commercial-shipping'] && (
-          <>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff9800', display: 'inline-block' }} />
-              Tanker
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#9e9e9e', display: 'inline-block' }} />
-              Cargo
             </span>
           </>
         )}

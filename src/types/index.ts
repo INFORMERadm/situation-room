@@ -73,7 +73,7 @@ export interface PizzaData {
 export interface MapMarker {
   lat: number;
   lon: number;
-  type: 'flight' | 'shipping' | 'event';
+  type: 'flight' | 'event';
   label?: string;
 }
 
@@ -324,20 +324,6 @@ export interface MilitaryNavalAsset {
   source_url: string;
 }
 
-export interface VesselPosition {
-  mmsi: number;
-  name: string;
-  shipType: string;
-  shipTypeCode: number;
-  latitude: number;
-  longitude: number;
-  courseOverGround: number;
-  speedOverGround: number;
-  heading: number;
-  destination: string;
-  timestamp: number;
-}
-
 export interface MaritimeZone {
   id: string;
   zone_name: string;
@@ -370,4 +356,4 @@ export interface StrikeEvent {
   created_at: string;
 }
 
-export type MapLayerName = 'flights' | 'military-bases' | 'naval-assets' | 'commercial-shipping' | 'strike-events';
+export type MapLayerName = 'flights' | 'military-bases' | 'naval-assets' | 'strike-events';

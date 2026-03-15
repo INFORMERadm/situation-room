@@ -14,20 +14,16 @@ interface Props {
   flightCount: number;
   baseCount: number;
   navalCount: number;
-  vesselCount: number;
-  shippingLoading?: boolean;
-  shippingError?: string | null;
   strikeCount?: number;
 }
 
-export default function MapLayerControl({ layers, onToggle, flightCount, baseCount, navalCount, vesselCount, shippingLoading, shippingError, strikeCount = 0 }: Props) {
+export default function MapLayerControl({ layers, onToggle, flightCount, baseCount, navalCount, strikeCount = 0 }: Props) {
   const [expanded, setExpanded] = useState(true);
 
   const layerInfos: LayerInfo[] = [
     { key: 'flights', label: 'Flights', count: flightCount, color: '#2196f3' },
     { key: 'military-bases', label: 'Military Bases', count: baseCount, color: '#4caf50' },
     { key: 'naval-assets', label: 'Naval Assets', count: navalCount, color: '#00bcd4' },
-    { key: 'commercial-shipping', label: 'Shipping', count: vesselCount, color: '#ff9800' },
     { key: 'strike-events', label: 'Strike Events', count: strikeCount, color: '#ff1744' },
   ];
 
@@ -147,17 +143,13 @@ export default function MapLayerControl({ layers, onToggle, flightCount, baseCou
             {info.label}
           </span>
           <span style={{
-            color: info.key === 'commercial-shipping' && shippingError ? '#f44336' :
-                   info.key === 'commercial-shipping' && shippingLoading ? '#ff9800' :
-                   info.key === 'strike-events' && info.count > 0 ? '#ff1744' :
+            color: info.key === 'strike-events' && info.count > 0 ? '#ff1744' :
                    layers[info.key] ? '#888' : '#555',
             fontSize: 10,
             fontWeight: info.key === 'strike-events' && info.count > 0 ? 700 : 400,
             fontVariantNumeric: 'tabular-nums',
           }}>
-            {info.key === 'commercial-shipping' && shippingLoading ? 'connecting...' :
-             info.key === 'commercial-shipping' && shippingError ? 'offline' :
-             info.key === 'strike-events' && info.count > 0 ? `${info.count} LIVE` :
+            {info.key === 'strike-events' && info.count > 0 ? `${info.count} LIVE` :
              info.count > 0 ? info.count.toLocaleString() : '--'}
           </span>
         </button>

@@ -6,7 +6,6 @@ import { useFlightsDashboard } from '../../hooks/useFlightsDashboard';
 import { useFlightInterpolation } from '../../hooks/useFlightInterpolation';
 import useFlightSearch from '../../hooks/useFlightSearch';
 import { useMilitaryOverlay } from '../../hooks/useMilitaryOverlay';
-import { useCommercialShipping } from '../../hooks/useCommercialShipping';
 import { useStrikeEvents } from '../../hooks/useStrikeEvents';
 import { useMapLayers } from '../../hooks/useMapLayers';
 import { playStrikeAlarm } from '../../lib/alarmSound';
@@ -33,7 +32,6 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
   const search = useFlightSearch();
   const { layers, toggleLayer, isLayerVisible } = useMapLayers();
   const military = useMilitaryOverlay(active);
-  const shipping = useCommercialShipping(active && isLayerVisible('commercial-shipping'));
   const strikes = useStrikeEvents(active && isLayerVisible('strike-events'));
   const alarmPlayedRef = useRef<Set<string>>(new Set());
 
@@ -73,12 +71,8 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         activeTrack={search.activeTrack}
         militaryBases={military.bases}
         navalAssets={military.navalAssets}
-        vessels={shipping.vessels}
         layers={layers}
         onToggleLayer={toggleLayer}
-        vesselCount={shipping.vesselCount}
-        shippingLoading={shipping.loading}
-        shippingError={shipping.error}
         strikeEvents={strikes.events}
         strikeNewEventIds={strikes.newEventIds}
         onClearStrikeNew={strikes.clearNewEvents}

@@ -9,7 +9,6 @@ const DEFAULT_LAYERS: LayerState = {
   'flights': true,
   'military-bases': true,
   'naval-assets': true,
-  'commercial-shipping': true,
   'strike-events': true,
 };
 
