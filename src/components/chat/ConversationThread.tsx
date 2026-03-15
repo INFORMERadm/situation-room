@@ -7,6 +7,7 @@ import { useGroupVoiceChat } from '../../hooks/useGroupVoiceChat';
 import { useChatTTS } from '../../hooks/useChatTTS';
 import { useChatSTT } from '../../hooks/useChatSTT';
 import { supabase } from '../../lib/supabase';
+import { playChatNotification } from '../../lib/alarmSound';
 import type { Conversation } from '../../types/chat';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
@@ -83,6 +84,8 @@ export default function ConversationThread({ conversation, userId, onBack, onDel
   const stt = useChatSTT();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+  const initialMessageIdsRef = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     const fileMessages = messaging.messages.filter(
@@ -110,6 +113,38 @@ export default function ConversationThread({ conversation, userId, onBack, onDel
         });
       });
   }, [messaging.messages]);
+
+  useEffect(() => {
+    if (messaging.loading) return;
+    if (initialMessageIdsRef.current === null) {
+      initialMessageIdsRef.current = new Set(messaging.messages.map(m => m.id));
+      return;
+    }
+    const incoming = messaging.messages.filter(
+      m => !initialMessageIdsRef.current!.has(m.id) && m.sender_id !== userId
+    );
+    if (incoming.length === 0) return;
+
+    incoming.forEach(m => initialMessageIdsRef.current!.add(m.id));
+
+    playChatNotification();
+
+    setNewMessageIds(prev => {
+      const next = new Set(prev);
+      incoming.forEach(m => next.add(m.id));
+      return next;
+    });
+
+    const timer = setTimeout(() => {
+      setNewMessageIds(prev => {
+        const next = new Set(prev);
+        incoming.forEach(m => next.delete(m.id));
+        return next;
+      });
+    }, 6000);
+
+    return () => clearTimeout(timer);
+  }, [messaging.messages, messaging.loading, userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -305,6 +340,7 @@ export default function ConversationThread({ conversation, userId, onBack, onDel
               key={msg.id}
               message={msg}
               isOwn={msg.sender_id === userId}
+              isNew={newMessageIds.has(msg.id)}
               speakingId={tts.speakingMessageId}
               onSpeak={tts.speak}
               onDownloadFile={msg.message_type === 'file' ? () => fileTransfer.downloadFile(msg.id, meta) : undefined}

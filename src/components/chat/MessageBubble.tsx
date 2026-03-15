@@ -6,6 +6,7 @@ import AIMessageRenderer from '../markets/AIMessageRenderer';
 interface Props {
   message: DecryptedMessage;
   isOwn: boolean;
+  isNew?: boolean;
   speakingId: string | null;
   onSpeak: (text: string, id: string) => void;
   onDownloadFile?: () => void;
@@ -44,7 +45,7 @@ function renderTextWithLinks(text: string) {
   return result;
 }
 
-export default function MessageBubble({ message, isOwn, speakingId, onSpeak, onDownloadFile, linkPreview, thumbnail }: Props) {
+export default function MessageBubble({ message, isOwn, isNew, speakingId, onSpeak, onDownloadFile, linkPreview, thumbnail }: Props) {
   const isSystem = message.message_type === 'system';
   const isAI = message.message_type === 'ai';
   const isFile = message.message_type === 'file';
@@ -83,9 +84,11 @@ export default function MessageBubble({ message, isOwn, speakingId, onSpeak, onD
     maxWidth: '85%',
     padding: '8px 12px',
     borderRadius: isOwn ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-    background: isAI ? '#1a1a2e' : isOwn ? '#323232' : '#1a1a1a',
-    border: isAI ? '1px solid #333366' : '1px solid #292929',
+    background: isNew ? '#2a0000' : isAI ? '#1a1a2e' : isOwn ? '#323232' : '#1a1a1a',
+    border: isNew ? '1px solid #cc0000' : isAI ? '1px solid #333366' : '1px solid #292929',
     alignSelf: isOwn ? 'flex-end' : 'flex-start',
+    transition: 'background 0.5s ease, border-color 0.5s ease',
+    boxShadow: isNew ? '0 0 8px rgba(204, 0, 0, 0.4)' : 'none',
   };
 
   const nameStyle: React.CSSProperties = {
