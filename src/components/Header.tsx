@@ -90,7 +90,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
             )}
           </button>
         )}
-        <div style={{ width: 48, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ position: 'relative', right: -12 }}>
           <UserMenu />
         </div>
       </div>
