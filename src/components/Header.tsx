@@ -38,7 +38,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         <img
           src="/shutterstock_2738710027_black.jpg"
           alt="Echo Logo"
-          style={{ height: 32, objectFit: 'contain', borderRadius: 2 }}
+          style={{ height: 44, objectFit: 'contain', borderRadius: 2 }}
         />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
