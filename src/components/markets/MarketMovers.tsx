@@ -25,10 +25,10 @@ export default function MarketMovers({
   };
 
   const tabs: { key: Tab; label: string; color: string }[] = [
-    { key: 'overview', label: 'Overview', color: '#ffffff' },
-    { key: 'gainers', label: 'Gainers', color: '#ffffff' },
-    { key: 'losers', label: 'Losers', color: '#ffffff' },
-    { key: 'active', label: 'Active', color: '#ffffff' },
+    { key: 'overview', label: 'Overview', color: '#faee1e' },
+    { key: 'gainers', label: 'Gainers', color: '#faee1e' },
+    { key: 'losers', label: 'Losers', color: '#faee1e' },
+    { key: 'active', label: 'Active', color: '#faee1e' },
   ];
 
   const items = tab === 'gainers' ? gainers : tab === 'losers' ? losers : active;

@@ -576,7 +576,7 @@ function WatchlistTabs({
               gap: 3,
               padding: '0 8px',
               borderRight: '1px solid #292929',
-              borderBottom: isActive ? '2px solid #ffffff' : '2px solid transparent',
+              borderBottom: isActive ? '2px solid #faee1e' : '2px solid transparent',
               height: 32,
               flexShrink: 0,
               background: isActive ? '#141414' : 'transparent',
