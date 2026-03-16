@@ -33,21 +33,21 @@ interface LocationCoords {
 
 const LOCATIONS: Record<string, LocationCoords> = {
   "tel aviv": { lat: 32.0853, lng: 34.7818 },
-  "haifa": { lat: 32.7940, lng: 34.9896 },
+  "haifa": { lat: 32.794, lng: 34.9896 },
   "jerusalem": { lat: 31.7683, lng: 35.2137 },
   "beer sheva": { lat: 31.2518, lng: 34.7913 },
   "eilat": { lat: 29.5577, lng: 34.9519 },
   "ashkelon": { lat: 31.6688, lng: 34.5743 },
   "ashdod": { lat: 31.8014, lng: 34.6435 },
-  "sderot": { lat: 31.5250, lng: 34.5964 },
+  "sderot": { lat: 31.525, lng: 34.5964 },
   "netanya": { lat: 32.3215, lng: 34.8532 },
-  "rishon lezion": { lat: 31.9730, lng: 34.7925 },
+  "rishon lezion": { lat: 31.973, lng: 34.7925 },
   "herzliya": { lat: 32.1629, lng: 34.8447 },
-  "dimona": { lat: 31.0700, lng: 35.0284 },
-  "iran": { lat: 32.4279, lng: 53.6880 },
-  "tehran": { lat: 35.6892, lng: 51.3890 },
-  "isfahan": { lat: 32.6546, lng: 51.6680 },
-  "tabriz": { lat: 38.0800, lng: 46.2919 },
+  "dimona": { lat: 31.07, lng: 35.0284 },
+  "iran": { lat: 32.4279, lng: 53.688 },
+  "tehran": { lat: 35.6892, lng: 51.389 },
+  "isfahan": { lat: 32.6546, lng: 51.668 },
+  "tabriz": { lat: 38.08, lng: 46.2919 },
   "shiraz": { lat: 29.5918, lng: 52.5837 },
   "bushehr": { lat: 28.9684, lng: 50.8385 },
   "bandar abbas": { lat: 27.1832, lng: 56.2666 },
@@ -57,7 +57,7 @@ const LOCATIONS: Record<string, LocationCoords> = {
   "lviv": { lat: 49.8397, lng: 24.0297 },
   "dnipro": { lat: 48.4647, lng: 35.0462 },
   "zaporizhzhia": { lat: 47.8388, lng: 35.1396 },
-  "mykolaiv": { lat: 46.9750, lng: 31.9946 },
+  "mykolaiv": { lat: 46.975, lng: 31.9946 },
   "sumy": { lat: 50.9077, lng: 34.7981 },
   "poltava": { lat: 49.5883, lng: 34.5514 },
   "moscow": { lat: 55.7558, lng: 37.6173 },
@@ -66,13 +66,13 @@ const LOCATIONS: Record<string, LocationCoords> = {
   "rostov": { lat: 47.2357, lng: 39.7015 },
   "belgorod": { lat: 50.5997, lng: 36.5882 },
   "kursk": { lat: 51.7373, lng: 36.1874 },
-  "voronezh": { lat: 51.6720, lng: 39.1843 },
+  "voronezh": { lat: 51.672, lng: 39.1843 },
   "gaza": { lat: 31.3547, lng: 34.3088 },
-  "rafah": { lat: 31.2970, lng: 34.2454 },
+  "rafah": { lat: 31.297, lng: 34.2454 },
   "khan younis": { lat: 31.3446, lng: 34.3028 },
   "beirut": { lat: 33.8938, lng: 35.5018 },
   "damascus": { lat: 33.5138, lng: 36.2765 },
-  "sanaa": { lat: 15.3694, lng: 44.1910 },
+  "sanaa": { lat: 15.3694, lng: 44.191 },
   "hodeidah": { lat: 14.7979, lng: 42.9534 },
   "yemen": { lat: 15.5527, lng: 48.5164 },
   "aden": { lat: 12.8275, lng: 45.0187 },
@@ -86,13 +86,13 @@ const LOCATIONS: Record<string, LocationCoords> = {
   "syria": { lat: 34.8021, lng: 38.9968 },
   "ukraine": { lat: 48.3794, lng: 31.1656 },
   "russia": { lat: 55.7558, lng: 37.6173 },
-  "houthis": { lat: 15.3694, lng: 44.1910 },
-  "red sea": { lat: 20.0000, lng: 38.0000 },
-  "golan heights": { lat: 33.0000, lng: 35.8000 },
+  "houthis": { lat: 15.3694, lng: 44.191 },
+  "red sea": { lat: 20.0, lng: 38.0 },
+  "golan heights": { lat: 33.0, lng: 35.8 },
   "west bank": { lat: 31.9474, lng: 35.2272 },
   "natanz": { lat: 33.7211, lng: 51.7277 },
-  "parchin": { lat: 35.5200, lng: 51.7700 },
-  "south lebanon": { lat: 33.3000, lng: 35.4000 },
+  "parchin": { lat: 35.52, lng: 51.77 },
+  "south lebanon": { lat: 33.3, lng: 35.4 },
   "tyre": { lat: 33.2705, lng: 35.1968 },
   "nabatieh": { lat: 33.3781, lng: 35.4841 },
 };
@@ -104,12 +104,12 @@ interface WeaponProfile {
 }
 
 const WEAPON_PROFILES: Record<string, WeaponProfile> = {
-  "ballistic_missile": { speed_kmh: 7000, arc_height: 0.4, color: "#ff3d00" },
-  "cruise_missile": { speed_kmh: 900, arc_height: 0.05, color: "#ff9100" },
-  "rocket": { speed_kmh: 1800, arc_height: 0.15, color: "#ff6d00" },
-  "drone": { speed_kmh: 185, arc_height: 0.02, color: "#d50000" },
-  "air_strike": { speed_kmh: 2200, arc_height: 0.08, color: "#ffab00" },
-  "artillery": { speed_kmh: 2500, arc_height: 0.2, color: "#ff3d00" },
+  ballistic_missile: { speed_kmh: 7000, arc_height: 0.4, color: "#ff3d00" },
+  cruise_missile: { speed_kmh: 900, arc_height: 0.05, color: "#ff9100" },
+  rocket: { speed_kmh: 1800, arc_height: 0.15, color: "#ff6d00" },
+  drone: { speed_kmh: 185, arc_height: 0.02, color: "#d50000" },
+  air_strike: { speed_kmh: 2200, arc_height: 0.08, color: "#ffab00" },
+  artillery: { speed_kmh: 2500, arc_height: 0.2, color: "#ff3d00" },
 };
 
 function resolveLocation(name: string): LocationCoords | null {
@@ -122,46 +122,74 @@ function resolveLocation(name: string): LocationCoords | null {
   return null;
 }
 
-function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+function haversineDistanceKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function calculateFlightTimeSeconds(eventType: string, distKm: number): number {
+function calculateFlightTimeSeconds(
+  eventType: string,
+  distKm: number
+): number {
   const profile = WEAPON_PROFILES[eventType] || WEAPON_PROFILES["rocket"];
   return Math.max(10, Math.round((distKm / profile.speed_kmh) * 3600));
 }
 
-const CLASSIFICATION_PROMPT = `You are a military conflict event classifier. Analyze the following news headlines and determine if any describe an active military strike, attack, or bombardment.
+const CLASSIFICATION_PROMPT = `You are a strict military conflict event classifier. Your job is to determine if news headlines describe CONFIRMED, CURRENTLY HAPPENING military strikes.
 
-For each headline that describes an active strike, return a JSON object. Only classify CONFIRMED attacks being reported as happening NOW or very recently (within the last hour). Do NOT classify:
-- Threats or warnings of potential attacks
-- Past attacks being discussed in historical context
-- Defense system activations without confirmed incoming fire
-- Political statements about military capability
-- Training exercises or drills
+CRITICAL RULES - you MUST follow these exactly:
+1. ONLY classify headlines that explicitly report a strike/attack/bombardment AS HAPPENING RIGHT NOW
+2. The headline MUST contain action verbs like "strikes", "hits", "fires", "launches", "bombs", "shells", "attacked", "bombarded"
+3. The headline MUST name BOTH a source (who is attacking) AND a target (what/where is being attacked)
+4. You MUST return {"is_strike": false} for ALL of the following:
+   - Trade negotiations, economic news, sanctions, diplomatic talks
+   - Military PREPARATIONS, mobilizations, deployments, or reservist call-ups
+   - Defense system activations WITHOUT confirmed incoming fire
+   - Political statements, threats, warnings, or ultimatums
+   - Historical references to past attacks
+   - Troop movements or military exercises
+   - Intelligence reports about military CAPABILITY
+   - Interceptions or defensive actions (Iron Dome, air defense)
+   - Ceasefire discussions or peace negotiations
+   - Surveillance activity (planes near borders, ships in waters)
+   - ANY headline where you are not at least 90% certain an active strike is being described
 
-For each confirmed strike, return:
+For each CONFIRMED active strike, return:
 {
   "is_strike": true,
   "event_type": "ballistic_missile" | "cruise_missile" | "rocket" | "drone" | "air_strike" | "artillery",
-  "source_country": "Country name launching the attack",
+  "source_country": "Country launching the attack",
   "source_location": "Specific launch site or country if unknown",
   "target_location": "City or region being targeted",
-  "projectile_count": <number, estimate if not stated, minimum 1>,
-  "weapon_name": "Specific weapon system if mentioned (e.g. Shahab-3, Shahed-136, Iskander, Qassam), or empty string",
-  "confidence": <0.0-1.0 confidence score>
+  "projectile_count": <number from headline, or 1 if not stated>,
+  "weapon_name": "Specific weapon system if mentioned, or empty string",
+  "confidence": <0.85-1.0>
 }
 
-If a headline does NOT describe an active strike, return: {"is_strike": false}
+If a headline does NOT describe a confirmed active strike: {"is_strike": false}
 
-Return ONLY valid JSON array of results, one per headline. No other text.`;
+Return ONLY a valid JSON array with one result per headline. No markdown, no explanation.`;
 
-async function classifyHeadlines(headlines: string[]): Promise<StrikeClassification[]> {
+interface ClassificationWithIndex {
+  classification: StrikeClassification;
+  headlineIndex: number;
+}
+
+async function classifyHeadlines(
+  headlines: string[]
+): Promise<ClassificationWithIndex[]> {
   if (!OPENAI_API_KEY || headlines.length === 0) return [];
 
   const headlineText = headlines.map((h, i) => `${i + 1}. ${h}`).join("\n");
@@ -169,7 +197,7 @@ async function classifyHeadlines(headlines: string[]): Promise<StrikeClassificat
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -178,7 +206,7 @@ async function classifyHeadlines(headlines: string[]): Promise<StrikeClassificat
         { role: "system", content: CLASSIFICATION_PROMPT },
         { role: "user", content: headlineText },
       ],
-      temperature: 0.1,
+      temperature: 0.0,
       max_tokens: 2000,
     }),
   });
@@ -192,10 +220,22 @@ async function classifyHeadlines(headlines: string[]): Promise<StrikeClassificat
   try {
     let cleaned = content;
     if (cleaned.startsWith("```")) {
-      cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      cleaned = cleaned
+        .replace(/^```(?:json)?\n?/, "")
+        .replace(/\n?```$/, "");
     }
     const parsed = JSON.parse(cleaned);
-    return Array.isArray(parsed) ? parsed : [parsed];
+    const arr: StrikeClassification[] = Array.isArray(parsed)
+      ? parsed
+      : [parsed];
+
+    const results: ClassificationWithIndex[] = [];
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].is_strike && arr[i].confidence >= 0.85) {
+        results.push({ classification: arr[i], headlineIndex: i });
+      }
+    }
+    return results;
   } catch {
     return [];
   }
@@ -203,8 +243,8 @@ async function classifyHeadlines(headlines: string[]): Promise<StrikeClassificat
 
 async function fetchGdeltHeadlines(): Promise<string[]> {
   const queries = [
-    "attack OR strike OR missile OR rocket OR bombardment OR shelling",
-    "drone attack OR ballistic missile OR cruise missile OR artillery strike",
+    '"missile strike" OR "rocket attack" OR "air strike" OR "shelling" OR "bombardment"',
+    '"drone attack" OR "ballistic missile" OR "cruise missile launched" OR "artillery barrage"',
   ];
 
   const headlines: string[] = [];
@@ -212,8 +252,10 @@ async function fetchGdeltHeadlines(): Promise<string[]> {
   for (const query of queries) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6000);
-      const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=ArtList&maxrecords=15&format=json&sort=DateDesc&timespan=1h`;
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(
+        query
+      )}&mode=ArtList&maxrecords=20&format=json&sort=DateDesc&timespan=30min`;
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeout);
 
@@ -230,12 +272,14 @@ async function fetchGdeltHeadlines(): Promise<string[]> {
     }
   }
 
-  return [...new Set(headlines)].slice(0, 30);
+  return [...new Set(headlines)].slice(0, 40);
 }
 
 async function fetchRssHeadlines(): Promise<string[]> {
   const feeds = [
     "https://rss.app/feeds/_wsGBiJ7aEHbD3fVL.xml",
+    "https://news.google.com/rss/search?q=missile+attack+OR+air+strike+OR+shelling&hl=en&gl=US&ceid=US:en",
+    "https://www.aljazeera.com/xml/rss/all.xml",
   ];
 
   const headlines: string[] = [];
@@ -251,11 +295,15 @@ async function fetchRssHeadlines(): Promise<string[]> {
       const xml = await res.text();
       const itemRegex = /<item>([\s\S]*?)<\/item>/g;
       let match;
-      while ((match = itemRegex.exec(xml)) !== null && headlines.length < 30) {
+      while (
+        (match = itemRegex.exec(xml)) !== null &&
+        headlines.length < 50
+      ) {
         const block = match[1];
-        const title =
-          (block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ||
-            block.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim();
+        const title = (
+          block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ||
+          block.match(/<title>([\s\S]*?)<\/title>/)
+        )?.[1]?.trim();
         if (title) headlines.push(title);
       }
     } catch {
@@ -269,7 +317,7 @@ async function fetchRssHeadlines(): Promise<string[]> {
 async function checkDuplicateEvent(
   eventType: string,
   sourceCountry: string,
-  targetLabel: string,
+  targetLabel: string
 ): Promise<boolean> {
   const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
@@ -309,19 +357,18 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ events: [], message: "No headlines to process" });
     }
 
-    const classifications = await classifyHeadlines(allHeadlines);
-
-    const strikes = classifications.filter(
-      (c) => c.is_strike && c.confidence >= 0.7
-    );
+    const classifiedStrikes = await classifyHeadlines(allHeadlines);
 
     const inserted: string[] = [];
 
-    for (let i = 0; i < strikes.length; i++) {
-      const strike = strikes[i];
-      const headline = allHeadlines[i] || "";
+    for (const { classification: strike, headlineIndex } of classifiedStrikes) {
+      const headline =
+        headlineIndex < allHeadlines.length
+          ? allHeadlines[headlineIndex]
+          : "";
 
-      const sourceCoords = resolveLocation(strike.source_location) ||
+      const sourceCoords =
+        resolveLocation(strike.source_location) ||
         resolveLocation(strike.source_country);
       const targetCoords = resolveLocation(strike.target_location);
 
@@ -330,18 +377,23 @@ Deno.serve(async (req: Request) => {
       const isDup = await checkDuplicateEvent(
         strike.event_type,
         strike.source_country,
-        strike.target_location,
+        strike.target_location
       );
       if (isDup) continue;
 
       const distKm = haversineDistanceKm(
-        sourceCoords.lat, sourceCoords.lng,
-        targetCoords.lat, targetCoords.lng,
+        sourceCoords.lat,
+        sourceCoords.lng,
+        targetCoords.lat,
+        targetCoords.lng
       );
-      const flightTimeSec = calculateFlightTimeSeconds(strike.event_type, distKm);
+      const flightTimeSec = calculateFlightTimeSeconds(
+        strike.event_type,
+        distKm
+      );
 
       const expiresAt = new Date(
-        Date.now() + (flightTimeSec + 300) * 1000
+        Date.now() + (flightTimeSec + 600) * 1000
       ).toISOString();
 
       const { error } = await supabase.from("strike_events").insert({
@@ -373,14 +425,14 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse({
       headlines_processed: allHeadlines.length,
-      strikes_detected: strikes.length,
+      strikes_detected: classifiedStrikes.length,
       events_inserted: inserted.length,
       targets: inserted,
     });
   } catch (err) {
     return jsonResponse(
       { error: err instanceof Error ? err.message : "Internal error" },
-      500,
+      500
     );
   }
 });

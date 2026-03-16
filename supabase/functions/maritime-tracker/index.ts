@@ -354,12 +354,14 @@ async function handleZones() {
 
 async function handleStrikeEvents() {
   const supabase = getSupabaseClient();
+  const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
   const { data, error } = await supabase
     .from("strike_events")
     .select("*")
-    .eq("status", "active")
-    .gte("expires_at", new Date().toISOString())
-    .order("detected_at", { ascending: false });
+    .gte("detected_at", thirtyMinAgo)
+    .order("detected_at", { ascending: false })
+    .limit(20);
 
   if (error) return errorResponse(error.message, 500);
   return jsonResponse({ events: data || [] });
