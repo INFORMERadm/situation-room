@@ -18,7 +18,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         justifyContent: 'space-between',
         borderBottom: 'none',
         padding: '6px 16px',
-        minHeight: 34,
+        minHeight: 54,
         background: '#000',
       }}
     >
@@ -40,18 +40,6 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           alt="Echo Logo"
           style={{ height: 32, objectFit: 'contain', borderRadius: 2 }}
         />
-        <span style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: 0.8,
-          textTransform: 'uppercase',
-          color: 'rgba(255,255,255,0.55)',
-          marginLeft: 8,
-          lineHeight: 1,
-          paddingTop: 4,
-        }}>
-          Professional Version
-        </span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks
