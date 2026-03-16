@@ -17,7 +17,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         alignItems: 'center',
         justifyContent: 'space-between',
         borderBottom: 'none',
-        padding: '6px 16px',
+        padding: '6px 8px 6px 16px',
         minHeight: 54,
         background: '#000',
       }}
