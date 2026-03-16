@@ -38,7 +38,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         <img
           src="/N2.png"
           alt="N4 Logo"
-          style={{ height: 38, objectFit: 'contain', marginLeft: -8 }}
+          style={{ height: 28, objectFit: 'contain', marginLeft: -8 }}
         />
         <span style={{
           fontSize: 10,
