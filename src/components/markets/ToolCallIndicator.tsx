@@ -12,11 +12,11 @@ const MCP_BORDER = '#16a34a';
 
 const TOOL_LABELS: Record<string, ToolInfo> = {
   tavily_search: { tool: 'tavily_search', label: 'Searching the web', icon: 'search', color: '#00bcd4' },
-  fetch_fmp_data: { tool: 'fetch_fmp_data', label: 'Fetching financial data', icon: 'data', color: '#fb8c00' },
+  fetch_fmp_data: { tool: 'fetch_fmp_data', label: 'Fetching financial data', icon: 'data', color: '#faee1e' },
   change_symbol: { tool: 'change_symbol', label: 'Navigating to symbol', icon: 'navigate', color: '#00c853' },
-  change_timeframe: { tool: 'change_timeframe', label: 'Changing timeframe', icon: 'chart', color: '#fb8c00' },
-  change_chart_type: { tool: 'change_chart_type', label: 'Changing chart type', icon: 'chart', color: '#fb8c00' },
-  toggle_indicator: { tool: 'toggle_indicator', label: 'Toggling indicator', icon: 'chart', color: '#fb8c00' },
+  change_timeframe: { tool: 'change_timeframe', label: 'Changing timeframe', icon: 'chart', color: '#faee1e' },
+  change_chart_type: { tool: 'change_chart_type', label: 'Changing chart type', icon: 'chart', color: '#faee1e' },
+  toggle_indicator: { tool: 'toggle_indicator', label: 'Toggling indicator', icon: 'chart', color: '#faee1e' },
   add_to_watchlist: { tool: 'add_to_watchlist', label: 'Adding to watchlist', icon: 'list', color: '#aaa' },
   remove_from_watchlist: { tool: 'remove_from_watchlist', label: 'Removing from watchlist', icon: 'list', color: '#aaa' },
   switch_right_panel: { tool: 'switch_right_panel', label: 'Switching panel', icon: 'navigate', color: '#00c853' },

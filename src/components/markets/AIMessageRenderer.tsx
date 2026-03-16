@@ -80,7 +80,7 @@ function renderInline(
           padding: '1px 4px',
           borderRadius: 3,
           fontSize: '0.9em',
-          color: '#fb8c00',
+          color: '#faee1e',
         }}>{match[4]}</code>
       );
     } else if (match[6] && match[7]) {
@@ -302,7 +302,7 @@ export default function AIMessageRenderer({ content, searchSources, onOpenSource
           fontSize: 12,
           lineHeight: 1.5,
         }}>
-          <span style={{ color: '#fb8c00', flexShrink: 0 }}>-</span>
+          <span style={{ color: '#faee1e', flexShrink: 0 }}>-</span>
           <span>{renderInline(line.slice(2), searchSources, onOpenSourcesPanel)}</span>
         </div>
       );
@@ -322,7 +322,7 @@ export default function AIMessageRenderer({ content, searchSources, onOpenSource
           fontSize: 12,
           lineHeight: 1.5,
         }}>
-          <span style={{ color: '#fb8c00', flexShrink: 0, minWidth: 16 }}>{num}.</span>
+          <span style={{ color: '#faee1e', flexShrink: 0, minWidth: 16 }}>{num}.</span>
           <span>{renderInline(text, searchSources, onOpenSourcesPanel)}</span>
         </div>
       );
