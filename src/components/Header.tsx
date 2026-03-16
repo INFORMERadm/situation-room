@@ -46,7 +46,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           letterSpacing: 2,
           textTransform: 'uppercase',
           color: 'rgba(255,255,255,0.5)',
-          marginLeft: 4,
+          marginLeft: 12,
           position: 'relative',
           top: 4,
         }}>Professional Version</span>
