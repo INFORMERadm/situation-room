@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8, flexShrink: 0 }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8, marginLeft: -3, flexShrink: 0 }}>
           <circle cx="12" cy="12" r="10" />
           <ellipse cx="12" cy="12" rx="4" ry="10" />
           <path d="M2 12h20" />
