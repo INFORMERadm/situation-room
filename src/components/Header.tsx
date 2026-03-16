@@ -36,8 +36,8 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img
-          src="/PAAS_2.png"
-          alt="PAAS Logo"
+          src="/ARGONAUT.png"
+          alt="Argonaut Logo"
           style={{ height: 36, objectFit: 'contain', marginLeft: -8 }}
         />
       </div>
