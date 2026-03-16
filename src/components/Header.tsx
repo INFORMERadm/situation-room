@@ -17,7 +17,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         alignItems: 'center',
         justifyContent: 'space-between',
         borderBottom: 'none',
-        padding: '6px 8px 6px 16px',
+        padding: '6px 0 6px 16px',
         minHeight: 54,
         background: '#000',
       }}
@@ -90,7 +90,9 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
             )}
           </button>
         )}
-        <UserMenu />
+        <div style={{ width: 48, display: 'flex', justifyContent: 'center' }}>
+          <UserMenu />
+        </div>
       </div>
     </div>
   );
