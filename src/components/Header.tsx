@@ -40,6 +40,14 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           alt="Argonaut Logo"
           style={{ height: 46, objectFit: 'contain', marginLeft: -8 }}
         />
+        <span style={{
+          fontSize: 10,
+          fontWeight: 500,
+          letterSpacing: 2,
+          textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.5)',
+          marginLeft: 4,
+        }}>Professional Version</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks
