@@ -80,7 +80,7 @@ const toggleButtonStyle = (isActive: boolean): React.CSSProperties => ({
   background: isActive ? '#1a1a1a' : 'transparent',
   color: isActive ? '#ffffff' : '#aaaaaa',
   border: 'none',
-  borderBottom: isActive ? '2px solid #ff9800' : '2px solid transparent',
+  borderBottom: isActive ? '2px solid #fdd835' : '2px solid transparent',
   fontSize: '10px',
   fontWeight: 600,
   letterSpacing: '0.5px',
