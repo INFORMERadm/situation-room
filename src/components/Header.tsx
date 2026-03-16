@@ -48,7 +48,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           color: 'rgba(255,255,255,0.5)',
           marginLeft: 12,
           position: 'relative',
-          top: 4,
+          top: 3,
         }}>Professional Version</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
