@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: 3, color: '#fff' }}>N4-AI</span>
+        <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: '#fff' }}>N4-AI</span>
         <span style={{
           fontSize: 10,
           fontWeight: 500,
