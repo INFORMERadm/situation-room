@@ -38,7 +38,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         <img
           src="/Factonaut_Logo_2.png"
           alt="Echo Logo"
-          style={{ height: 36, objectFit: 'contain', marginLeft: -8 }}
+          style={{ height: 48, objectFit: 'contain', marginLeft: -8 }}
         />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
