@@ -576,7 +576,7 @@ function WatchlistTabs({
               gap: 3,
               padding: '0 8px',
               borderRight: '1px solid #292929',
-              borderBottom: isActive ? '2px solid #fdd835' : '2px solid transparent',
+              borderBottom: isActive ? '2px solid #faee1e' : '2px solid transparent',
               height: 32,
               flexShrink: 0,
               background: isActive ? '#141414' : 'transparent',
@@ -587,7 +587,7 @@ function WatchlistTabs({
             onClick={() => onSelect(w.id)}
           >
             <span style={{
-              color: isActive ? '#fdd835' : '#888',
+              color: isActive ? '#faee1e' : '#888',
               fontSize: 10,
               whiteSpace: 'nowrap',
               maxWidth: 80,
@@ -741,7 +741,7 @@ function TabActions({
           borderRadius: 2,
           transition: 'color 0.1s',
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = '#fdd835')}
+        onMouseEnter={(e) => (e.currentTarget.style.color = '#faee1e')}
         onMouseLeave={(e) => (e.currentTarget.style.color = '#888')}
       >
         ✎

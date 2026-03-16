@@ -104,7 +104,7 @@ export default function MarketNews({ news, newItemUrls, alarmMuted, onToggleMute
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            color: alarmMuted ? '#555' : '#ff9800',
+            color: alarmMuted ? '#555' : '#faee1e',
             display: 'flex',
             alignItems: 'center',
             padding: '2px 4px',

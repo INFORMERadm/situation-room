@@ -25,7 +25,7 @@ export default function MarketMovers({
   };
 
   const tabs: { key: Tab; label: string; color: string }[] = [
-    { key: 'overview', label: 'Overview', color: '#fdd835' },
+    { key: 'overview', label: 'Overview', color: '#faee1e' },
     { key: 'gainers', label: 'Gainers', color: '#00c853' },
     { key: 'losers', label: 'Losers', color: '#ff1744' },
     { key: 'active', label: 'Active', color: '#29b6f6' },

@@ -18,7 +18,7 @@ const MODES: { key: Mode; label: string }[] = [
 
 function MarketsIcon({ active }: { active: boolean }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#fdd835' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#faee1e' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <line x1="6" y1="20" x2="6" y2="14" />
       <line x1="12" y1="20" x2="12" y2="8" />
       <line x1="18" y1="20" x2="18" y2="4" />
@@ -29,7 +29,7 @@ function MarketsIcon({ active }: { active: boolean }) {
 
 function NewsIcon({ active }: { active: boolean }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#fdd835' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#faee1e' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
       <line x1="7" y1="8" x2="17" y2="8" />
       <line x1="7" y1="12" x2="17" y2="12" />
@@ -40,7 +40,7 @@ function NewsIcon({ active }: { active: boolean }) {
 
 function PAIcon({ active }: { active: boolean }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#fdd835' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#faee1e' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
       <path d="M2 12h20" />
@@ -50,7 +50,7 @@ function PAIcon({ active }: { active: boolean }) {
 
 function LawIcon({ active }: { active: boolean }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#fdd835' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#faee1e' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2v20" />
       <path d="M5 5h14" />
       <path d="M5 5l-3 6a3 3 0 0 0 6 0L5 5z" />
@@ -62,7 +62,7 @@ function LawIcon({ active }: { active: boolean }) {
 
 function FlightsIcon({ active }: { active: boolean }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#fdd835' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#faee1e' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
       <line x1="9" y1="3" x2="9" y2="18" />
       <line x1="15" y1="6" x2="15" y2="21" />
@@ -72,7 +72,7 @@ function FlightsIcon({ active }: { active: boolean }) {
 
 function ChatIcon({ active }: { active: boolean }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#fdd835' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#faee1e' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
@@ -80,7 +80,7 @@ function ChatIcon({ active }: { active: boolean }) {
 
 function MailIcon({ active }: { active: boolean }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#fdd835' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#faee1e' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="4" width="20" height="16" rx="2" />
       <path d="M22 4l-10 8L2 4" />
     </svg>
@@ -149,7 +149,7 @@ export default function ModeSidebar() {
               background: isActive ? '#1a1a1a' : 'transparent',
               border: 'none',
               borderRadius: 6,
-              color: isActive ? '#fdd835' : isHovered ? '#ddd' : '#aaa',
+              color: isActive ? '#faee1e' : isHovered ? '#ddd' : '#aaa',
               cursor: 'pointer',
               padding: 0,
               transition: 'all 0.15s',
