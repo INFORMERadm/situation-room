@@ -36,19 +36,10 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img
-          src="/white_transparent.png"
-          alt="Logo"
+          src="/N2.png"
+          alt="N4 Logo"
           style={{ height: 38, objectFit: 'contain', marginLeft: -8 }}
         />
-        <span style={{
-          fontSize: 24,
-          fontWeight: 800,
-          color: '#fff',
-          lineHeight: 1,
-          marginLeft: -2,
-          position: 'relative',
-          top: 1,
-        }}>4</span>
         <span style={{
           fontSize: 10,
           fontWeight: 500,
