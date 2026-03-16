@@ -38,7 +38,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         <img
           src="/Argonaut_2.png"
           alt="Argonaut Logo"
-          style={{ height: 46, objectFit: 'contain', marginLeft: -8 }}
+          style={{ height: 34, objectFit: 'contain', marginLeft: -8 }}
         />
         <span style={{
           fontSize: 10,
