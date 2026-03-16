@@ -150,14 +150,14 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
           display: 'flex',
           alignItems: 'center',
           gap: 2,
-          color: '#000',
+          color: '#fff',
           fontSize: 11,
           fontWeight: 600,
           letterSpacing: 0.5,
           marginRight: 8,
         }}
       >
-        <span style={{ color: '#000', marginRight: 2 }}>UTC</span>
+        <span style={{ color: 'rgba(255,255,255,0.6)', marginRight: 2 }}>UTC</span>
         <span>{times['UTC'] || '--:--:--'}</span>
       </div>
 
@@ -169,7 +169,7 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
             alignItems: 'center',
             gap: 2,
             padding: '0 8px',
-            borderLeft: '1px solid rgba(0,0,0,0.15)',
+            borderLeft: '1px solid rgba(255,255,255,0.15)',
             fontSize: 11,
             letterSpacing: 0.5,
             position: 'relative',
@@ -183,13 +183,13 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
             if (btn) btn.style.opacity = '0';
           }}
         >
-          <span style={{ color: '#000', marginRight: 2, fontSize: 10 }}>
+          <span style={{ color: 'rgba(255,255,255,0.6)', marginRight: 2, fontSize: 10 }}>
             {c.label.toUpperCase()}
           </span>
-          <span style={{ color: '#000', fontWeight: 600 }}>
+          <span style={{ color: '#fff', fontWeight: 600 }}>
             {times[c.zone] || '--:--:--'}
           </span>
-          <span style={{ color: '#000', fontSize: 9, marginLeft: 2 }}>
+          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, marginLeft: 2 }}>
             {getAbbreviation(c.zone)}
           </span>
           <button
@@ -225,10 +225,10 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
           ref={buttonRef}
           onClick={() => setShowPicker(!showPicker)}
           style={{
-            background: showPicker ? 'rgba(0,0,0,0.15)' : 'transparent',
-            border: '1px solid rgba(0,0,0,0.2)',
+            background: showPicker ? 'rgba(255,255,255,0.15)' : 'transparent',
+            border: '1px solid rgba(255,255,255,0.3)',
             borderRadius: 3,
-            color: '#1a1a1a',
+            color: '#fff',
             width: 22,
             height: 22,
             fontSize: 14,
@@ -240,12 +240,12 @@ export default function WorldClocks({ externalClocks, onAddClock, onRemoveClock 
             transition: 'all 0.15s',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(0,0,0,0.5)';
-            e.currentTarget.style.color = '#000';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)';
+            e.currentTarget.style.color = '#fff';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(0,0,0,0.2)';
-            e.currentTarget.style.color = '#1a1a1a';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
+            e.currentTarget.style.color = '#fff';
           }}
         >
           +

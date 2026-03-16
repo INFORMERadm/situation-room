@@ -19,7 +19,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         borderBottom: 'none',
         padding: '6px 16px',
         minHeight: 34,
-        background: '#fb8c00',
+        background: '#000',
       }}
     >
       <div
@@ -27,7 +27,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           display: 'flex',
           alignItems: 'center',
           gap: 0,
-          color: '#1a1a1a',
+          color: '#fff',
           fontWeight: 700,
           fontSize: 13,
           letterSpacing: 1,
@@ -36,16 +36,16 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img
-          src="/noBgBlack_(8).png"
-          alt="N4-AI Logo"
-          style={{ height: 32, objectFit: 'contain' }}
+          src="/shutterstock_2738710027_black.jpg"
+          alt="Echo Logo"
+          style={{ height: 32, objectFit: 'contain', borderRadius: 2 }}
         />
         <span style={{
           fontSize: 11,
           fontWeight: 700,
           letterSpacing: 0.8,
           textTransform: 'uppercase',
-          color: 'rgba(0,0,0,0.55)',
+          color: 'rgba(255,255,255,0.55)',
           marginLeft: 8,
           lineHeight: 1,
           paddingTop: 4,
@@ -68,18 +68,18 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
               alignItems: 'center',
               gap: 5,
               padding: '3px 8px',
-              background: 'rgba(0,0,0,0.12)',
-              border: '1px solid rgba(0,0,0,0.15)',
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.2)',
               borderRadius: 5,
               cursor: 'pointer',
-              color: '#1a1a1a',
+              color: '#fff',
               fontSize: 10,
               fontWeight: 700,
               letterSpacing: 0.4,
               transition: 'background 0.15s',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.2)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.12)'}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -89,8 +89,8 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
             MCP
             {(mcpCount ?? 0) > 0 && (
               <span style={{
-                background: '#1a1a1a',
-                color: '#fb8c00',
+                background: '#fff',
+                color: '#000',
                 borderRadius: 8,
                 padding: '0 5px',
                 fontSize: 9,
