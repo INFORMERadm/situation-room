@@ -55,7 +55,7 @@ export default function UserMenu() {
           justifyContent: 'center',
           fontSize: 10,
           fontWeight: 700,
-          color: '#faee1e',
+          color: '#ffffff',
           letterSpacing: 0.5,
           border: '1.5px solid rgba(250,238,30,0.3)',
         }}>
@@ -88,7 +88,7 @@ export default function UserMenu() {
               {displayName}
             </div>
             {n4Email && (
-              <div style={{ fontSize: 11, color: '#faee1e', marginTop: 3 }}>
+              <div style={{ fontSize: 11, color: '#ffffff', marginTop: 3 }}>
                 {n4Email}
               </div>
             )}

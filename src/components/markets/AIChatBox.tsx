@@ -349,7 +349,7 @@ export default function AIChatBox({
           width: 8,
           height: 8,
           borderRadius: '50%',
-          background: isStreaming ? '#00c853' : '#faee1e',
+          background: isStreaming ? '#00c853' : '#ffffff',
           flexShrink: 0,
           animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
         }} />
@@ -393,9 +393,9 @@ export default function AIChatBox({
           title="Attach document"
           style={{
             background: attachedDoc ? 'rgba(250,238,30,0.1)' : 'transparent',
-            border: `1px solid ${attachedDoc ? '#faee1e' : '#333'}`,
+            border: `1px solid ${attachedDoc ? '#ffffff' : '#333'}`,
             borderRadius: 3,
-            color: attachedDoc ? '#faee1e' : '#555',
+            color: attachedDoc ? '#ffffff' : '#555',
             width: 24,
             height: 22,
             padding: 0,
@@ -454,7 +454,7 @@ export default function AIChatBox({
             background: 'transparent',
             border: '1px solid #292929',
             borderRadius: 3,
-            color: (input.trim() || attachedDoc) ? '#faee1e' : '#888',
+            color: (input.trim() || attachedDoc) ? '#ffffff' : '#888',
             width: 28,
             height: 24,
             fontSize: 14,
@@ -486,7 +486,7 @@ export default function AIChatBox({
             fontFamily: 'inherit',
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#faee1e'; e.currentTarget.style.color = '#faee1e'; }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.color = '#ffffff'; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -543,7 +543,7 @@ export default function AIChatBox({
               fontWeight: 500,
               transition: 'all 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#faee1e'; e.currentTarget.style.background = '#222'; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.background = '#222'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.background = '#1a1a1a'; }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -563,9 +563,9 @@ export default function AIChatBox({
                   gap: 4,
                   padding: '5px 8px',
                   background: bulkMode ? 'rgba(250,238,30,0.1)' : 'transparent',
-                  border: `1px solid ${bulkMode ? '#faee1e' : '#292929'}`,
+                  border: `1px solid ${bulkMode ? '#ffffff' : '#292929'}`,
                   borderRadius: 4,
-                  color: bulkMode ? '#faee1e' : '#777',
+                  color: bulkMode ? '#ffffff' : '#777',
                   fontSize: 9,
                   fontWeight: 500,
                   cursor: 'pointer',
@@ -661,7 +661,7 @@ export default function AIChatBox({
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-            <span style={{ color: '#faee1e', fontSize: 10, fontWeight: 500 }}>
+            <span style={{ color: '#ffffff', fontSize: 10, fontWeight: 500 }}>
               {selectedIds.size} selected
             </span>
             <button
@@ -706,7 +706,7 @@ export default function AIChatBox({
                         if (e.key === 'Escape') { setRenamingId(null); setRenameValue(''); }
                       }}
                       style={{
-                        flex: 1, background: '#1a1a1a', border: '1px solid #faee1e',
+                        flex: 1, background: '#1a1a1a', border: '1px solid #ffffff',
                         borderRadius: 3, color: '#e0e0e0', fontSize: 11, padding: '4px 8px',
                         outline: 'none', fontFamily: 'inherit',
                       }}
@@ -714,7 +714,7 @@ export default function AIChatBox({
                     <button
                       onClick={handleConfirmRename}
                       style={{
-                        background: '#faee1e', border: 'none', borderRadius: 3,
+                        background: '#ffffff', border: 'none', borderRadius: 3,
                         color: '#000', padding: '4px 8px', fontSize: 10, fontWeight: 600,
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}
@@ -734,8 +734,8 @@ export default function AIChatBox({
                       >
                         <div style={{
                           width: 14, height: 14, borderRadius: 3,
-                          border: `1.5px solid ${selectedIds.has(s.id) ? '#faee1e' : '#555'}`,
-                          background: selectedIds.has(s.id) ? '#faee1e' : 'transparent',
+                          border: `1.5px solid ${selectedIds.has(s.id) ? '#ffffff' : '#555'}`,
+                          background: selectedIds.has(s.id) ? '#ffffff' : 'transparent',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           transition: 'all 0.15s',
                         }}>
@@ -872,7 +872,7 @@ export default function AIChatBox({
                 background: sidebarOpen ? '#1a1a1a' : 'transparent',
                 border: '1px solid #292929',
                 borderRadius: 3,
-                color: sidebarOpen ? '#faee1e' : '#aaa',
+                color: sidebarOpen ? '#ffffff' : '#aaa',
                 width: 28,
                 height: 24,
                 fontSize: 11,
@@ -884,7 +884,7 @@ export default function AIChatBox({
                 justifyContent: 'center',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={e => { if (!sidebarOpen) { e.currentTarget.style.borderColor = '#faee1e'; e.currentTarget.style.color = '#faee1e'; }}}
+              onMouseEnter={e => { if (!sidebarOpen) { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.color = '#ffffff'; }}}
               onMouseLeave={e => { if (!sidebarOpen) { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -894,7 +894,7 @@ export default function AIChatBox({
             </button>
             <div style={{
               width: 8, height: 8, borderRadius: '50%',
-              background: isStreaming ? '#00c853' : '#faee1e',
+              background: isStreaming ? '#00c853' : '#ffffff',
               animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
             }} />
 <div style={{ position: 'relative' }}>
@@ -915,7 +915,7 @@ export default function AIChatBox({
                   transition: 'all 0.15s',
                   height: 24,
                 }}
-                onFocus={e => { e.currentTarget.style.borderColor = '#faee1e'; }}
+                onFocus={e => { e.currentTarget.style.borderColor = '#ffffff'; }}
                 onBlur={e => { e.currentTarget.style.borderColor = '#333'; }}
               >
                 {MODEL_OPTIONS.map(m => (
@@ -989,7 +989,7 @@ export default function AIChatBox({
                 transition: 'all 0.15s',
                 letterSpacing: 0.3,
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#faee1e'; e.currentTarget.style.color = '#faee1e'; }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.color = '#ffffff'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1064,7 +1064,7 @@ export default function AIChatBox({
                           fontFamily: 'inherit',
                           transition: 'all 0.15s',
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#faee1e'; e.currentTarget.style.color = '#faee1e'; }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.color = '#ffffff'; }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = '#292929'; e.currentTarget.style.color = '#aaa'; }}
                       >
                         {q}
@@ -1095,7 +1095,7 @@ export default function AIChatBox({
                     }}>
                       <div style={{
                         width: 24, height: 24, borderRadius: '50%',
-                        background: msg.role === 'user' ? '#faee1e' : '#292929',
+                        background: msg.role === 'user' ? '#ffffff' : '#292929',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: 10, color: msg.role === 'user' ? '#000' : '#00c853',
                         fontWeight: 700, flexShrink: 0,
@@ -1108,7 +1108,7 @@ export default function AIChatBox({
                           background: msg.role === 'user' ? '#1a1a1a' : '#0d0d0d',
                           borderRadius: 8, padding: '10px 14px',
                           borderLeft: msg.role === 'assistant' ? '2px solid #00c853' : 'none',
-                          borderRight: msg.role === 'user' ? '2px solid #faee1e' : 'none',
+                          borderRight: msg.role === 'user' ? '2px solid #ffffff' : 'none',
                         }}>
                           {msg.role === 'user' ? (
                             <div style={{ color: '#e0e0e0', fontSize: 12, lineHeight: 1.5 }}>{msg.content}</div>
@@ -1306,7 +1306,7 @@ export default function AIChatBox({
                         color: '#999', fontSize: 10, fontWeight: 500,
                         cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#faee1e'; e.currentTarget.style.color = '#faee1e'; }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.color = '#ffffff'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#999'; }}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1324,7 +1324,7 @@ export default function AIChatBox({
                         color: '#999', fontSize: 10, fontWeight: 500,
                         cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#faee1e'; e.currentTarget.style.color = '#faee1e'; }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.color = '#ffffff'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#999'; }}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1344,7 +1344,7 @@ export default function AIChatBox({
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '5px 10px', marginBottom: 4,
                   background: uploadDocError ? 'rgba(255,23,68,0.06)' : 'rgba(250,238,30,0.06)',
-                  border: `1px solid ${uploadDocError ? '#ff1744' : (attachedDoc?.status === 'processing' ? '#555' : '#faee1e')}`,
+                  border: `1px solid ${uploadDocError ? '#ff1744' : (attachedDoc?.status === 'processing' ? '#555' : '#ffffff')}`,
                   borderRadius: 5,
                   animation: 'aiFadeIn 0.2s ease-out',
                 }}>
@@ -1357,13 +1357,13 @@ export default function AIChatBox({
                       <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
                   ) : (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#faee1e" strokeWidth="2" style={{ flexShrink: 0 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" style={{ flexShrink: 0 }}>
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                     </svg>
                   )}
                   <span style={{
                     flex: 1, fontSize: 10,
-                    color: uploadDocError ? '#ff5252' : (attachedDoc?.status === 'processing' ? '#888' : '#faee1e'),
+                    color: uploadDocError ? '#ff5252' : (attachedDoc?.status === 'processing' ? '#888' : '#ffffff'),
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {uploadDocError
@@ -1400,12 +1400,12 @@ export default function AIChatBox({
               />
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 12px', border: '2px solid #faee1e',
+                padding: '8px 12px', border: '2px solid #ffffff',
                 borderRadius: 6, background: '#0a0a0a',
               }}>
                 <div style={{
                   width: 8, height: 8, borderRadius: '50%',
-                  background: isStreaming ? '#00c853' : '#faee1e',
+                  background: isStreaming ? '#00c853' : '#ffffff',
                   flexShrink: 0,
                   animation: isStreaming ? 'aiPulse 1s ease-in-out infinite' : 'none',
                 }} />
@@ -1442,9 +1442,9 @@ export default function AIChatBox({
                   title="Attach document (PDF, DOCX, XLSX, PPTX, TXT, MD)"
                   style={{
                     background: attachedDoc ? 'rgba(250,238,30,0.1)' : 'transparent',
-                    border: `1px solid ${attachedDoc ? '#faee1e' : '#333'}`,
+                    border: `1px solid ${attachedDoc ? '#ffffff' : '#333'}`,
                     borderRadius: 4,
-                    color: attachedDoc ? '#faee1e' : '#555',
+                    color: attachedDoc ? '#ffffff' : '#555',
                     padding: '4px 8px',
                     cursor: isUploadingDoc ? 'wait' : 'pointer',
                     display: 'flex', alignItems: 'center', gap: 4,
@@ -1452,7 +1452,7 @@ export default function AIChatBox({
                     fontFamily: 'inherit', transition: 'all 0.15s',
                     flexShrink: 0,
                   }}
-                  onMouseEnter={e => { if (!attachedDoc) { e.currentTarget.style.borderColor = '#faee1e'; e.currentTarget.style.color = '#faee1e'; } }}
+                  onMouseEnter={e => { if (!attachedDoc) { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.color = '#ffffff'; } }}
                   onMouseLeave={e => { if (!attachedDoc) { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#555'; } }}
                 >
                   {isUploadingDoc ? (
@@ -1487,7 +1487,7 @@ export default function AIChatBox({
                   onClick={handleSend}
                   disabled={(!input.trim() && !attachedDoc) || isStreaming || isUploadingDoc}
                   style={{
-                    background: (input.trim() || attachedDoc) ? '#faee1e' : 'transparent',
+                    background: (input.trim() || attachedDoc) ? '#ffffff' : 'transparent',
                     border: (input.trim() || attachedDoc) ? 'none' : '1px solid #292929',
                     borderRadius: 4, color: (input.trim() || attachedDoc) ? '#000' : '#888',
                     padding: '6px 16px', fontSize: 11,

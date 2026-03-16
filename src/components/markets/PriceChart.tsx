@@ -730,8 +730,8 @@ export default function PriceChart({
                 style={{
                   background: isActive ? '#292929' : 'transparent',
                   border: '1px solid',
-                  borderColor: isActive ? '#faee1e' : '#292929',
-                  color: isActive ? '#faee1e' : '#999',
+                  borderColor: isActive ? '#ffffff' : '#292929',
+                  color: isActive ? '#ffffff' : '#999',
                   padding: '3px 8px',
                   fontSize: 10,
                   cursor: 'pointer',

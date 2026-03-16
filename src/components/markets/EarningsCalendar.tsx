@@ -62,7 +62,7 @@ export default function EarningsCalendar({ earnings, onSelect }: Props) {
             onMouseEnter={ev => (ev.currentTarget.style.background = '#1a1a1a')}
             onMouseLeave={ev => (ev.currentTarget.style.background = 'transparent')}
           >
-            <span style={{ color: '#faee1e', fontSize: 11, fontWeight: 600, textAlign: 'left' }}>
+            <span style={{ color: '#ffffff', fontSize: 11, fontWeight: 600, textAlign: 'left' }}>
               {e.symbol}
             </span>
             <span style={{ color: '#aaa', fontSize: 10, textAlign: 'left' }}>
