@@ -36,7 +36,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img
-          src="/PAAS_1.png"
+          src="/PAAS_2.png"
           alt="PAAS Logo"
           style={{ height: 36, objectFit: 'contain', marginLeft: -8 }}
         />
