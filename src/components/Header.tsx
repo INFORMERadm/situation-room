@@ -42,7 +42,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           <path d="M4.5 6.5h15" />
           <path d="M4.5 17.5h15" />
         </svg>
-        <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: '#fff' }}>N4-AI</span>
+        <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: 3, color: '#fff' }}>N4-AI</span>
         <span style={{
           fontSize: 10,
           fontWeight: 500,
