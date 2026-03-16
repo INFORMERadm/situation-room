@@ -36,8 +36,8 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img
-          src="/Factonaut_xxx.png"
-          alt="Echo Logo"
+          src="/PAAS_1.png"
+          alt="PAAS Logo"
           style={{ height: 36, objectFit: 'contain', marginLeft: -8 }}
         />
       </div>
