@@ -36,7 +36,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img
-          src="/Factonaut_Logo_2.png"
+          src="/Factonaut_xx.png"
           alt="Echo Logo"
           style={{ height: 48, objectFit: 'contain', marginLeft: -8 }}
         />
