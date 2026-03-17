@@ -14,6 +14,7 @@ export const LIVE_TV_CHANNELS: LiveTvChannel[] = [
   { id: 'france24fr', label: 'FRANCE24 FR', youtubeChannelId: 'UCCCPCZNChQdGa9EkATeye4g' },
   { id: 'alarabiya', label: 'ALARABIYA', youtubeChannelId: 'UCahpxixMCwoANAftn6IxkTg' },
   { id: 'aljazeera', label: 'ALJAZEERA', youtubeChannelId: 'UCNye-wNBqNL5ZzHSJj3l8Bg' },
+  { id: 'gbtv', label: 'GB-TV', youtubeVideoId: 'QliL4CGc7iY' },
 ];
 
 export const DEFAULT_CHANNEL_ORDER = LIVE_TV_CHANNELS.map(c => c.id);
