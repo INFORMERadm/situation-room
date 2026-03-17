@@ -36,14 +36,12 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img src="/new_nio_logo_removed_background.png" alt="N4" style={{ width: 40, height: 40, marginRight: 8, marginLeft: -3, flexShrink: 0, objectFit: 'contain' }} />
-        <span style={{ fontSize: 26, fontWeight: 400, letterSpacing: 1, color: '#fff', fontStyle: 'italic', fontFamily: 'Georgia, "Times New Roman", serif' }}>4</span>
         <span style={{
           fontSize: 10,
           fontWeight: 500,
           letterSpacing: 2,
           textTransform: 'uppercase',
           color: 'rgba(255,255,255,0.5)',
-          marginLeft: 12,
           position: 'relative',
           top: 4,
         }}>Professional Version</span>
