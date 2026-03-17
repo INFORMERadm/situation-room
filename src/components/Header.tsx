@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <img src="/image.png" alt="N4" style={{ width: 64, height: 64, marginRight: 8, marginLeft: -3, flexShrink: 0, objectFit: 'contain' }} />
+        <img src="/image.png" alt="N4" style={{ width: 54, height: 54, marginRight: 8, marginLeft: -3, flexShrink: 0, objectFit: 'contain' }} />
         <span style={{
           fontSize: 10,
           fontWeight: 500,
