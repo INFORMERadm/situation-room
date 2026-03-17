@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <img src="/new_nio_logo_removed_background.png" alt="N4" style={{ width: 30, height: 30, marginRight: 8, marginLeft: -3, flexShrink: 0, objectFit: 'contain' }} />
+        <img src="/new_nio_logo_removed_background.png" alt="N4" style={{ width: 40, height: 40, marginRight: 8, marginLeft: -3, flexShrink: 0, objectFit: 'contain' }} />
         <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: 3, color: '#fff' }}>N4-AI</span>
         <span style={{
           fontSize: 10,
