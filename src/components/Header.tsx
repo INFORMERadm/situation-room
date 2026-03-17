@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <img src="/new_nio_logo_removed_background.png" alt="N4" style={{ width: 40, height: 40, marginRight: 8, marginLeft: -3, flexShrink: 0, objectFit: 'contain' }} />
+        <img src="/new_nio_logo_removed_background.png" alt="N4" style={{ width: 48, height: 48, marginRight: 8, marginLeft: -3, flexShrink: 0, objectFit: 'contain' }} />
         <span style={{
           fontSize: 10,
           fontWeight: 500,
