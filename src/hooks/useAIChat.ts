@@ -158,6 +158,8 @@ export function useAIChat(
     collapseChat: () => {},
     addToTicker: () => {},
     removeFromTicker: () => {},
+    addClock: () => {},
+    removeClock: () => {},
   });
   platformActionsRef.current = {
     selectSymbol: (s: string) => {
@@ -183,6 +185,8 @@ export function useAIChat(
     collapseChat: () => setIsExpanded(false),
     addToTicker: tickerActions?.addToTicker ?? (() => {}),
     removeFromTicker: tickerActions?.removeFromTicker ?? (() => {}),
+    addClock: platform.addClock,
+    removeClock: platform.removeClock,
   };
 
   const refreshSessions = useCallback(() => {

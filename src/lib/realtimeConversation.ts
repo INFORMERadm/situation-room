@@ -76,6 +76,8 @@ const CLIENT_TOOLS = new Set([
   'switch_left_tab',
   'add_to_ticker',
   'remove_from_ticker',
+  'add_clock',
+  'remove_clock',
 ]);
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;

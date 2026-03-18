@@ -659,6 +659,8 @@ UI TOOLS:
 - remove_from_watchlist(symbol)
 - add_to_ticker(symbol): Add a symbol to the scrolling ticker tape at the top of the screen
 - remove_from_ticker(symbol): Remove a symbol from the ticker tape
+- add_clock(city): Add a world clock for a city (e.g., "Dubai", "Tokyo", "New York")
+- remove_clock(city): Remove a world clock for a city
 - switch_right_panel(view): news, economic
 - switch_left_tab(tab): overview, gainers, losers, active`;
 

@@ -47,6 +47,100 @@ export function extractSymbolFromToolCall(tc: ToolCall): string | null {
   return null;
 }
 
+const TIMEZONE_MAP: Record<string, { label: string; zone: string }> = {
+  'new york': { label: 'New York', zone: 'America/New_York' },
+  'london': { label: 'London', zone: 'Europe/London' },
+  'tokyo': { label: 'Tokyo', zone: 'Asia/Tokyo' },
+  'sydney': { label: 'Sydney', zone: 'Australia/Sydney' },
+  'dubai': { label: 'Dubai', zone: 'Asia/Dubai' },
+  'hong kong': { label: 'Hong Kong', zone: 'Asia/Hong_Kong' },
+  'singapore': { label: 'Singapore', zone: 'Asia/Singapore' },
+  'shanghai': { label: 'Shanghai', zone: 'Asia/Shanghai' },
+  'mumbai': { label: 'Mumbai', zone: 'Asia/Kolkata' },
+  'frankfurt': { label: 'Frankfurt', zone: 'Europe/Berlin' },
+  'paris': { label: 'Paris', zone: 'Europe/Paris' },
+  'zurich': { label: 'Zurich', zone: 'Europe/Zurich' },
+  'moscow': { label: 'Moscow', zone: 'Europe/Moscow' },
+  'sao paulo': { label: 'Sao Paulo', zone: 'America/Sao_Paulo' },
+  'chicago': { label: 'Chicago', zone: 'America/Chicago' },
+  'los angeles': { label: 'Los Angeles', zone: 'America/Los_Angeles' },
+  'toronto': { label: 'Toronto', zone: 'America/Toronto' },
+  'seoul': { label: 'Seoul', zone: 'Asia/Seoul' },
+  'taipei': { label: 'Taipei', zone: 'Asia/Taipei' },
+  'jakarta': { label: 'Jakarta', zone: 'Asia/Jakarta' },
+  'auckland': { label: 'Auckland', zone: 'Pacific/Auckland' },
+  'johannesburg': { label: 'Johannesburg', zone: 'Africa/Johannesburg' },
+  'cairo': { label: 'Cairo', zone: 'Africa/Cairo' },
+  'istanbul': { label: 'Istanbul', zone: 'Europe/Istanbul' },
+  'riyadh': { label: 'Riyadh', zone: 'Asia/Riyadh' },
+  'berlin': { label: 'Frankfurt', zone: 'Europe/Berlin' },
+  'tbilisi': { label: 'Tbilisi', zone: 'Asia/Tbilisi' },
+  'dallas': { label: 'Dallas', zone: 'America/Chicago' },
+  'denver': { label: 'Denver', zone: 'America/Denver' },
+  'phoenix': { label: 'Phoenix', zone: 'America/Phoenix' },
+  'honolulu': { label: 'Honolulu', zone: 'Pacific/Honolulu' },
+  'anchorage': { label: 'Anchorage', zone: 'America/Anchorage' },
+  'bangkok': { label: 'Bangkok', zone: 'Asia/Bangkok' },
+  'kuala lumpur': { label: 'Kuala Lumpur', zone: 'Asia/Kuala_Lumpur' },
+  'rome': { label: 'Rome', zone: 'Europe/Rome' },
+  'madrid': { label: 'Madrid', zone: 'Europe/Madrid' },
+  'amsterdam': { label: 'Amsterdam', zone: 'Europe/Amsterdam' },
+  'prague': { label: 'Prague', zone: 'Europe/Prague' },
+  'vienna': { label: 'Vienna', zone: 'Europe/Vienna' },
+  'warsaw': { label: 'Warsaw', zone: 'Europe/Warsaw' },
+  'athens': { label: 'Athens', zone: 'Europe/Athens' },
+  'lisbon': { label: 'Lisbon', zone: 'Europe/Lisbon' },
+  'mexico city': { label: 'Mexico City', zone: 'America/Mexico_City' },
+  'buenos aires': { label: 'Buenos Aires', zone: 'America/Argentina/Buenos_Aires' },
+  'lima': { label: 'Lima', zone: 'America/Lima' },
+  'bogota': { label: 'Bogota', zone: 'America/Bogota' },
+  'santiago': { label: 'Santiago', zone: 'America/Santiago' },
+  'nairobi': { label: 'Nairobi', zone: 'Africa/Nairobi' },
+  'lagos': { label: 'Lagos', zone: 'Africa/Lagos' },
+  'doha': { label: 'Doha', zone: 'Asia/Qatar' },
+  'abu dhabi': { label: 'Abu Dhabi', zone: 'Asia/Dubai' },
+  'karachi': { label: 'Karachi', zone: 'Asia/Karachi' },
+  'dhaka': { label: 'Dhaka', zone: 'Asia/Dhaka' },
+  'colombo': { label: 'Colombo', zone: 'Asia/Colombo' },
+  'hanoi': { label: 'Hanoi', zone: 'Asia/Ho_Chi_Minh' },
+  'ho chi minh': { label: 'Ho Chi Minh', zone: 'Asia/Ho_Chi_Minh' },
+  'manila': { label: 'Manila', zone: 'Asia/Manila' },
+  'beijing': { label: 'Beijing', zone: 'Asia/Shanghai' },
+  'osaka': { label: 'Osaka', zone: 'Asia/Tokyo' },
+  'san francisco': { label: 'San Francisco', zone: 'America/Los_Angeles' },
+  'seattle': { label: 'Seattle', zone: 'America/Los_Angeles' },
+  'vancouver': { label: 'Vancouver', zone: 'America/Vancouver' },
+  'montreal': { label: 'Montreal', zone: 'America/Toronto' },
+  'salzburg': { label: 'Salzburg', zone: 'Europe/Vienna' },
+  'dublin': { label: 'Dublin', zone: 'Europe/Dublin' },
+  'helsinki': { label: 'Helsinki', zone: 'Europe/Helsinki' },
+  'stockholm': { label: 'Stockholm', zone: 'Europe/Stockholm' },
+  'oslo': { label: 'Oslo', zone: 'Europe/Oslo' },
+  'copenhagen': { label: 'Copenhagen', zone: 'Europe/Copenhagen' },
+  'bucharest': { label: 'Bucharest', zone: 'Europe/Bucharest' },
+  'kyiv': { label: 'Kyiv', zone: 'Europe/Kyiv' },
+  'kiev': { label: 'Kyiv', zone: 'Europe/Kyiv' },
+  'st. petersburg': { label: 'St. Petersburg', zone: 'Europe/Moscow' },
+  'saint petersburg': { label: 'St. Petersburg', zone: 'Europe/Moscow' },
+  'tehran': { label: 'Tehran', zone: 'Asia/Tehran' },
+  'baghdad': { label: 'Baghdad', zone: 'Asia/Baghdad' },
+  'jerusalem': { label: 'Jerusalem', zone: 'Asia/Jerusalem' },
+  'tel aviv': { label: 'Tel Aviv', zone: 'Asia/Jerusalem' },
+  'beirut': { label: 'Beirut', zone: 'Asia/Beirut' },
+  'kathmandu': { label: 'Kathmandu', zone: 'Asia/Kathmandu' },
+  'perth': { label: 'Perth', zone: 'Australia/Perth' },
+  'melbourne': { label: 'Melbourne', zone: 'Australia/Melbourne' },
+  'brisbane': { label: 'Brisbane', zone: 'Australia/Brisbane' },
+};
+
+function resolveTimezone(city: string): { label: string; zone: string } | null {
+  const key = city.toLowerCase().trim();
+  if (TIMEZONE_MAP[key]) return TIMEZONE_MAP[key];
+  const partial = Object.keys(TIMEZONE_MAP).find(k => k.includes(key) || key.includes(k));
+  if (partial) return TIMEZONE_MAP[partial];
+  return null;
+}
+
 export interface PlatformActions {
   selectSymbol: (symbol: string) => void;
   setChartTimeframe: (tf: string) => void;
@@ -61,6 +155,8 @@ export interface PlatformActions {
   collapseChat: () => void;
   addToTicker: (symbol: string) => void;
   removeFromTicker: (symbol: string) => void;
+  addClock: (label: string, zone: string) => void;
+  removeClock: (zone: string) => void;
 }
 
 export async function executeToolCall(tc: ToolCall, actions: PlatformActions): Promise<string> {
@@ -156,6 +252,30 @@ export async function executeToolCall(tc: ToolCall, actions: PlatformActions): P
         return `Removed ${symbol.toUpperCase()} from ticker tape`;
       }
       return 'Missing symbol';
+    }
+    case 'add_clock': {
+      const city = (tc.params.city as string) || '';
+      if (city) {
+        const tz = resolveTimezone(city);
+        if (tz) {
+          actions.addClock(tz.label, tz.zone);
+          return `Added ${tz.label} clock`;
+        }
+        return `Unknown city: ${city}. Try a major city name like "Tokyo", "London", "New York", etc.`;
+      }
+      return 'Missing city';
+    }
+    case 'remove_clock': {
+      const city = (tc.params.city as string) || '';
+      if (city) {
+        const tz = resolveTimezone(city);
+        if (tz) {
+          actions.removeClock(tz.zone);
+          return `Removed ${tz.label} clock`;
+        }
+        return `Unknown city: ${city}`;
+      }
+      return 'Missing city';
     }
     case 'fetch_fmp_data':
       return '';

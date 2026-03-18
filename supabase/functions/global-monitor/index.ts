@@ -1760,10 +1760,18 @@ You have access to the following tools:
    Parameters: { "symbol": string }
    Use this when the user asks to remove a symbol from the ticker tape / ticker strip.
 
-12. switch_right_panel - Switch right panel view
+12. add_clock - Add a world clock for a city
+   Parameters: { "city": string }
+   Use this when the user asks to add a clock. Accepts major city names like "Dubai", "Tokyo", "New York", "London", etc.
+
+13. remove_clock - Remove a world clock for a city
+   Parameters: { "city": string }
+   Use this when the user asks to remove a clock.
+
+14. switch_right_panel - Switch right panel view
    Parameters: { "view": "news"|"economic" }
 
-13. switch_left_tab - Switch left sidebar tab
+15. switch_left_tab - Switch left sidebar tab
    Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
 
 {{WEB_SEARCH_SECTION}}
@@ -2076,6 +2084,34 @@ const ALL_AI_TOOLS = [
           symbol: { type: "string", description: "Stock ticker symbol to remove from the ticker tape" },
         },
         required: ["symbol"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_clock",
+      description: "Add a world clock for a city to the clocks bar",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string", description: "City name, e.g. Dubai, Tokyo, New York" },
+        },
+        required: ["city"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_clock",
+      description: "Remove a world clock for a city from the clocks bar",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string", description: "City name to remove" },
+        },
+        required: ["city"],
       },
     },
   },
@@ -2918,6 +2954,28 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "add_clock",
+    description: "Add a world clock for a city to the clocks bar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        city: { type: "string", description: "City name, e.g. Dubai, Tokyo, New York" },
+      },
+      required: ["city"],
+    },
+  },
+  {
+    name: "remove_clock",
+    description: "Remove a world clock for a city from the clocks bar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        city: { type: "string", description: "City name to remove" },
+      },
+      required: ["city"],
+    },
+  },
+  {
     name: "switch_right_panel",
     description: "Switch the right panel view between news and economic calendar.",
     inputSchema: {
@@ -3068,6 +3126,7 @@ async function handleMCPRequest(req: Request): Promise<Response> {
       "change_symbol", "change_timeframe", "change_chart_type",
       "toggle_indicator", "add_to_watchlist", "remove_from_watchlist",
       "add_to_ticker", "remove_from_ticker",
+      "add_clock", "remove_clock",
       "switch_right_panel", "switch_left_tab",
     ]);
     if (clientTools.has(toolName)) {
