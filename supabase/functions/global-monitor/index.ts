@@ -1768,10 +1768,14 @@ You have access to the following tools:
    Parameters: { "city": string }
    Use this when the user asks to remove a clock.
 
-14. switch_right_panel - Switch right panel view
+14. switch_workspace - Switch between workspaces
+   Parameters: { "workspace": string }
+   Accepts: "markets", "news", "pa", "law", "flights" (War Map). Also aliases like "war map", "stocks", "trading", "aviation", "military", "osint".
+
+15. switch_right_panel - Switch right panel view
    Parameters: { "view": "news"|"economic" }
 
-15. switch_left_tab - Switch left sidebar tab
+16. switch_left_tab - Switch left sidebar tab
    Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
 
 {{WEB_SEARCH_SECTION}}
@@ -2112,6 +2116,20 @@ const ALL_AI_TOOLS = [
           city: { type: "string", description: "City name to remove" },
         },
         required: ["city"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "switch_workspace",
+      description: "Switch between workspaces: markets, news, pa, law, flights (War Map)",
+      parameters: {
+        type: "object",
+        properties: {
+          workspace: { type: "string", description: "Workspace name or alias (e.g. markets, news, war map, flights, pa, law)" },
+        },
+        required: ["workspace"],
       },
     },
   },
@@ -2976,6 +2994,17 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "switch_workspace",
+    description: "Switch between workspaces: markets, news, pa, law, flights (War Map).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: { type: "string", description: "Workspace name or alias (e.g. markets, news, war map, flights, pa, law)" },
+      },
+      required: ["workspace"],
+    },
+  },
+  {
     name: "switch_right_panel",
     description: "Switch the right panel view between news and economic calendar.",
     inputSchema: {
@@ -3127,7 +3156,7 @@ async function handleMCPRequest(req: Request): Promise<Response> {
       "toggle_indicator", "add_to_watchlist", "remove_from_watchlist",
       "add_to_ticker", "remove_from_ticker",
       "add_clock", "remove_clock",
-      "switch_right_panel", "switch_left_tab",
+      "switch_workspace", "switch_right_panel", "switch_left_tab",
     ]);
     if (clientTools.has(toolName)) {
       return new Response(

@@ -78,6 +78,7 @@ const CLIENT_TOOLS = new Set([
   'remove_from_ticker',
   'add_clock',
   'remove_clock',
+  'switch_workspace',
 ]);
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;

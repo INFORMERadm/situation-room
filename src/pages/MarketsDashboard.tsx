@@ -168,11 +168,12 @@ export default function MarketsDashboard() {
     removeFromTicker: data.removeTickerSymbol,
     addClock: platform.addClock,
     removeClock: platform.removeClock,
+    setActiveWorkspace: platform.setActiveWorkspace,
   };
 
   const handleClientToolCall = useCallback(async (toolName: string, args: Record<string, unknown>) => {
     return execClientTool({ tool: toolName, params: args }, voicePlatformActions);
-  }, [data.selectSymbol, data.setChartTimeframe, platform.setChartType, platform.toggleIndicator, addToActiveWatchlist, removeFromActiveWatchlist, watchlists, setActiveWatchlistId, platform.setRightPanelView, platform.setLeftTab, ai.collapse, data.addTickerSymbol, data.removeTickerSymbol, platform.addClock, platform.removeClock]);
+  }, [data.selectSymbol, data.setChartTimeframe, platform.setChartType, platform.toggleIndicator, addToActiveWatchlist, removeFromActiveWatchlist, watchlists, setActiveWatchlistId, platform.setRightPanelView, platform.setLeftTab, ai.collapse, data.addTickerSymbol, data.removeTickerSymbol, platform.addClock, platform.removeClock, platform.setActiveWorkspace]);
 
   const handleConversationToggle = useCallback(async () => {
     if (isConversationActive()) {

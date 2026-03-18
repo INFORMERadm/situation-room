@@ -1,3 +1,5 @@
+import type { Workspace } from '../context/PlatformContext';
+
 export interface ToolCall {
   tool: string;
   params: Record<string, unknown>;
@@ -141,6 +143,40 @@ function resolveTimezone(city: string): { label: string; zone: string } | null {
   return null;
 }
 
+const WORKSPACE_ALIASES: Record<string, { id: string; label: string }> = {
+  'markets': { id: 'markets', label: 'Markets' },
+  'market': { id: 'markets', label: 'Markets' },
+  'stocks': { id: 'markets', label: 'Markets' },
+  'trading': { id: 'markets', label: 'Markets' },
+  'finance': { id: 'markets', label: 'Markets' },
+  'news': { id: 'news', label: 'News' },
+  'news deck': { id: 'news', label: 'News' },
+  'newsdeck': { id: 'news', label: 'News' },
+  'pa': { id: 'pa', label: 'PA' },
+  'personal assistant': { id: 'pa', label: 'PA' },
+  'assistant': { id: 'pa', label: 'PA' },
+  'law': { id: 'law', label: 'Law' },
+  'legal': { id: 'law', label: 'Law' },
+  'flights': { id: 'flights', label: 'War Map' },
+  'flight': { id: 'flights', label: 'War Map' },
+  'war map': { id: 'flights', label: 'War Map' },
+  'warmap': { id: 'flights', label: 'War Map' },
+  'map': { id: 'flights', label: 'War Map' },
+  'flight tracker': { id: 'flights', label: 'War Map' },
+  'aviation': { id: 'flights', label: 'War Map' },
+  'geopolitical': { id: 'flights', label: 'War Map' },
+  'military': { id: 'flights', label: 'War Map' },
+  'osint': { id: 'flights', label: 'War Map' },
+};
+
+function resolveWorkspace(name: string): { id: string; label: string } | null {
+  const key = name.toLowerCase().trim();
+  if (WORKSPACE_ALIASES[key]) return WORKSPACE_ALIASES[key];
+  const partial = Object.keys(WORKSPACE_ALIASES).find(k => k.includes(key) || key.includes(k));
+  if (partial) return WORKSPACE_ALIASES[partial];
+  return null;
+}
+
 export interface PlatformActions {
   selectSymbol: (symbol: string) => void;
   setChartTimeframe: (tf: string) => void;
@@ -157,6 +193,7 @@ export interface PlatformActions {
   removeFromTicker: (symbol: string) => void;
   addClock: (label: string, zone: string) => void;
   removeClock: (zone: string) => void;
+  setActiveWorkspace: (ws: Workspace) => void;
 }
 
 export async function executeToolCall(tc: ToolCall, actions: PlatformActions): Promise<string> {
@@ -276,6 +313,18 @@ export async function executeToolCall(tc: ToolCall, actions: PlatformActions): P
         return `Unknown city: ${city}`;
       }
       return 'Missing city';
+    }
+    case 'switch_workspace': {
+      const name = (tc.params.workspace as string) || '';
+      if (name) {
+        const ws = resolveWorkspace(name);
+        if (ws) {
+          actions.setActiveWorkspace(ws.id as Workspace);
+          return `Switched to ${ws.label}`;
+        }
+        return `Unknown workspace: ${name}. Available: Markets, News, PA, Law, War Map`;
+      }
+      return 'Missing workspace name';
     }
     case 'fetch_fmp_data':
       return '';

@@ -160,6 +160,7 @@ export function useAIChat(
     removeFromTicker: () => {},
     addClock: () => {},
     removeClock: () => {},
+    setActiveWorkspace: () => {},
   });
   platformActionsRef.current = {
     selectSymbol: (s: string) => {
@@ -187,6 +188,7 @@ export function useAIChat(
     removeFromTicker: tickerActions?.removeFromTicker ?? (() => {}),
     addClock: platform.addClock,
     removeClock: platform.removeClock,
+    setActiveWorkspace: platform.setActiveWorkspace,
   };
 
   const refreshSessions = useCallback(() => {

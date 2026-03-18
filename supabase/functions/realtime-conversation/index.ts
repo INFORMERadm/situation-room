@@ -661,6 +661,7 @@ UI TOOLS:
 - remove_from_ticker(symbol): Remove a symbol from the ticker tape
 - add_clock(city): Add a world clock for a city (e.g., "Dubai", "Tokyo", "New York")
 - remove_clock(city): Remove a world clock for a city
+- switch_workspace(workspace): Switch between workspaces. Values: markets, news, pa, law, flights (War Map). Also accepts aliases like "war map", "stocks", "trading", "aviation", "military", "osint"
 - switch_right_panel(view): news, economic
 - switch_left_tab(tab): overview, gainers, losers, active`;
 
