@@ -1135,7 +1135,7 @@ export default function AIChatBox({
                           overflow: 'hidden',
                           background: msg.role === 'user' ? '#1a1a1a' : '#0d0d0d',
                           borderRadius: 8, padding: '10px 14px',
-                          borderLeft: msg.role === 'assistant' ? '2px solid #00c853' : 'none',
+                          borderLeft: 'none',
                           borderRight: msg.role === 'user' ? '2px solid #ffffff' : 'none',
                         }}>
                           {msg.role === 'user' ? (
@@ -1255,7 +1255,6 @@ export default function AIChatBox({
                     <div style={{
                       maxWidth: '85%', minWidth: 0, overflow: 'hidden',
                       background: '#0d0d0d', borderRadius: 8, padding: '10px 14px',
-                      borderLeft: '2px solid #00c853',
                     }}>
                       {isStreaming && searchSources.length > 0 && (
                         <SourcePills
@@ -1288,7 +1287,7 @@ export default function AIChatBox({
                     </div>
                     <div style={{
                       background: '#0d0d0d', borderRadius: 8, padding: '10px 14px',
-                      borderLeft: '2px solid #00c853', color: '#888', fontSize: 11,
+                      color: '#888', fontSize: 11,
                     }}>
                       <span style={{ animation: 'aiPulse 1s ease-in-out infinite' }}>Thinking...</span>
                     </div>
