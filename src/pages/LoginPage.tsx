@@ -159,7 +159,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 600,
     color: '#0a0a0a',
-    background: '#fb8c00',
+    background: '#ffffff',
     border: 'none',
     borderRadius: 8,
     fontFamily: 'inherit',
@@ -181,7 +181,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 24,
   },
   link: {
-    color: '#fb8c00',
+    color: '#ffffff',
     textDecoration: 'none',
     fontWeight: 600,
   },
