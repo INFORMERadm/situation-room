@@ -15,6 +15,7 @@ export const LIVE_TV_CHANNELS: LiveTvChannel[] = [
   { id: 'alarabiya', label: 'ALARABIYA', youtubeChannelId: 'UCahpxixMCwoANAftn6IxkTg' },
   { id: 'aljazeera', label: 'ALJAZEERA', youtubeChannelId: 'UCNye-wNBqNL5ZzHSJj3l8Bg' },
   { id: 'gbtv', label: 'GB-TV', youtubeVideoId: 'QliL4CGc7iY' },
+  { id: 'foxnews', label: 'FOX NEWS', youtubeVideoId: 'C96oohpWBGw' },
 ];
 
 export const DEFAULT_CHANNEL_ORDER = LIVE_TV_CHANNELS.map(c => c.id);
