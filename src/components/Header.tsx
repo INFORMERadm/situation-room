@@ -19,7 +19,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         borderBottom: 'none',
         padding: '6px 0 6px 16px',
         minHeight: 54,
-        background: '#000',
+        background: '#0a0a0a',
       }}
     >
       <div
