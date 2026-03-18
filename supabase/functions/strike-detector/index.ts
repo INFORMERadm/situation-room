@@ -17,6 +17,7 @@ const supabase = createClient(
 
 interface StrikeClassification {
   is_strike: boolean;
+  headline?: string;
   event_type: string;
   source_country: string;
   source_location: string;
@@ -169,6 +170,7 @@ CRITICAL RULES - you MUST follow these exactly:
 For each CONFIRMED active strike, return:
 {
   "is_strike": true,
+  "headline": "<the EXACT original headline text you are classifying>",
   "event_type": "ballistic_missile" | "cruise_missile" | "rocket" | "drone" | "air_strike" | "artillery",
   "source_country": "Country launching the attack",
   "source_location": "Specific launch site or country if unknown",
@@ -178,18 +180,109 @@ For each CONFIRMED active strike, return:
   "confidence": <0.85-1.0>
 }
 
+IMPORTANT: The "headline" field MUST be the exact original headline text. This is critical for traceability.
+
 If a headline does NOT describe a confirmed active strike: {"is_strike": false}
 
 Return ONLY a valid JSON array with one result per headline. No markdown, no explanation.`;
 
-interface ClassificationWithIndex {
+interface ClassifiedStrike {
   classification: StrikeClassification;
-  headlineIndex: number;
+  matchedHeadline: string;
+}
+
+const REGION_KEYWORDS: Record<string, string[]> = {
+  ukraine: ["ukrain", "kyiv", "kiev", "kharkiv", "odesa", "odessa", "lviv", "dnipro", "zaporizhzhia", "mykolaiv", "sumy", "poltava", "donbas", "donetsk", "luhansk", "crimea", "kherson"],
+  russia: ["russia", "moscow", "belgorod", "kursk", "voronezh", "rostov", "sevastopol", "crimea"],
+  iran: ["iran", "tehran", "isfahan", "tabriz", "shiraz", "bushehr", "bandar abbas", "natanz", "parchin", "persian"],
+  israel: ["israel", "tel aviv", "haifa", "jerusalem", "beer sheva", "eilat", "ashkelon", "ashdod", "sderot", "netanya", "dimona", "herzliya", "rishon"],
+  palestine: ["gaza", "rafah", "khan younis", "west bank", "palestinian"],
+  lebanon: ["lebanon", "beirut", "hezbollah", "tyre", "nabatieh", "south lebanon"],
+  syria: ["syria", "damascus", "aleppo", "golan"],
+  yemen: ["yemen", "sanaa", "hodeidah", "aden", "houthi"],
+  iraq: ["iraq", "baghdad", "erbil"],
+  saudi: ["saudi", "riyadh", "jeddah"],
+  australia: ["australia", "australian", "darwin", "sydney", "melbourne", "canberra"],
+};
+
+function extractRegions(text: string): Set<string> {
+  const lower = text.toLowerCase();
+  const regions = new Set<string>();
+  for (const [region, keywords] of Object.entries(REGION_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lower.includes(kw)) {
+        regions.add(region);
+        break;
+      }
+    }
+  }
+  return regions;
+}
+
+function isHeadlineRelevant(headline: string, strike: StrikeClassification): boolean {
+  if (!headline) return false;
+
+  const headlineRegions = extractRegions(headline);
+  if (headlineRegions.size === 0) return true;
+
+  const strikeText = `${strike.source_country} ${strike.source_location} ${strike.target_location}`;
+  const strikeRegions = extractRegions(strikeText);
+  if (strikeRegions.size === 0) return true;
+
+  for (const r of strikeRegions) {
+    if (headlineRegions.has(r)) return true;
+  }
+
+  return false;
+}
+
+function findBestHeadline(
+  strike: StrikeClassification,
+  allHeadlines: string[]
+): string {
+  if (strike.headline) {
+    const returnedHL = strike.headline.trim();
+    for (const h of allHeadlines) {
+      if (h === returnedHL) return h;
+    }
+    for (const h of allHeadlines) {
+      if (
+        h.toLowerCase().includes(returnedHL.toLowerCase().slice(0, 40)) ||
+        returnedHL.toLowerCase().includes(h.toLowerCase().slice(0, 40))
+      ) {
+        if (isHeadlineRelevant(h, strike)) return h;
+      }
+    }
+  }
+
+  const strikeText =
+    `${strike.source_country} ${strike.source_location} ${strike.target_location} ${strike.event_type}`.toLowerCase();
+  const strikeWords = strikeText
+    .split(/\s+/)
+    .filter((w) => w.length > 3);
+
+  let bestScore = 0;
+  let bestHL = "";
+
+  for (const h of allHeadlines) {
+    if (!isHeadlineRelevant(h, strike)) continue;
+    const lower = h.toLowerCase();
+    let score = 0;
+    for (const word of strikeWords) {
+      if (lower.includes(word)) score++;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestHL = h;
+    }
+  }
+
+  return bestHL;
 }
 
 async function classifyHeadlines(
   headlines: string[]
-): Promise<ClassificationWithIndex[]> {
+): Promise<ClassifiedStrike[]> {
   if (!OPENAI_API_KEY || headlines.length === 0) return [];
 
   const headlineText = headlines.map((h, i) => `${i + 1}. ${h}`).join("\n");
@@ -229,11 +322,17 @@ async function classifyHeadlines(
       ? parsed
       : [parsed];
 
-    const results: ClassificationWithIndex[] = [];
-    for (let i = 0; i < arr.length; i++) {
-      if (arr[i].is_strike && arr[i].confidence >= 0.85) {
-        results.push({ classification: arr[i], headlineIndex: i });
+    const results: ClassifiedStrike[] = [];
+    for (const item of arr) {
+      if (!item.is_strike || item.confidence < 0.85) continue;
+
+      const matchedHeadline = findBestHeadline(item, headlines);
+
+      if (matchedHeadline && !isHeadlineRelevant(matchedHeadline, item)) {
+        continue;
       }
+
+      results.push({ classification: item, matchedHeadline });
     }
     return results;
   } catch {
@@ -361,11 +460,8 @@ Deno.serve(async (req: Request) => {
 
     const inserted: string[] = [];
 
-    for (const { classification: strike, headlineIndex } of classifiedStrikes) {
-      const headline =
-        headlineIndex < allHeadlines.length
-          ? allHeadlines[headlineIndex]
-          : "";
+    for (const { classification: strike, matchedHeadline } of classifiedStrikes) {
+      const headline = matchedHeadline;
 
       const sourceCoords =
         resolveLocation(strike.source_location) ||
