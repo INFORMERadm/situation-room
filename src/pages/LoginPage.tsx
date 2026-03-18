@@ -32,7 +32,7 @@ export default function LoginPage() {
       <div style={styles.card}>
         <div style={styles.logoRow}>
           <img
-            src="/white_transparent.png"
+            src="/new_n4_logo.png"
             alt="N4 Logo"
             style={styles.logo}
           />
