@@ -15,7 +15,7 @@ export function showDesktopNotification(title: string, body: string) {
     try {
       new Notification(title, {
         body,
-        icon: '/icon_orange.png',
+        icon: '/new_n4_logo.png',
         tag: 'n4-chat-' + Date.now(),
       });
     } catch {
