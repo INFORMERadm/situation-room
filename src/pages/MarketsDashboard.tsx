@@ -395,6 +395,7 @@ export default function MarketsDashboard() {
               onClearDocAttachment={ai.clearDocAttachment}
               conversationStatus={conversationStatus}
               onConversationToggle={handleConversationToggle}
+              onOpenMCPPanel={() => setShowMCPPanel(true)}
             />
           </div>
         </div>
