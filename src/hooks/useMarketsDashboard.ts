@@ -6,6 +6,7 @@ import {
   fetchHistoricalChart,
   fetchCompanyProfile,
   fetchQuote,
+  fetchBatchQuotes,
   fetchEarningsCalendar,
   fetchEconomicCalendar,
   fetchMarketNews,
@@ -42,12 +43,31 @@ export interface MarketsDashboardData {
   selectedSymbol: string;
   chartTimeframe: string;
   loading: Record<string, boolean>;
+  customTickerSymbols: string[];
   selectSymbol: (symbol: string) => void;
   setChartTimeframe: (tf: string) => void;
+  addTickerSymbol: (symbol: string) => void;
+  removeTickerSymbol: (symbol: string) => void;
+}
+
+const CUSTOM_TICKER_KEY = 'n4-custom-ticker-symbols';
+
+function loadCustomTicker(): string[] {
+  try {
+    const stored = localStorage.getItem(CUSTOM_TICKER_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveCustomTicker(symbols: string[]) {
+  try { localStorage.setItem(CUSTOM_TICKER_KEY, JSON.stringify(symbols)); } catch { /* ignore */ }
 }
 
 export function useMarketsDashboard(): MarketsDashboardData {
   const [overview, setOverview] = useState<MarketItem[]>([]);
+  const [customTickerSymbols, setCustomTickerSymbols] = useState<string[]>(loadCustomTicker);
+  const [customTickerItems, setCustomTickerItems] = useState<MarketItem[]>([]);
   const [movers, setMovers] = useState<MarketMoversData>({ gainers: [], losers: [], active: [] });
   const [sectors, setSectors] = useState<SectorPerf[]>([]);
   const [chart, setChart] = useState<HistoricalPrice[]>([]);
@@ -66,6 +86,8 @@ export function useMarketsDashboard(): MarketsDashboardData {
   const isInitialNewsLoadRef = useRef(true);
   const newsUrlSetRef = useRef<Set<string>>(new Set());
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const customTickerRef = useRef(customTickerSymbols);
+  customTickerRef.current = customTickerSymbols;
 
   const setLoad = useCallback((key: string, val: boolean) => {
     setLoading(prev => ({ ...prev, [key]: val }));
@@ -168,6 +190,56 @@ export function useMarketsDashboard(): MarketsDashboardData {
     }
   }, []);
 
+  const loadCustomTickerQuotes = useCallback(async () => {
+    const symbols = customTickerRef.current;
+    if (symbols.length === 0) {
+      setCustomTickerItems([]);
+      return;
+    }
+    try {
+      const quotes = await fetchBatchQuotes(symbols);
+      if (!mountedRef.current) return;
+      const items: MarketItem[] = symbols
+        .filter(s => quotes[s])
+        .map(s => {
+          const q = quotes[s];
+          return {
+            symbol: s,
+            name: q.name || s,
+            price: q.price ?? 0,
+            change: q.changesPercentage ?? 0,
+            category: 'custom' as MarketItem['category'],
+          };
+        });
+      setCustomTickerItems(items);
+    } catch {
+      // non-fatal
+    }
+  }, []);
+
+  const addTickerSymbol = useCallback((symbol: string) => {
+    const upper = symbol.toUpperCase();
+    setCustomTickerSymbols(prev => {
+      if (prev.includes(upper)) return prev;
+      const next = [...prev, upper];
+      saveCustomTicker(next);
+      return next;
+    });
+  }, []);
+
+  const removeTickerSymbol = useCallback((symbol: string) => {
+    const upper = symbol.toUpperCase();
+    setCustomTickerSymbols(prev => {
+      const next = prev.filter(s => s !== upper);
+      saveCustomTicker(next);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    loadCustomTickerQuotes();
+  }, [customTickerSymbols, loadCustomTickerQuotes]);
+
   const selectedSymbolRef = useRef('AAPL');
 
   const loadSymbolData = useCallback(async (symbol: string, timeframe: string) => {
@@ -238,18 +310,25 @@ export function useMarketsDashboard(): MarketsDashboardData {
     const i5 = setInterval(loadEarnings, 300_000);
     const i6 = setInterval(loadEconomic, 300_000);
     const i7 = setInterval(refreshQuote, 15_000);
+    const i8 = setInterval(loadCustomTickerQuotes, 30_000);
 
-    intervalsRef.current = [i1, i2, i3, i4, i5, i6, i7];
+    intervalsRef.current = [i1, i2, i3, i4, i5, i6, i7, i8];
     return () => {
       mountedRef.current = false;
       clearTimeout(retryTimer);
       if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
       intervalsRef.current.forEach(clearInterval);
     };
-  }, [loadOverview, loadMovers, loadSectors, loadEarnings, loadEconomic, loadNews, loadSymbolData, refreshQuote]);
+  }, [loadOverview, loadMovers, loadSectors, loadEarnings, loadEconomic, loadNews, loadSymbolData, refreshQuote, loadCustomTickerQuotes]);
+
+  const overviewSymbols = new Set(overview.map(o => o.symbol));
+  const dedupedCustomItems = customTickerItems.filter(c => !overviewSymbols.has(c.symbol));
+  const mergedOverview = dedupedCustomItems.length > 0
+    ? [...overview, ...dedupedCustomItems]
+    : overview;
 
   return {
-    overview,
+    overview: mergedOverview,
     movers,
     sectors,
     chart,
@@ -262,7 +341,10 @@ export function useMarketsDashboard(): MarketsDashboardData {
     selectedSymbol,
     chartTimeframe,
     loading,
+    customTickerSymbols,
     selectSymbol,
     setChartTimeframe,
+    addTickerSymbol,
+    removeTickerSymbol,
   };
 }

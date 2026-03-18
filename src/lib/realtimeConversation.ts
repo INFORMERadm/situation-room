@@ -74,6 +74,8 @@ const CLIENT_TOOLS = new Set([
   'switch_watchlist',
   'switch_right_panel',
   'switch_left_tab',
+  'add_to_ticker',
+  'remove_from_ticker',
 ]);
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;

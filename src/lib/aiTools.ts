@@ -59,6 +59,8 @@ export interface PlatformActions {
   setRightPanelView: (view: 'news' | 'economic') => void;
   setLeftTab: (tab: string) => void;
   collapseChat: () => void;
+  addToTicker: (symbol: string) => void;
+  removeFromTicker: (symbol: string) => void;
 }
 
 export async function executeToolCall(tc: ToolCall, actions: PlatformActions): Promise<string> {
@@ -139,6 +141,22 @@ export async function executeToolCall(tc: ToolCall, actions: PlatformActions): P
       actions.setLeftTab(tab);
       return `Left tab: ${tab}`;
     }
+    case 'add_to_ticker': {
+      const symbol = (tc.params.symbol as string) || '';
+      if (symbol) {
+        actions.addToTicker(symbol.toUpperCase());
+        return `Added ${symbol.toUpperCase()} to ticker tape`;
+      }
+      return 'Missing symbol';
+    }
+    case 'remove_from_ticker': {
+      const symbol = (tc.params.symbol as string) || '';
+      if (symbol) {
+        actions.removeFromTicker(symbol.toUpperCase());
+        return `Removed ${symbol.toUpperCase()} from ticker tape`;
+      }
+      return 'Missing symbol';
+    }
     case 'fetch_fmp_data':
       return '';
     default:
@@ -161,6 +179,7 @@ export function buildContextPayload(state: {
   leftTab: string;
   activeWatchlistName?: string;
   allWatchlists?: { name: string; symbolCount: number }[];
+  customTickerSymbols?: string[];
 }): Record<string, unknown> {
   return {
     currentSymbol: state.selectedSymbol,
@@ -175,5 +194,6 @@ export function buildContextPayload(state: {
     clockZones: state.clocks.map(c => c.label),
     rightPanel: state.rightPanelView,
     leftTab: state.leftTab,
+    customTickerSymbols: state.customTickerSymbols || [],
   };
 }

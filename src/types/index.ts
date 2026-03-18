@@ -19,7 +19,7 @@ export interface Flight {
   lon: number;
 }
 
-export type MarketCategory = 'index' | 'stock' | 'forex' | 'crypto';
+export type MarketCategory = 'index' | 'stock' | 'forex' | 'crypto' | 'commodity' | 'custom';
 
 export interface MarketItem {
   symbol: string;

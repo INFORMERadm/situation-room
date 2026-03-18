@@ -1752,10 +1752,18 @@ You have access to the following tools:
    Parameters: { "name": string }
    Use this when the user refers to a specific watchlist (e.g., "add to the Uranium watchlist"). The available watchlist names are in the platform state. After switching, subsequent add_to_watchlist calls will add to the selected watchlist.
 
-10. switch_right_panel - Switch right panel view
+10. add_to_ticker - Add a symbol to the scrolling ticker tape at the top of the screen
+   Parameters: { "symbol": string }
+   Use this when the user asks to add a symbol to the ticker tape / ticker strip.
+
+11. remove_from_ticker - Remove a symbol from the ticker tape
+   Parameters: { "symbol": string }
+   Use this when the user asks to remove a symbol from the ticker tape / ticker strip.
+
+12. switch_right_panel - Switch right panel view
    Parameters: { "view": "news"|"economic" }
 
-11. switch_left_tab - Switch left sidebar tab
+13. switch_left_tab - Switch left sidebar tab
    Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
 
 {{WEB_SEARCH_SECTION}}
@@ -2040,6 +2048,34 @@ const ALL_AI_TOOLS = [
           name: { type: "string", description: "Name of the watchlist to switch to" },
         },
         required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_to_ticker",
+      description: "Add a symbol to the scrolling ticker tape at the top of the screen",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string", description: "Stock ticker symbol to add to the ticker tape" },
+        },
+        required: ["symbol"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_from_ticker",
+      description: "Remove a symbol from the scrolling ticker tape at the top of the screen",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string", description: "Stock ticker symbol to remove from the ticker tape" },
+        },
+        required: ["symbol"],
       },
     },
   },
@@ -2860,6 +2896,28 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "add_to_ticker",
+    description: "Add a symbol to the scrolling ticker tape at the top of the screen.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        symbol: { type: "string", description: "Stock ticker symbol to add to the ticker tape" },
+      },
+      required: ["symbol"],
+    },
+  },
+  {
+    name: "remove_from_ticker",
+    description: "Remove a symbol from the scrolling ticker tape at the top of the screen.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        symbol: { type: "string", description: "Stock ticker symbol to remove from the ticker tape" },
+      },
+      required: ["symbol"],
+    },
+  },
+  {
     name: "switch_right_panel",
     description: "Switch the right panel view between news and economic calendar.",
     inputSchema: {
@@ -3009,6 +3067,7 @@ async function handleMCPRequest(req: Request): Promise<Response> {
     const clientTools = new Set([
       "change_symbol", "change_timeframe", "change_chart_type",
       "toggle_indicator", "add_to_watchlist", "remove_from_watchlist",
+      "add_to_ticker", "remove_from_ticker",
       "switch_right_panel", "switch_left_tab",
     ]);
     if (clientTools.has(toolName)) {

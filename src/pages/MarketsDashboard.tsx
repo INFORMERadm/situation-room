@@ -108,7 +108,10 @@ export default function MarketsDashboard() {
       displayName: c.display_name,
     }));
 
-  const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id, smitheryMcpServers);
+  const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id, smitheryMcpServers, {
+    addToTicker: data.addTickerSymbol,
+    removeFromTicker: data.removeTickerSymbol,
+  });
 
   useMessageNotifications({ userId: user?.id, chatSidebarOpen: platform.chatSidebarOpen });
 
@@ -161,11 +164,13 @@ export default function MarketsDashboard() {
     setRightPanelView: platform.setRightPanelView,
     setLeftTab: platform.setLeftTab,
     collapseChat: ai.collapse,
+    addToTicker: data.addTickerSymbol,
+    removeFromTicker: data.removeTickerSymbol,
   };
 
   const handleClientToolCall = useCallback(async (toolName: string, args: Record<string, unknown>) => {
     return execClientTool({ tool: toolName, params: args }, voicePlatformActions);
-  }, [data.selectSymbol, data.setChartTimeframe, platform.setChartType, platform.toggleIndicator, addToActiveWatchlist, removeFromActiveWatchlist, watchlists, setActiveWatchlistId, platform.setRightPanelView, platform.setLeftTab, ai.collapse]);
+  }, [data.selectSymbol, data.setChartTimeframe, platform.setChartType, platform.toggleIndicator, addToActiveWatchlist, removeFromActiveWatchlist, watchlists, setActiveWatchlistId, platform.setRightPanelView, platform.setLeftTab, ai.collapse, data.addTickerSymbol, data.removeTickerSymbol]);
 
   const handleConversationToggle = useCallback(async () => {
     if (isConversationActive()) {

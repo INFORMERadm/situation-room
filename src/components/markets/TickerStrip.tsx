@@ -27,12 +27,13 @@ export default function TickerStrip({ items, onSelect }: Props) {
     grouped[cat].push(item);
   }
 
-  const categoryOrder = ['index', 'commodity', 'forex', 'crypto'];
+  const categoryOrder = ['index', 'commodity', 'forex', 'crypto', 'custom'];
   const categoryLabels: Record<string, string> = {
     index: 'INDICES',
     commodity: 'COMMODITIES',
     forex: 'FOREX',
     crypto: 'CRYPTO',
+    custom: 'CUSTOM',
   };
 
   useEffect(() => {

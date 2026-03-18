@@ -106,6 +106,7 @@ export function useAIChat(
   setChartTimeframe: (tf: string) => void,
   userId?: string,
   mcpServers?: MCPServerInput[],
+  tickerActions?: { addToTicker: (symbol: string) => void; removeFromTicker: (symbol: string) => void },
 ): UseAIChatReturn {
   const platform = usePlatform();
   const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, activeWatchlist, watchlists, setActiveWatchlistId } = useWatchlist();
@@ -155,6 +156,8 @@ export function useAIChat(
     setRightPanelView: () => {},
     setLeftTab: () => {},
     collapseChat: () => {},
+    addToTicker: () => {},
+    removeFromTicker: () => {},
   });
   platformActionsRef.current = {
     selectSymbol: (s: string) => {
@@ -178,6 +181,8 @@ export function useAIChat(
     setRightPanelView: platform.setRightPanelView,
     setLeftTab: platform.setLeftTab,
     collapseChat: () => setIsExpanded(false),
+    addToTicker: tickerActions?.addToTicker ?? (() => {}),
+    removeFromTicker: tickerActions?.removeFromTicker ?? (() => {}),
   };
 
   const refreshSessions = useCallback(() => {

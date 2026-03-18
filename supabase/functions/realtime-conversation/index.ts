@@ -657,6 +657,8 @@ UI TOOLS:
 - toggle_indicator(indicator, enabled): sma20, sma50, sma100, sma200, ema12, ema26, bollinger, vwap, volume, rsi, macd
 - add_to_watchlist(symbol, name): ALWAYS pair with change_symbol
 - remove_from_watchlist(symbol)
+- add_to_ticker(symbol): Add a symbol to the scrolling ticker tape at the top of the screen
+- remove_from_ticker(symbol): Remove a symbol from the ticker tape
 - switch_right_panel(view): news, economic
 - switch_left_tab(tab): overview, gainers, losers, active`;
 
