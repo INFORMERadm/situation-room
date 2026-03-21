@@ -40,7 +40,7 @@ const iconBtnStyle = (active?: boolean): React.CSSProperties => ({
   background: 'none',
   border: 'none',
   cursor: 'pointer',
-  color: active ? '#ff9800' : '#777',
+  color: active ? '#fff' : '#777',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -53,7 +53,7 @@ const iconBtnStyle = (active?: boolean): React.CSSProperties => ({
 });
 
 const sendBtnStyle: React.CSSProperties = {
-  background: '#ff9800',
+  background: '#fff',
   border: 'none',
   cursor: 'pointer',
   color: '#000',

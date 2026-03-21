@@ -50,7 +50,7 @@ const addBtnStyle: React.CSSProperties = {
   background: '#1a1a1a',
   border: '1px solid #333',
   borderRadius: 4,
-  color: '#ff9800',
+  color: '#fff',
   cursor: 'pointer',
   fontSize: 14,
   fontWeight: 700,
@@ -197,7 +197,7 @@ function FeedItemCard({ item, feedType, highlighted }: { item: FeedItem; feedTyp
         <div style={{
           fontSize: 12,
           fontWeight: 600,
-          color: hovered ? '#ff9800' : '#afafaf',
+          color: hovered ? '#fff' : '#afafaf',
           lineHeight: 1.35,
           transition: 'color 0.15s',
         }}>
@@ -251,7 +251,7 @@ function FeedSourceHeader({ feed, onRemove, onRefresh }: { feed: NewsFeed; onRem
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: '#ff9800',
+        background: '#fff',
         flexShrink: 0,
       }} />
       <span style={{ fontSize: 10, fontWeight: 600, color: '#aaa', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -317,7 +317,7 @@ function FeedSourceChip({ feed, onRemove, onRefresh }: { feed: NewsFeed; onRemov
         width: 5,
         height: 5,
         borderRadius: '50%',
-        background: '#ff9800',
+        background: '#fff',
         flexShrink: 0,
       }} />
       <span style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -399,7 +399,7 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, alarmEna
                 cursor: 'pointer',
                 transition: 'all 0.15s',
                 padding: '2px 4px',
-                color: alarmEnabled ? '#ff9800' : '#555',
+                color: alarmEnabled ? '#fff' : '#555',
               }}
             >
               {alarmEnabled ? (
@@ -467,7 +467,7 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, alarmEna
                 background: '#1a1a1a',
                 border: '1px solid #333',
                 borderRadius: 4,
-                color: '#ff9800',
+                color: '#fff',
                 fontSize: 11,
                 fontWeight: 600,
                 cursor: 'pointer',

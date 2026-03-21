@@ -86,7 +86,7 @@ const checkboxRowStyle: React.CSSProperties = {
 const createBtnStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px',
-  background: '#ff9800',
+  background: '#fff',
   color: '#000',
   border: 'none',
   borderRadius: 6,
@@ -115,7 +115,7 @@ const avatarSmStyle: React.CSSProperties = {
   justifyContent: 'center',
   fontSize: 10,
   fontWeight: 700,
-  color: '#ff9800',
+  color: '#fff',
   flexShrink: 0,
 };
 
@@ -231,8 +231,8 @@ export default function CreateGroup({ onCreateGroup, onBack, searchUsers }: Prop
             width: 16,
             height: 16,
             borderRadius: 3,
-            border: `1px solid ${inviteAI ? '#ff9800' : '#555'}`,
-            background: inviteAI ? '#ff9800' : 'transparent',
+            border: `1px solid ${inviteAI ? '#fff' : '#555'}`,
+            background: inviteAI ? '#fff' : 'transparent',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

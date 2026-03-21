@@ -313,7 +313,7 @@ export default function ConversationThread({ conversation, userId, onBack, onDel
                 background: '#1a1a1a',
                 border: '1px solid #333',
                 borderRadius: 4,
-                color: '#ff9800',
+                color: '#fff',
                 fontSize: 10,
                 cursor: 'pointer',
               }}

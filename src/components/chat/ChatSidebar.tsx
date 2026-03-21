@@ -30,7 +30,7 @@ const titleBarStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
-  color: '#ff9800',
+  color: '#fff',
   letterSpacing: 0.5,
   textTransform: 'uppercase',
   flex: 1,
@@ -121,7 +121,7 @@ export default function ChatSidebar({ userId }: Props) {
       </div>
 
       {notifPermission === 'denied' && (
-        <div style={{ ...bannerStyle, background: '#1a1200', color: '#ff9800', borderLeft: '2px solid #ff9800' }}>
+        <div style={{ ...bannerStyle, background: '#1a1200', color: '#ccc', borderLeft: '2px solid #fff' }}>
           Notifications are blocked. Enable them in your browser site settings to receive message alerts.
         </div>
       )}

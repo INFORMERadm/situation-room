@@ -94,7 +94,7 @@ export default function MessageBubble({ message, isOwn, isNew, speakingId, onSpe
   const nameStyle: React.CSSProperties = {
     fontSize: 9,
     fontWeight: 700,
-    color: isAI ? '#bb86fc' : '#ff9800',
+    color: isAI ? '#bb86fc' : '#fff',
     marginBottom: 2,
     letterSpacing: 0.3,
     textTransform: 'uppercase',
@@ -168,7 +168,7 @@ export default function MessageBubble({ message, isOwn, isNew, speakingId, onSpe
               border: 'none',
               cursor: 'pointer',
               padding: 0,
-              color: speakingId === message.id ? '#ff9800' : '#555',
+              color: speakingId === message.id ? '#fff' : '#555',
               display: 'flex',
               alignItems: 'center',
             }}

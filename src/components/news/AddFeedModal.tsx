@@ -186,7 +186,7 @@ export default function AddFeedModal({ feedType, columnPosition, onAdd, onClose 
               disabled={saving}
               style={{
                 padding: '7px 16px',
-                background: saving ? '#1a1a1a' : '#ff9800',
+                background: saving ? '#1a1a1a' : '#fff',
                 border: 'none',
                 borderRadius: 4,
                 color: saving ? '#666' : '#000',

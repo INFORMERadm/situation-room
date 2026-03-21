@@ -43,7 +43,7 @@ const rowStyle = (isSelected: boolean): React.CSSProperties => ({
   padding: '10px 12px',
   cursor: 'pointer',
   background: isSelected ? '#141414' : 'transparent',
-  borderLeft: isSelected ? '2px solid #ff9800' : '2px solid transparent',
+  borderLeft: isSelected ? '2px solid #fff' : '2px solid transparent',
   transition: 'background 0.15s',
 });
 
@@ -58,7 +58,7 @@ const avatarStyle: React.CSSProperties = {
   justifyContent: 'center',
   fontSize: 12,
   fontWeight: 700,
-  color: '#ff9800',
+  color: '#fff',
   flexShrink: 0,
 };
 
@@ -66,7 +66,7 @@ const badgeStyle: React.CSSProperties = {
   minWidth: 16,
   height: 16,
   borderRadius: 8,
-  background: '#ff9800',
+  background: '#fff',
   color: '#000',
   fontSize: 9,
   fontWeight: 700,
@@ -123,7 +123,7 @@ export default function ConversationList({
           style={{
             background: 'none',
             border: 'none',
-            color: '#ff9800',
+            color: '#fff',
             cursor: 'pointer',
             padding: 4,
             display: 'flex',
@@ -142,7 +142,7 @@ export default function ConversationList({
           style={{
             background: 'none',
             border: 'none',
-            color: '#ff9800',
+            color: '#fff',
             cursor: 'pointer',
             padding: 4,
             display: 'flex',

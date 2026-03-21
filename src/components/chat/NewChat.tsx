@@ -56,7 +56,7 @@ const avatarStyle: React.CSSProperties = {
   justifyContent: 'center',
   fontSize: 12,
   fontWeight: 700,
-  color: '#ff9800',
+  color: '#fff',
   flexShrink: 0,
 };
 

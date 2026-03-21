@@ -125,7 +125,7 @@ export default function VoiceRoom({
         </svg>
       </button>
       <button
-        style={btnStyle(session?.ai_participant_enabled || false, '#ff9800')}
+        style={btnStyle(session?.ai_participant_enabled || false, '#fff')}
         onClick={onToggleAI}
         title={session?.ai_participant_enabled ? 'Remove AI from call' : 'Add AI to call'}
       >
