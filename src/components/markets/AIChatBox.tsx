@@ -1173,11 +1173,10 @@ export default function AIChatBox({
                         <div style={{
                           display: 'flex',
                           justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                          height: showActions ? 'auto' : 0,
-                          overflow: showActions ? 'visible' : 'hidden',
-                          transition: 'height 0.15s ease',
-                          marginTop: showActions ? 3 : 0,
+                          minHeight: 24,
+                          marginTop: 3,
                           position: 'relative',
+                          visibility: showActions ? 'visible' : 'hidden',
                         }}>
                           {showActions && (
                             <div style={{ display: 'inline-flex' }}>
