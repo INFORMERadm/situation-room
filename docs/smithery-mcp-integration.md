@@ -70,6 +70,7 @@ must use the **top-level Smithery registry qualified name**, NOT a scoped namesp
 | Gmail            | `google-gmail`    | `https://server.smithery.ai/gmail`            |
 | Google Calendar  | `google-calendar` | `https://server.smithery.ai/googlecalendar`   |
 | Google Drive     | `google-drive`    | `https://server.smithery.ai/googledrive`      |
+| Google Sheets    | `google-sheets`   | `https://server.smithery.ai/googlesheets`     |
 | Notion           | `notion`          | `https://server.smithery.ai/notion`           |
 | Slack            | `slack`           | `https://server.smithery.ai/slack`            |
 | GitHub           | `github`          | `https://server.smithery.ai/github`           |
