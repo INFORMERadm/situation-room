@@ -37,8 +37,6 @@ interface MCPServerConfig {
   config?: Record<string, unknown>;
 }
 
-type SessionConfig = Record<string, unknown>;
-
 interface ConversationSession {
   peerConnection: RTCPeerConnection;
   dataChannel: RTCDataChannel | null;
@@ -48,7 +46,6 @@ interface ConversationSession {
   handlers: ConversationEventHandlers;
   toolServerMap: Record<string, MCPServerConfig>;
   mcpServers: MCPServerConfig[];
-  sessionConfig: SessionConfig | null;
 }
 
 interface PendingToolCall {
@@ -253,35 +250,15 @@ export async function startConversationSession(
     handlers,
     toolServerMap: {},
     mcpServers,
-    sessionConfig: null,
   };
 
   const pendingToolCalls = new Map<string, PendingToolCall>();
   const completedToolCalls: CompletedToolCall[] = [];
   let currentResponseText = '';
   let isResponseActive = false;
-  let sessionUpdateSent = false;
-  let sessionCreatedReceived = false;
-
-  function trySendSessionUpdate() {
-    if (sessionUpdateSent) return;
-    if (!currentSession?.sessionConfig) return;
-    if (!currentSession.dataChannel || currentSession.dataChannel.readyState !== 'open') return;
-    if (!sessionCreatedReceived) return;
-
-    sessionUpdateSent = true;
-    currentSession.dataChannel.send(JSON.stringify({
-      type: 'session.update',
-      session: currentSession.sessionConfig,
-    }));
-  }
 
   dataChannel.onopen = () => {
     updateStatus('active');
-    trySendSessionUpdate();
-    setTimeout(() => {
-      if (!sessionUpdateSent) trySendSessionUpdate();
-    }, 2000);
   };
 
   dataChannel.onmessage = async (event) => {
@@ -290,8 +267,6 @@ export async function startConversationSession(
 
       switch (message.type) {
         case 'session.created':
-          sessionCreatedReceived = true;
-          trySendSessionUpdate();
           break;
 
         case 'session.updated':
@@ -423,7 +398,6 @@ export async function startConversationSession(
 
   let data: {
     sdp: string;
-    sessionConfig: SessionConfig;
     toolServerMap: Record<string, MCPServerConfig>;
     toolCount?: number;
   };
@@ -462,9 +436,6 @@ export async function startConversationSession(
   if (!currentSession) return;
 
   currentSession.toolServerMap = data.toolServerMap || {};
-  currentSession.sessionConfig = data.sessionConfig || null;
-
-  trySendSessionUpdate();
 
   try {
     await peerConnection.setRemoteDescription({

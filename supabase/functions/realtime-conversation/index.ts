@@ -680,13 +680,31 @@ UI TOOLS:
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }
 
-    const callSessionConfig = {
+    const callSessionConfig: Record<string, unknown> = {
       type: "realtime",
       model: "gpt-realtime-1.5",
+      instructions: fullInstructions,
+      output_modalities: ["audio"],
       audio: {
+        input: {
+          transcription: {
+            model: "gpt-4o-transcribe",
+          },
+          turn_detection: {
+            type: "server_vad",
+            threshold: 0.7,
+            prefix_padding_ms: 500,
+            silence_duration_ms: 700,
+          },
+        },
         output: { voice: "marin" },
       },
     };
+
+    if (realtimeTools.length > 0) {
+      callSessionConfig.tools = realtimeTools;
+      callSessionConfig.tool_choice = "auto";
+    }
 
     const formData = new FormData();
     formData.set("sdp", sdp);
@@ -710,38 +728,12 @@ UI TOOLS:
 
     const answerSdp = await sdpResponse.text();
 
-    const clientSessionConfig: Record<string, unknown> = {
-      type: "realtime",
-      instructions: fullInstructions,
-      output_modalities: ["audio"],
-      audio: {
-        input: {
-          transcription: {
-            model: "gpt-4o-transcribe",
-          },
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.7,
-            prefix_padding_ms: 500,
-            silence_duration_ms: 700,
-          },
-        },
-        output: { voice: "marin" },
-      },
-    };
-
-    if (realtimeTools.length > 0) {
-      clientSessionConfig.tools = realtimeTools;
-      clientSessionConfig.tool_choice = "auto";
-    }
-
-    console.log(`[realtime] Call config (minimal): ${JSON.stringify(callSessionConfig)}`);
-    console.log(`[realtime] Client session.update config keys: ${Object.keys(clientSessionConfig).join(', ')}`);
+    console.log(`[realtime] Call config keys: ${Object.keys(callSessionConfig).join(', ')}`);
+    console.log(`[realtime] Tools count: ${realtimeTools.length}`);
 
     return new Response(
       JSON.stringify({
         sdp: answerSdp,
-        sessionConfig: clientSessionConfig,
         toolServerMap,
         toolCount: realtimeTools.length,
         skippedServers,
