@@ -73,8 +73,8 @@ function parseRssXml(xml: string, feedId: string, source: string): FeedItem[] {
       const link = linkEl?.getAttribute('href') || linkEl?.textContent || '';
       const summary = entry.querySelector('summary')?.textContent || entry.querySelector('content')?.textContent || '';
       const published = entry.querySelector('published')?.textContent || entry.querySelector('updated')?.textContent || '';
-      const mediaGroup = entry.querySelector('group');
-      const thumbnail = mediaGroup?.querySelector('thumbnail')?.getAttribute('url') || undefined;
+      const mediaGroup = entry.querySelector('group') || entry.getElementsByTagName('media:group')[0];
+      const thumbnail = (mediaGroup?.querySelector('thumbnail') || mediaGroup?.getElementsByTagName('media:thumbnail')[0])?.getAttribute('url') || undefined;
 
       items.push({
         id: `${feedId}-${i}`,

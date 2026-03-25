@@ -282,9 +282,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const isYoutubeFeed = resolvedUrl.includes("youtube.com/feeds/");
     const res = await fetch(resolvedUrl, {
       headers: {
-        "User-Agent": "N4-RSS-Proxy/1.0",
+        "User-Agent": isYoutubeFeed
+          ? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+          : "N4-RSS-Proxy/1.0",
         Accept:
           "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
       },
