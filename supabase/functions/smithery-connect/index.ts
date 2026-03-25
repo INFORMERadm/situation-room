@@ -114,7 +114,7 @@ async function handleCreate(req: Request): Promise<Response> {
 
   const { data: serverRow } = await supabase
     .from("mcp_servers")
-    .select("api_key_name, requires_api_key")
+    .select("api_key_name, requires_api_key, smithery_config_key")
     .eq("base_url", mcpUrl)
     .eq("is_active", true)
     .maybeSingle();
@@ -123,8 +123,9 @@ async function handleCreate(req: Request): Promise<Response> {
   if (serverRow?.requires_api_key && serverRow.api_key_name) {
     const keyValue = userProvidedApiKey || Deno.env.get(serverRow.api_key_name);
     if (keyValue) {
-      serverHeaders[serverRow.api_key_name] = keyValue;
-      console.log(`[smithery-connect] Injecting server API key: ${serverRow.api_key_name}`);
+      const headerName = serverRow.smithery_config_key || serverRow.api_key_name;
+      serverHeaders[headerName] = keyValue;
+      console.log(`[smithery-connect] Injecting server API key as header: ${headerName}`);
     } else {
       return jsonResponse({ error: `API key required for ${displayName}. Please provide your ${serverRow.api_key_name}.` }, 400);
     }
