@@ -108,9 +108,27 @@ async function handleCreate(req: Request): Promise<Response> {
     .eq("mcp_url", mcpUrl)
     .limit(1);
 
-  const connectionId = existing && existing.length > 0
-    ? existing[0].smithery_connection_id
-    : `${user.id}-${Date.now()}`;
+  if (existing && existing.length > 0) {
+    try {
+      await fetch(
+        `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(existing[0].smithery_connection_id)}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${smitheryApiKey}` },
+        }
+      );
+      console.log("[smithery-connect] Deleted old connection for fresh recreation:", existing[0].smithery_connection_id);
+    } catch (e) {
+      console.warn("[smithery-connect] Old connection delete failed (non-fatal):", e);
+    }
+    await supabase
+      .from("user_smithery_connections")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("smithery_connection_id", existing[0].smithery_connection_id);
+  }
+
+  const connectionId = `${user.id}-${Date.now()}`;
 
   const { data: serverRow } = await supabase
     .from("mcp_servers")
