@@ -91,7 +91,7 @@ async function getNamespace(smithery: Smithery): Promise<string> {
 
 async function handleCreate(req: Request): Promise<Response> {
   const { user, supabase } = await authenticateUser(req);
-  const { mcpUrl, displayName } = await req.json();
+  const { mcpUrl, displayName, apiKey: userProvidedApiKey } = await req.json();
 
   if (!mcpUrl || !displayName) {
     return jsonResponse({ error: "mcpUrl and displayName are required" }, 400);
@@ -121,10 +121,12 @@ async function handleCreate(req: Request): Promise<Response> {
 
   const serverHeaders: Record<string, string> = {};
   if (serverRow?.requires_api_key && serverRow.api_key_name) {
-    const keyValue = Deno.env.get(serverRow.api_key_name);
+    const keyValue = userProvidedApiKey || Deno.env.get(serverRow.api_key_name);
     if (keyValue) {
       serverHeaders[serverRow.api_key_name] = keyValue;
       console.log(`[smithery-connect] Injecting server API key: ${serverRow.api_key_name}`);
+    } else {
+      return jsonResponse({ error: `API key required for ${displayName}. Please provide your ${serverRow.api_key_name}.` }, 400);
     }
   }
 

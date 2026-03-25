@@ -6,7 +6,7 @@ interface MCPConnectionsPanelProps {
   catalog: CatalogServer[];
   catalogLoading: boolean;
   connectionsLoading: boolean;
-  onConnectServer: (mcpUrl: string, displayName: string) => Promise<{
+  onConnectServer: (mcpUrl: string, displayName: string, apiKey?: string) => Promise<{
     success: boolean;
     status?: string;
     authorizationUrl?: string;
@@ -261,15 +261,158 @@ function ConnectionsList({
   );
 }
 
+function ApiKeyModal({
+  server,
+  onSubmit,
+  onCancel,
+}: {
+  server: CatalogServer;
+  onSubmit: (apiKey: string) => void;
+  onCancel: () => void;
+}) {
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (apiKey.trim()) onSubmit(apiKey.trim());
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.75)',
+      zIndex: 10001,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <form onSubmit={handleSubmit} style={{
+        width: 400,
+        maxWidth: '90vw',
+        background: '#111318',
+        border: '1px solid #1e2330',
+        borderRadius: 12,
+        padding: '24px',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <ServiceIcon slug={server.slug} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#f0f6fc' }}>
+              Connect {server.name}
+            </div>
+            <div style={{ fontSize: 11, color: '#484f58', marginTop: 2 }}>
+              An API key is required to use this service
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 10, color: '#8b949e', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
+            {server.api_key_name || 'API Key'}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Paste your API key here"
+              autoFocus
+              required
+              style={{
+                width: '100%',
+                padding: '10px 40px 10px 12px',
+                background: '#161b22',
+                border: '1px solid #2d333b',
+                borderRadius: 8,
+                color: '#f0f6fc',
+                fontSize: 13,
+                fontFamily: 'monospace',
+                outline: 'none',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.15s',
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#fb8c00'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#2d333b'}
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                color: '#484f58',
+                cursor: 'pointer',
+                padding: 4,
+                fontSize: 11,
+                fontFamily: 'inherit',
+              }}
+            >
+              {showKey ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              padding: '8px 16px',
+              background: 'transparent',
+              border: '1px solid #2d333b',
+              borderRadius: 6,
+              color: '#8b949e',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={!apiKey.trim()}
+            style={{
+              padding: '8px 16px',
+              background: apiKey.trim() ? '#fb8c00' : '#333',
+              border: 'none',
+              borderRadius: 6,
+              color: apiKey.trim() ? '#000' : '#666',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: apiKey.trim() ? 'pointer' : 'default',
+              fontFamily: 'inherit',
+            }}
+          >
+            Connect
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function CatalogList({
   catalog,
   connections,
   onConnect,
+  onConnectWithKey,
   isPollingAuth,
 }: {
   catalog: CatalogServer[];
   connections: SmitheryConnection[];
   onConnect: (server: CatalogServer) => void;
+  onConnectWithKey: (server: CatalogServer) => void;
   isPollingAuth: boolean;
 }) {
   const [connectingSlug, setConnectingSlug] = useState<string | null>(null);
@@ -277,6 +420,10 @@ function CatalogList({
   const connectionsByUrl = new Map(connections.map(c => [c.mcp_url, c]));
 
   const handleConnect = async (server: CatalogServer) => {
+    if (server.requires_api_key && !server.requires_oauth) {
+      onConnectWithKey(server);
+      return;
+    }
     setConnectingSlug(server.slug);
     await onConnect(server);
     if (!isPollingAuth) setConnectingSlug(null);
@@ -532,6 +679,7 @@ export default function MCPConnectionsPanel({
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [pollingConnectionId, setPollingConnectionId] = useState<string | null>(null);
+  const [apiKeyServer, setApiKeyServer] = useState<CatalogServer | null>(null);
 
   const startOAuthFlow = (authorizationUrl: string, connectionId: string) => {
     const w = 600;
@@ -583,11 +731,11 @@ export default function MCPConnectionsPanel({
     }, 2000);
   };
 
-  const handleCatalogConnect = async (server: CatalogServer) => {
+  const handleCatalogConnect = async (server: CatalogServer, apiKey?: string) => {
     setConnectError(null);
 
     const existing = connections.find(c => c.mcp_url === server.base_url && c.status === 'auth_required');
-    if (existing) {
+    if (existing && !apiKey) {
       const retryResult = await onRetry(existing.smithery_connection_id);
       if (retryResult.status === 'auth_required' && retryResult.authorizationUrl) {
         startOAuthFlow(retryResult.authorizationUrl, existing.smithery_connection_id);
@@ -596,7 +744,7 @@ export default function MCPConnectionsPanel({
       if (retryResult.status === 'connected') return;
     }
 
-    const result = await onConnectServer(server.base_url, server.name);
+    const result = await onConnectServer(server.base_url, server.name, apiKey);
     if (!result.success) {
       setConnectError(result.error || 'Connection failed');
       return;
@@ -608,6 +756,13 @@ export default function MCPConnectionsPanel({
         setConnectError('Authorization is required but no authorization URL was provided. Please try again.');
       }
     }
+  };
+
+  const handleApiKeySubmit = async (apiKey: string) => {
+    if (!apiKeyServer) return;
+    const server = apiKeyServer;
+    setApiKeyServer(null);
+    await handleCatalogConnect(server, apiKey);
   };
 
   const handleCustomConnect = async (url: string, name: string) => {
@@ -742,6 +897,7 @@ export default function MCPConnectionsPanel({
                 catalog={catalog}
                 connections={connections}
                 onConnect={handleCatalogConnect}
+                onConnectWithKey={(server) => setApiKeyServer(server)}
                 isPollingAuth={!!pollingConnectionId}
               />
             )
@@ -765,6 +921,13 @@ export default function MCPConnectionsPanel({
           )}
         </div>
       </div>
+      {apiKeyServer && (
+        <ApiKeyModal
+          server={apiKeyServer}
+          onSubmit={handleApiKeySubmit}
+          onCancel={() => setApiKeyServer(null)}
+        />
+      )}
     </div>
   );
 }

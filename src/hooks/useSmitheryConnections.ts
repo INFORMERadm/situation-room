@@ -107,7 +107,7 @@ export function useSmitheryConnections(userId: string | undefined) {
     fetchCatalog();
   }, [fetchConnections, fetchCatalog]);
 
-  const connectServer = useCallback(async (mcpUrl: string, displayName: string): Promise<{
+  const connectServer = useCallback(async (mcpUrl: string, displayName: string, apiKey?: string): Promise<{
     success: boolean;
     status?: string;
     authorizationUrl?: string;
@@ -118,13 +118,16 @@ export function useSmitheryConnections(userId: string | undefined) {
     if (!token) return { success: false, error: 'Not authenticated' };
 
     try {
+      const payload: Record<string, string> = { mcpUrl, displayName };
+      if (apiKey) payload.apiKey = apiKey;
+
       const res = await fetch(`${API_BASE}/smithery-connect?action=create`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ mcpUrl, displayName }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
