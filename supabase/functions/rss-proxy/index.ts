@@ -14,6 +14,14 @@ interface TelegramPost {
   images: string[];
 }
 
+interface YouTubeVideo {
+  videoId: string;
+  title: string;
+  published: string;
+  thumbnail: string;
+  description: string;
+}
+
 function parseTelegramHtml(html: string, channelUrl: string): TelegramPost[] {
   const posts: TelegramPost[] = [];
   const msgRegex = /<div class="tgme_widget_message_wrap[^"]*"[^>]*>[\s\S]*?<div class="tgme_widget_message[^"]*"[^>]*data-post="([^"]+)"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>\s*<\/div>/g;
@@ -103,90 +111,166 @@ async function fetchTelegramChannel(channelUrl: string): Promise<{ posts: Telegr
   return { posts: posts.slice(-50).reverse(), channelName };
 }
 
-async function resolveYoutubeUrl(feedUrl: string): Promise<string> {
-  const parsed = new URL(feedUrl);
-  if (
-    parsed.hostname !== "www.youtube.com" &&
-    parsed.hostname !== "youtube.com"
-  ) {
-    return feedUrl;
-  }
-
-  if (parsed.pathname.startsWith("/feeds/videos.xml")) {
-    return feedUrl;
-  }
-
-  const channelMatch = parsed.pathname.match(/^\/channel\/([a-zA-Z0-9_-]+)/);
-  if (channelMatch) {
-    return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelMatch[1]}`;
-  }
-
-  const handleMatch = parsed.pathname.match(/^\/@([a-zA-Z0-9_.-]+)/);
-  if (handleMatch) {
-    const handle = handleMatch[1];
-
-    try {
-      const oembedRes = await fetch(
-        `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/@${handle}`)}&format=json`,
-        { signal: AbortSignal.timeout(6000) }
-      );
-      if (oembedRes.ok) {
-        const oembed = await oembedRes.json();
-        const authorUrl: string = oembed.author_url || "";
-        const oembedChannelMatch = authorUrl.match(/\/channel\/(UC[a-zA-Z0-9_-]+)/);
-        if (oembedChannelMatch) {
-          return `https://www.youtube.com/feeds/videos.xml?channel_id=${oembedChannelMatch[1]}`;
-        }
-      }
-    } catch {
-      // fall through to page scrape
+function resolveYoutubeHandle(feedUrl: string): string | null {
+  try {
+    const parsed = new URL(feedUrl);
+    if (
+      parsed.hostname !== "www.youtube.com" &&
+      parsed.hostname !== "youtube.com"
+    ) {
+      return null;
     }
 
-    try {
-      const pageRes = await fetch(`https://www.youtube.com/@${handle}`, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          Accept: "text/html,application/xhtml+xml",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-        signal: AbortSignal.timeout(8000),
-        redirect: "follow",
+    const feedsMatch = parsed.pathname.match(/^\/feeds\/videos\.xml/);
+    if (feedsMatch) {
+      const channelId = parsed.searchParams.get("channel_id");
+      if (channelId) return channelId;
+    }
+
+    const channelMatch = parsed.pathname.match(/^\/channel\/([a-zA-Z0-9_-]+)/);
+    if (channelMatch) return channelMatch[1];
+
+    const handleMatch = parsed.pathname.match(/^\/@([a-zA-Z0-9_.-]+)/);
+    if (handleMatch) return `@${handleMatch[1]}`;
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchYoutubeChannel(channelIdentifier: string): Promise<YouTubeVideo[]> {
+  let pageUrl: string;
+  if (channelIdentifier.startsWith("@")) {
+    pageUrl = `https://www.youtube.com/${channelIdentifier}/videos`;
+  } else if (channelIdentifier.startsWith("UC")) {
+    pageUrl = `https://www.youtube.com/channel/${channelIdentifier}/videos`;
+  } else {
+    pageUrl = `https://www.youtube.com/channel/${channelIdentifier}/videos`;
+  }
+
+  const res = await fetch(pageUrl, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+    signal: AbortSignal.timeout(12000),
+    redirect: "follow",
+  });
+
+  if (!res.ok) {
+    throw new Error(`YouTube returned ${res.status}`);
+  }
+
+  const html = await res.text();
+
+  const dataMatch = html.match(/var ytInitialData\s*=\s*({.+?});\s*<\/script>/s);
+  if (!dataMatch) {
+    throw new Error("Could not find ytInitialData on YouTube page");
+  }
+
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(dataMatch[1]);
+  } catch {
+    throw new Error("Failed to parse ytInitialData JSON");
+  }
+
+  const videos: YouTubeVideo[] = [];
+
+  const tabs = (
+    (data.contents as Record<string, unknown>)?.twoColumnBrowseResultsRenderer as Record<string, unknown>
+  )?.tabs as Array<Record<string, unknown>> | undefined;
+
+  if (!tabs) return videos;
+
+  for (const tab of tabs) {
+    const tabRenderer = tab.tabRenderer as Record<string, unknown> | undefined;
+    if (!tabRenderer || tabRenderer.title !== "Videos") continue;
+
+    const richGrid = (tabRenderer.content as Record<string, unknown>)
+      ?.richGridRenderer as Record<string, unknown> | undefined;
+    if (!richGrid) continue;
+
+    const contents = richGrid.contents as Array<Record<string, unknown>> | undefined;
+    if (!contents) continue;
+
+    for (const item of contents) {
+      const richItem = item.richItemRenderer as Record<string, unknown> | undefined;
+      if (!richItem) continue;
+
+      const vr = (richItem.content as Record<string, unknown>)
+        ?.videoRenderer as Record<string, unknown> | undefined;
+      if (!vr) continue;
+
+      const videoId = vr.videoId as string || "";
+      if (!videoId) continue;
+
+      const titleRuns = (vr.title as Record<string, unknown>)?.runs as Array<Record<string, string>> | undefined;
+      const title = titleRuns?.[0]?.text || "";
+
+      const publishedText = (vr.publishedTimeText as Record<string, string>)?.simpleText || "";
+
+      const thumbnails = (vr.thumbnail as Record<string, unknown>)
+        ?.thumbnails as Array<Record<string, unknown>> | undefined;
+      const thumbnail = thumbnails?.length
+        ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+        : "";
+
+      const descSnippet = (vr.descriptionSnippet as Record<string, unknown>)
+        ?.runs as Array<Record<string, string>> | undefined;
+      const description = descSnippet?.map(r => r.text).join("") || "";
+
+      videos.push({
+        videoId,
+        title,
+        published: publishedText,
+        thumbnail,
+        description,
       });
 
-      if (pageRes.ok) {
-        const html = await pageRes.text();
-
-        const patterns = [
-          /"channelId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
-          /"externalId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
-          /"browseId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
-          /channel_id=(UC[a-zA-Z0-9_-]+)/,
-          /<link[^>]+rel="canonical"[^>]+href="https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]+)"/,
-          /<meta[^>]+itemprop="channelId"[^>]+content="(UC[a-zA-Z0-9_-]+)"/,
-          /<meta[^>]+content="https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]+)"/,
-        ];
-
-        for (const pattern of patterns) {
-          const m = html.match(pattern);
-          if (m) {
-            return `https://www.youtube.com/feeds/videos.xml?channel_id=${m[1]}`;
-          }
-        }
-
-        const rssLinkMatch = html.match(
-          /<link[^>]+type="application\/rss\+xml"[^>]+href="([^"]+)"/
-        );
-        if (rssLinkMatch) {
-          return rssLinkMatch[1];
-        }
-      }
-    } catch {
-      // fall through
+      if (videos.length >= 30) break;
     }
+    break;
   }
 
-  return feedUrl;
+  return videos;
+}
+
+async function resolveHandleToChannelId(handle: string): Promise<string | null> {
+  try {
+    const pageRes = await fetch(`https://www.youtube.com/@${handle}`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      signal: AbortSignal.timeout(8000),
+      redirect: "follow",
+    });
+
+    if (!pageRes.ok) return null;
+    const html = await pageRes.text();
+
+    const patterns = [
+      /"channelId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
+      /"externalId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
+      /"browseId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
+      /channel_id=(UC[a-zA-Z0-9_-]+)/,
+      /<meta[^>]+itemprop="channelId"[^>]+content="(UC[a-zA-Z0-9_-]+)"/,
+    ];
+
+    for (const pattern of patterns) {
+      const m = html.match(pattern);
+      if (m) return m[1];
+    }
+  } catch {
+    // fall through
+  }
+  return null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -206,13 +290,47 @@ Deno.serve(async (req: Request) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const resolved = await resolveYoutubeUrl(`https://www.youtube.com/@${handle}`);
-      const isResolved = resolved.includes("/feeds/videos.xml");
+      const channelId = await resolveHandleToChannelId(handle);
+      const feedUrl = channelId
+        ? `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
+        : null;
       return new Response(
-        JSON.stringify({ feedUrl: isResolved ? resolved : null }),
+        JSON.stringify({ feedUrl, channelId }),
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const isYoutube = url.searchParams.get("youtube") === "true";
+    if (isYoutube) {
+      const feedUrl = url.searchParams.get("url") || "";
+      if (!feedUrl) {
+        return new Response(
+          JSON.stringify({ error: "Missing url parameter" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const channelIdentifier = resolveYoutubeHandle(feedUrl);
+      if (!channelIdentifier) {
+        return new Response(
+          JSON.stringify({ error: "Could not identify YouTube channel from URL" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const videos = await fetchYoutubeChannel(channelIdentifier);
+      return new Response(
+        JSON.stringify({ videos }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=600",
+          },
         }
       );
     }
@@ -269,27 +387,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const resolvedUrl = await resolveYoutubeUrl(feedUrl);
-
-    const resolvedParsed = new URL(resolvedUrl);
-    const isYoutubeHandle = (resolvedParsed.hostname === "www.youtube.com" || resolvedParsed.hostname === "youtube.com")
-      && resolvedParsed.pathname.startsWith("/@");
-    if (isYoutubeHandle) {
-      return new Response(
-        JSON.stringify({ error: "Could not resolve YouTube channel to RSS feed" }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const isYoutubeFeed = resolvedUrl.includes("youtube.com/feeds/");
-    const res = await fetch(resolvedUrl, {
+    const res = await fetch(feedUrl, {
       headers: {
-        "User-Agent": isYoutubeFeed
-          ? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-          : "N4-RSS-Proxy/1.0",
+        "User-Agent": "N4-RSS-Proxy/1.0",
         Accept:
           "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
       },

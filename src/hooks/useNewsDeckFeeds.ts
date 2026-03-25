@@ -38,6 +38,25 @@ interface UseNewsDeckFeedsReturn {
   refreshFeedItems: (feedId: string) => Promise<void>;
 }
 
+function parseRelativeDate(text: string): string {
+  if (!text) return new Date().toISOString();
+  const now = Date.now();
+  const match = text.match(/(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago/i);
+  if (!match) return new Date().toISOString();
+  const num = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  const ms: Record<string, number> = {
+    second: 1000,
+    minute: 60000,
+    hour: 3600000,
+    day: 86400000,
+    week: 604800000,
+    month: 2592000000,
+    year: 31536000000,
+  };
+  return new Date(now - num * (ms[unit] || 0)).toISOString();
+}
+
 function parseRssXml(xml: string, feedId: string, source: string): FeedItem[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
@@ -218,13 +237,23 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
 
   const fetchYoutubeFeed = useCallback(async (feed: NewsFeed) => {
     try {
-      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rss-proxy?url=${encodeURIComponent(feed.url)}`;
+      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rss-proxy?youtube=true&url=${encodeURIComponent(feed.url)}`;
       const res = await fetch(proxyUrl, {
         headers: { 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
       });
       if (!res.ok) return [];
-      const xml = await res.text();
-      return parseRssXml(xml, feed.id, feed.display_name);
+      const json = await res.json();
+      const videos: { videoId: string; title: string; published: string; thumbnail: string; description: string }[] = json.videos || [];
+      return videos.map((v, i) => ({
+        id: `${feed.id}-${v.videoId || i}`,
+        feedId: feed.id,
+        title: v.title || 'YouTube Video',
+        url: `https://www.youtube.com/watch?v=${v.videoId}`,
+        description: v.description || '',
+        publishedAt: parseRelativeDate(v.published),
+        thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+        source: feed.display_name,
+      }));
     } catch {
       return [];
     }
