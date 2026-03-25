@@ -69,12 +69,37 @@ function parseRssXml(xml: string, feedId: string, source: string): FeedItem[] {
     const entries = doc.querySelectorAll('entry');
     entries.forEach((entry, i) => {
       const title = entry.querySelector('title')?.textContent || '';
-      const linkEl = entry.querySelector('link');
-      const link = linkEl?.getAttribute('href') || linkEl?.textContent || '';
+
+      const linkEls = entry.querySelectorAll('link');
+      let link = '';
+      for (let j = 0; j < linkEls.length; j++) {
+        const rel = linkEls[j].getAttribute('rel');
+        if (rel === 'alternate' || (!rel && !link)) {
+          link = linkEls[j].getAttribute('href') || linkEls[j].textContent || '';
+          if (rel === 'alternate') break;
+        }
+      }
+      if (!link && linkEls.length > 0) {
+        link = linkEls[0].getAttribute('href') || linkEls[0].textContent || '';
+      }
+
       const summary = entry.querySelector('summary')?.textContent || entry.querySelector('content')?.textContent || '';
       const published = entry.querySelector('published')?.textContent || entry.querySelector('updated')?.textContent || '';
-      const mediaGroup = entry.querySelector('group') || entry.getElementsByTagName('media:group')[0];
-      const thumbnail = (mediaGroup?.querySelector('thumbnail') || mediaGroup?.getElementsByTagName('media:thumbnail')[0])?.getAttribute('url') || undefined;
+
+      const mediaGroup = entry.getElementsByTagName('media:group')[0]
+        || entry.querySelector('group');
+      let thumbnail: string | undefined;
+      if (mediaGroup) {
+        const thumbEl = mediaGroup.getElementsByTagName('media:thumbnail')[0]
+          || mediaGroup.querySelector('thumbnail');
+        thumbnail = thumbEl?.getAttribute('url') || undefined;
+      }
+      if (!thumbnail) {
+        const ytVideoId = link.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+        if (ytVideoId) {
+          thumbnail = `https://i.ytimg.com/vi/${ytVideoId[1]}/hqdefault.jpg`;
+        }
+      }
 
       items.push({
         id: `${feedId}-${i}`,

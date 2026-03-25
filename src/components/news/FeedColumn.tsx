@@ -374,7 +374,8 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, alarmEna
     : [];
 
   const hasAnyMergedItems = mergedItems.length > 0;
-  const mergedLoading = isMergedType && feeds.length > 0 && !hasAnyMergedItems;
+  const allFeedsAttempted = isMergedType && feeds.every(f => feedItems[f.id] !== undefined);
+  const mergedLoading = isMergedType && feeds.length > 0 && !hasAnyMergedItems && !allFeedsAttempted;
 
   return (
     <div style={columnStyle}>
@@ -480,6 +481,10 @@ export default function FeedColumn({ title, feedType, feeds, feedItems, alarmEna
           mergedLoading ? (
             <div style={{ padding: '12px', fontSize: 11, color: '#666', textAlign: 'center' }}>
               Loading feeds...
+            </div>
+          ) : mergedItems.length === 0 ? (
+            <div style={{ padding: '24px 12px', fontSize: 11, color: '#555', textAlign: 'center' }}>
+              No items found. Try refreshing or check your feed URLs.
             </div>
           ) : (
             mergedItems.map(item => <FeedItemCard key={item.id} item={item} feedType={feedType} highlighted={highlightedPostIds?.has(item.id)} />)

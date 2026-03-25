@@ -158,10 +158,12 @@ async function resolveYoutubeUrl(feedUrl: string): Promise<string> {
         const html = await pageRes.text();
 
         const patterns = [
+          /"channelId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
           /"externalId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
           /"browseId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/,
           /channel_id=(UC[a-zA-Z0-9_-]+)/,
           /<link[^>]+rel="canonical"[^>]+href="https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]+)"/,
+          /<meta[^>]+itemprop="channelId"[^>]+content="(UC[a-zA-Z0-9_-]+)"/,
           /<meta[^>]+content="https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]+)"/,
         ];
 
