@@ -197,6 +197,7 @@ export default function MarketsDashboard() {
                 headers: {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${userToken}`,
+                  'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
                 },
               }
             );

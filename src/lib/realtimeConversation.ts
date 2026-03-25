@@ -115,6 +115,7 @@ async function executeToolCall(
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${sessionAuthToken}`,
+        'apikey': SUPABASE_KEY,
       },
       body: JSON.stringify({ toolName, arguments: args, server }),
     });
@@ -433,6 +434,7 @@ export async function startConversationSession(
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${sessionAuthToken}`,
+        'apikey': SUPABASE_KEY,
       },
       body: JSON.stringify({
         sdp: offer.sdp,
