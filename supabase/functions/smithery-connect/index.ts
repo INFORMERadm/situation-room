@@ -112,7 +112,32 @@ async function handleCreate(req: Request): Promise<Response> {
     ? existing[0].smithery_connection_id
     : `${user.id}-${Date.now()}`;
 
+  const { data: serverRow } = await supabase
+    .from("mcp_servers")
+    .select("api_key_name, requires_api_key")
+    .eq("base_url", mcpUrl)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const serverHeaders: Record<string, string> = {};
+  if (serverRow?.requires_api_key && serverRow.api_key_name) {
+    const keyValue = Deno.env.get(serverRow.api_key_name);
+    if (keyValue) {
+      serverHeaders[serverRow.api_key_name] = keyValue;
+      console.log(`[smithery-connect] Injecting server API key: ${serverRow.api_key_name}`);
+    }
+  }
+
   console.log("[smithery-connect] Creating connection:", JSON.stringify({ namespace, connectionId, mcpUrl, displayName }));
+
+  const createBody: Record<string, unknown> = {
+    mcpUrl,
+    name: displayName,
+    metadata: { userId: user.id },
+  };
+  if (Object.keys(serverHeaders).length > 0) {
+    createBody.headers = serverHeaders;
+  }
 
   const createRes = await fetch(
     `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(connectionId)}`,
@@ -122,16 +147,12 @@ async function handleCreate(req: Request): Promise<Response> {
         Authorization: `Bearer ${smitheryApiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        mcpUrl,
-        name: displayName,
-        metadata: { userId: user.id },
-      }),
+      body: JSON.stringify(createBody),
     }
   );
 
-  const createBody = await createRes.text();
-  console.log("[smithery-connect] Smithery PUT response:", createRes.status, createBody);
+  const createResponseText = await createRes.text();
+  console.log("[smithery-connect] Smithery PUT response:", createRes.status, createResponseText);
 
   if (!createRes.ok) {
     if (createRes.status === 409) {
@@ -146,6 +167,14 @@ async function handleCreate(req: Request): Promise<Response> {
       } catch { /* ignore */ }
 
       const newConnectionId = `${user.id}-${Date.now()}`;
+      const retryBody: Record<string, unknown> = {
+        mcpUrl,
+        name: displayName,
+        metadata: { userId: user.id },
+      };
+      if (Object.keys(serverHeaders).length > 0) {
+        retryBody.headers = serverHeaders;
+      }
       const retryRes = await fetch(
         `https://api.smithery.ai/connect/${encodeURIComponent(namespace)}/${encodeURIComponent(newConnectionId)}`,
         {
@@ -154,11 +183,7 @@ async function handleCreate(req: Request): Promise<Response> {
             Authorization: `Bearer ${smitheryApiKey}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            mcpUrl,
-            name: displayName,
-            metadata: { userId: user.id },
-          }),
+          body: JSON.stringify(retryBody),
         }
       );
 
@@ -192,10 +217,10 @@ async function handleCreate(req: Request): Promise<Response> {
       });
     }
 
-    return jsonResponse({ error: `Smithery API error (${createRes.status}): ${createBody}` }, 500);
+    return jsonResponse({ error: `Smithery API error (${createRes.status}): ${createResponseText}` }, 500);
   }
 
-  const conn = JSON.parse(createBody);
+  const conn = JSON.parse(createResponseText);
   const parsed = parseConnectionStatus(conn);
   let status = parsed.status;
   let authorizationUrl = parsed.authorizationUrl;
