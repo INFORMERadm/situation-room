@@ -237,8 +237,6 @@ export async function startConversationSession(
     peerConnection.addTrack(track, mediaStream);
   });
 
-  peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
-
   const dataChannel = peerConnection.createDataChannel('oai-events', { ordered: true });
 
   currentSession = {
