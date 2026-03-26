@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { usePlatform } from '../context/PlatformContext';
 import type { Workspace } from '../context/PlatformContext';
 
-type Mode = 'markets' | 'news' | 'pa' | 'law' | 'flights' | 'chat' | 'mail';
+type Mode = 'markets' | 'news' | 'pa' | 'law' | 'flights' | 'chat' | 'mail' | 'alerts';
 
 const WORKSPACE_MODES: Set<string> = new Set(['markets', 'news', 'pa', 'law', 'flights']);
 
@@ -14,6 +14,7 @@ const MODES: { key: Mode; label: string }[] = [
   { key: 'flights', label: 'War Map' },
   { key: 'chat', label: 'Chat' },
   { key: 'mail', label: 'Mail' },
+  { key: 'alerts', label: 'Alerts' },
 ];
 
 function MarketsIcon({ active }: { active: boolean }) {
@@ -87,6 +88,15 @@ function MailIcon({ active }: { active: boolean }) {
   );
 }
 
+function AlertsIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? '#ffffff' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+
 const ICON_MAP: Record<Mode, (props: { active: boolean }) => JSX.Element> = {
   markets: MarketsIcon,
   news: NewsIcon,
@@ -95,6 +105,7 @@ const ICON_MAP: Record<Mode, (props: { active: boolean }) => JSX.Element> = {
   flights: FlightsIcon,
   chat: ChatIcon,
   mail: MailIcon,
+  alerts: AlertsIcon,
 };
 
 export default function ModeSidebar() {
@@ -104,6 +115,8 @@ export default function ModeSidebar() {
   const handleModeClick = (mode: Mode) => {
     if (mode === 'chat') {
       platform.toggleChatSidebar();
+    } else if (mode === 'alerts') {
+      platform.toggleAlertsPanel();
     } else if (mode === 'mail') {
       // mail not yet implemented
     } else if (WORKSPACE_MODES.has(mode)) {
@@ -124,7 +137,7 @@ export default function ModeSidebar() {
     }}>
       {MODES.map(m => {
         const Icon = ICON_MAP[m.key];
-        const isActive = m.key === 'chat' ? platform.chatSidebarOpen : WORKSPACE_MODES.has(m.key) ? platform.activeWorkspace === m.key : false;
+        const isActive = m.key === 'chat' ? platform.chatSidebarOpen : m.key === 'alerts' ? platform.alertsPanelOpen : WORKSPACE_MODES.has(m.key) ? platform.activeWorkspace === m.key : false;
         const isHovered = hoveredMode === m.key;
         return (
           <>{m.key === 'chat' && (

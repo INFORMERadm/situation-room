@@ -177,6 +177,16 @@ function resolveWorkspace(name: string): { id: string; label: string } | null {
   return null;
 }
 
+export interface CreateAlertParams {
+  alert_type: 'keyword' | 'price';
+  name: string;
+  keywords?: string[];
+  symbol?: string;
+  price_condition?: 'above' | 'below';
+  price_target?: number;
+  natural_language_query?: string;
+}
+
 export interface PlatformActions {
   selectSymbol: (symbol: string) => void;
   setChartTimeframe: (tf: string) => void;
@@ -194,6 +204,7 @@ export interface PlatformActions {
   addClock: (label: string, zone: string) => void;
   removeClock: (zone: string) => void;
   setActiveWorkspace: (ws: Workspace) => void;
+  createAlert: (params: CreateAlertParams) => Promise<string>;
 }
 
 export async function executeToolCall(tc: ToolCall, actions: PlatformActions): Promise<string> {
@@ -325,6 +336,28 @@ export async function executeToolCall(tc: ToolCall, actions: PlatformActions): P
         return `Unknown workspace: ${name}. Available: Markets, News, PA, Law, War Map`;
       }
       return 'Missing workspace name';
+    }
+    case 'create_alert': {
+      const alertType = (tc.params.alert_type as string) || 'keyword';
+      const name = (tc.params.name as string) || '';
+      const keywords = (tc.params.keywords as string[]) || [];
+      const symbol = (tc.params.symbol as string) || undefined;
+      const priceCondition = (tc.params.price_condition as 'above' | 'below') || undefined;
+      const priceTarget = tc.params.price_target as number | undefined;
+      const nlQuery = (tc.params.natural_language_query as string) || undefined;
+
+      if (alertType === 'keyword' && keywords.length === 0) return 'Missing keywords for keyword alert';
+      if (alertType === 'price' && (!symbol || priceTarget === undefined)) return 'Missing symbol or price_target for price alert';
+
+      return actions.createAlert({
+        alert_type: alertType as 'keyword' | 'price',
+        name: name || (alertType === 'keyword' ? keywords.slice(0, 3).join(', ') : `${symbol} ${priceCondition} $${priceTarget}`),
+        keywords: alertType === 'keyword' ? keywords : undefined,
+        symbol: alertType === 'price' ? symbol : undefined,
+        price_condition: alertType === 'price' ? priceCondition : undefined,
+        price_target: alertType === 'price' ? priceTarget : undefined,
+        natural_language_query: nlQuery,
+      });
     }
     case 'fetch_fmp_data':
       return '';

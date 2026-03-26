@@ -107,6 +107,7 @@ export function useAIChat(
   userId?: string,
   mcpServers?: MCPServerInput[],
   tickerActions?: { addToTicker: (symbol: string) => void; removeFromTicker: (symbol: string) => void },
+  alertActions?: { createAlert: (params: { alert_type: 'keyword' | 'price'; name: string; keywords?: string[]; symbol?: string; price_condition?: 'above' | 'below'; price_target?: number; natural_language_query?: string }) => Promise<unknown> },
 ): UseAIChatReturn {
   const platform = usePlatform();
   const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, activeWatchlist, watchlists, setActiveWatchlistId } = useWatchlist();
@@ -161,6 +162,7 @@ export function useAIChat(
     addClock: () => {},
     removeClock: () => {},
     setActiveWorkspace: () => {},
+    createAlert: async () => 'Alert creation not available',
   });
   platformActionsRef.current = {
     selectSymbol: (s: string) => {
@@ -189,6 +191,13 @@ export function useAIChat(
     addClock: platform.addClock,
     removeClock: platform.removeClock,
     setActiveWorkspace: platform.setActiveWorkspace,
+    createAlert: alertActions?.createAlert
+      ? async (params) => {
+          const result = await alertActions.createAlert(params);
+          if (result) return `Alert created: "${params.name}"`;
+          return 'Failed to create alert';
+        }
+      : async () => 'Alert creation not available',
   };
 
   const refreshSessions = useCallback(() => {

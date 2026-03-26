@@ -53,6 +53,7 @@ export interface PlatformState {
   rightPanelView: 'news' | 'economic' | 'earnings';
   leftTab: string;
   chatSidebarOpen: boolean;
+  alertsPanelOpen: boolean;
   setActiveWorkspace: (ws: Workspace) => void;
   setChartType: (type: string) => void;
   toggleIndicator: (id: string, enabled?: boolean) => void;
@@ -67,6 +68,8 @@ export interface PlatformState {
   setLeftTab: (tab: string) => void;
   setChatSidebarOpen: (open: boolean) => void;
   toggleChatSidebar: () => void;
+  setAlertsPanelOpen: (open: boolean) => void;
+  toggleAlertsPanel: () => void;
 }
 
 const PlatformContext = createContext<PlatformState | null>(null);
@@ -101,9 +104,14 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [leftTab, setLeftTab] = useState('overview');
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace>('markets');
   const [chatSidebarOpen, setChatSidebarOpen] = useState(false);
+  const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
 
   const toggleChatSidebar = useCallback(() => {
     setChatSidebarOpen(prev => !prev);
+  }, []);
+
+  const toggleAlertsPanel = useCallback(() => {
+    setAlertsPanelOpen(prev => !prev);
   }, []);
 
   const watchlistRef = useRef(watchlist);
@@ -180,6 +188,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     rightPanelView,
     leftTab,
     chatSidebarOpen,
+    alertsPanelOpen,
     setActiveWorkspace,
     setChartType,
     toggleIndicator,
@@ -194,6 +203,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setLeftTab,
     setChatSidebarOpen,
     toggleChatSidebar,
+    setAlertsPanelOpen,
+    toggleAlertsPanel,
   };
 
   return (

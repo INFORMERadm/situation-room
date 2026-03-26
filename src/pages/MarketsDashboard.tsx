@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
 import TickerStrip from '../components/markets/TickerStrip';
 import MarketSearch from '../components/markets/MarketSearch';
@@ -15,11 +15,13 @@ import ChatSidebar from '../components/chat/ChatSidebar';
 import MCPConnectionsPanel from '../components/MCPConnectionsPanel';
 import NewsDeckPanel from '../components/news/NewsDeckPanel';
 import FlightsDashboard from '../components/flights/FlightsDashboard';
+import AlertsPanel from '../components/AlertsPanel';
 import { useMarketsDashboard } from '../hooks/useMarketsDashboard';
 import { useAIChat } from '../hooks/useAIChat';
 import { useSmitheryConnections } from '../hooks/useSmitheryConnections';
 import { useMessageNotifications } from '../hooks/useMessageNotifications';
 import { useNewsDeckFeeds } from '../hooks/useNewsDeckFeeds';
+import { useAlerts } from '../hooks/useAlerts';
 import { usePlatform } from '../context/PlatformContext';
 import { useAuth } from '../context/AuthContext';
 import { useWatchlist } from '../context/WatchlistContext';
@@ -108,14 +110,25 @@ export default function MarketsDashboard() {
       displayName: c.display_name,
     }));
 
-  const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id, smitheryMcpServers, {
-    addToTicker: data.addTickerSymbol,
-    removeFromTicker: data.removeTickerSymbol,
-  });
-
   useMessageNotifications({ userId: user?.id, chatSidebarOpen: platform.chatSidebarOpen });
 
   const newsDeck = useNewsDeckFeeds(user?.id);
+
+  const quotesMap = useMemo(() => {
+    const map: Record<string, { price: number }> = {};
+    data.overview.forEach(item => { map[item.symbol] = { price: item.price }; });
+    if (data.quote) map[data.quote.symbol] = { price: data.quote.price };
+    return map;
+  }, [data.overview, data.quote]);
+
+  const alertsHook = useAlerts(user?.id, data.news, newsDeck.feedItems, quotesMap);
+
+  const ai = useAIChat(data.selectSymbol, data.setChartTimeframe, user?.id, smitheryMcpServers, {
+    addToTicker: data.addTickerSymbol,
+    removeFromTicker: data.removeTickerSymbol,
+  }, {
+    createAlert: alertsHook.addAlert,
+  });
 
   const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, watchlists, setActiveWatchlistId } = useWatchlist();
 
@@ -169,11 +182,16 @@ export default function MarketsDashboard() {
     addClock: platform.addClock,
     removeClock: platform.removeClock,
     setActiveWorkspace: platform.setActiveWorkspace,
+    createAlert: async (params) => {
+      const result = await alertsHook.addAlert(params);
+      if (result) return `Alert created: "${result.name}"`;
+      return 'Failed to create alert';
+    },
   };
 
   const handleClientToolCall = useCallback(async (toolName: string, args: Record<string, unknown>) => {
     return execClientTool({ tool: toolName, params: args }, voicePlatformActions);
-  }, [data.selectSymbol, data.setChartTimeframe, platform.setChartType, platform.toggleIndicator, addToActiveWatchlist, removeFromActiveWatchlist, watchlists, setActiveWatchlistId, platform.setRightPanelView, platform.setLeftTab, ai.collapse, data.addTickerSymbol, data.removeTickerSymbol, platform.addClock, platform.removeClock, platform.setActiveWorkspace]);
+  }, [data.selectSymbol, data.setChartTimeframe, platform.setChartType, platform.toggleIndicator, addToActiveWatchlist, removeFromActiveWatchlist, watchlists, setActiveWatchlistId, platform.setRightPanelView, platform.setLeftTab, ai.collapse, data.addTickerSymbol, data.removeTickerSymbol, platform.addClock, platform.removeClock, platform.setActiveWorkspace, alertsHook.addAlert]);
 
   const handleConversationToggle = useCallback(async () => {
     if (isConversationActive()) {
@@ -466,6 +484,20 @@ export default function MarketsDashboard() {
           onRemove={smithery.removeConnection}
           onRetry={smithery.retryConnection}
           onClose={() => setShowMCPPanel(false)}
+        />
+      )}
+
+      {platform.alertsPanelOpen && (
+        <AlertsPanel
+          alerts={alertsHook.alerts}
+          loading={alertsHook.loading}
+          onAdd={alertsHook.addAlert}
+          onToggle={alertsHook.toggleAlert}
+          onDelete={alertsHook.deleteAlert}
+          onClose={() => platform.setAlertsPanelOpen(false)}
+          onAIParse={(text) => {
+            ai.sendMessage(`Create an alert based on this request. Use the create_alert tool to set it up. Request: "${text}"`);
+          }}
         />
       )}
     </div>

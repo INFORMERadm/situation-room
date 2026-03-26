@@ -99,3 +99,36 @@ export function playChatNotification() {
     osc.stop(start + 0.16);
   });
 }
+
+export function playAlertNotification() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+
+  for (let rep = 0; rep < 2; rep++) {
+    const baseTime = now + rep * 0.3;
+
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.type = 'triangle';
+    osc1.frequency.value = 988;
+    gain1.gain.setValueAtTime(0.14, baseTime);
+    gain1.gain.exponentialRampToValueAtTime(0.001, baseTime + 0.2);
+    osc1.start(baseTime);
+    osc1.stop(baseTime + 0.21);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.type = 'triangle';
+    osc2.frequency.value = 1319;
+    gain2.gain.setValueAtTime(0.12, baseTime + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.001, baseTime + 0.25);
+    osc2.start(baseTime + 0.1);
+    osc2.stop(baseTime + 0.26);
+  }
+}
