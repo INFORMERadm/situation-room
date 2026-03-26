@@ -45,7 +45,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           color: '#fff',
           marginRight: 10,
           position: 'relative',
-          top: -3,
+          top: -4,
         }}>4</span>
         <span style={{
           fontSize: 10,
