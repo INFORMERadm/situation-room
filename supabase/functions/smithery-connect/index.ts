@@ -138,21 +138,24 @@ async function handleCreate(req: Request): Promise<Response> {
     .maybeSingle();
 
   const serverHeaders: Record<string, string> = {};
+  let finalMcpUrl = mcpUrl;
   if (serverRow?.requires_api_key && serverRow.api_key_name) {
     const keyValue = userProvidedApiKey || Deno.env.get(serverRow.api_key_name);
     if (keyValue) {
-      const headerName = serverRow.smithery_config_key || serverRow.api_key_name;
-      serverHeaders[headerName] = keyValue;
-      console.log(`[smithery-connect] Injecting server API key as header: ${headerName}`);
+      const configKey = serverRow.smithery_config_key || serverRow.api_key_name;
+      serverHeaders[configKey] = keyValue;
+      const separator = finalMcpUrl.includes("?") ? "&" : "?";
+      finalMcpUrl = `${finalMcpUrl}${separator}${encodeURIComponent(configKey)}=${encodeURIComponent(keyValue)}`;
+      console.log(`[smithery-connect] Injecting API key as header "${configKey}" and query param on mcpUrl`);
     } else {
       return jsonResponse({ error: `API key required for ${displayName}. Please provide your ${serverRow.api_key_name}.` }, 400);
     }
   }
 
-  console.log("[smithery-connect] Creating connection:", JSON.stringify({ namespace, connectionId, mcpUrl, displayName }));
+  console.log("[smithery-connect] Creating connection:", JSON.stringify({ namespace, connectionId, mcpUrl: finalMcpUrl, displayName }));
 
   const createBody: Record<string, unknown> = {
-    mcpUrl,
+    mcpUrl: finalMcpUrl,
     name: displayName,
     metadata: { userId: user.id },
   };
@@ -189,7 +192,7 @@ async function handleCreate(req: Request): Promise<Response> {
 
       const newConnectionId = `${user.id}-${Date.now()}`;
       const retryBody: Record<string, unknown> = {
-        mcpUrl,
+        mcpUrl: finalMcpUrl,
         name: displayName,
         metadata: { userId: user.id },
       };
