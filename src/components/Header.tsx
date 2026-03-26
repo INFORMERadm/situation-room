@@ -38,7 +38,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         <img src="/new_n4_logo.png" alt="N4" style={{ width: 54, height: 54, marginRight: 0, marginLeft: -3, flexShrink: 0, objectFit: 'contain' }} />
         <span style={{
           fontSize: 28,
-          fontWeight: 800,
+          fontWeight: 900,
           fontStyle: 'normal',
           fontFamily: "'Georgia', 'Times New Roman', serif",
           letterSpacing: 0,
