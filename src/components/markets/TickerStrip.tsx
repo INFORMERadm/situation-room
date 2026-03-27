@@ -124,14 +124,32 @@ export default function TickerStrip({ items, onSelect }: Props) {
         minHeight: 42,
         position: 'relative',
         background: '#0a0a0a',
-        paddingLeft: 18,
-        paddingRight: 18,
       }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: 18,
+        height: '100%',
+        background: '#0a0a0a',
+        zIndex: 2,
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: 18,
+        height: '100%',
+        background: '#0a0a0a',
+        zIndex: 2,
+        pointerEvents: 'none',
+      }} />
       {items.length === 0 ? (
-        <div style={{ display: 'flex', alignItems: 'center', height: 42, padding: '0 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', height: 42, padding: '0 18px' }}>
           <span style={{ color: '#888', fontSize: 11 }}>Loading market data...</span>
         </div>
       ) : (
