@@ -43,7 +43,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           textTransform: 'uppercase',
           color: 'rgba(255,255,255,0.5)',
           position: 'relative',
-          top: 7,
+          top: 9,
           marginLeft: 4,
         }}>Professional Version</span>
       </div>
