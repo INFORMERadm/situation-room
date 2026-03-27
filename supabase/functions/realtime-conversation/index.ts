@@ -691,7 +691,10 @@ UI TOOLS:
             model: "gpt-4o-transcribe",
           },
           turn_detection: {
-            type: "semantic_vad",
+            type: "server_vad",
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 500,
           },
         },
         output: { voice: "marin" },
@@ -703,9 +706,10 @@ UI TOOLS:
       callSessionConfig.tool_choice = "auto";
     }
 
+    const sessionJson = JSON.stringify(callSessionConfig);
     const formData = new FormData();
-    formData.set("sdp", sdp);
-    formData.set("session", JSON.stringify(callSessionConfig));
+    formData.set("sdp", new Blob([sdp], { type: "application/sdp" }), "offer.sdp");
+    formData.set("session", new Blob([sessionJson], { type: "application/json" }), "session.json");
 
     const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
       method: "POST",
