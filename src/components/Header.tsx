@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <img src="/noBgWhite_new_full.png" alt="N4" style={{ height: 28, marginRight: 10, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
+        <img src="/noBgWhite_(1).png" alt="N4" style={{ height: 28, marginRight: 10, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
         <span style={{
           fontSize: 10,
           fontWeight: 500,
