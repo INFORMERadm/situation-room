@@ -43,9 +43,9 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           textTransform: 'uppercase',
           color: 'rgba(255,255,255,0.5)',
           position: 'relative',
-          top: 9,
+          top: 5,
           marginLeft: 4,
-        }}>Artificial Intelligence for Executives</span>
+        }}>Artificial Intelligence for Managers</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks
