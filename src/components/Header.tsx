@@ -45,7 +45,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           position: 'relative',
           top: 7,
           marginLeft: 4,
-        }}>Professional Version</span>
+        }}>Artificial Intelligence for Executives</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks
