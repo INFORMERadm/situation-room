@@ -123,7 +123,7 @@ export default function TickerStrip({ items, onSelect }: Props) {
         overflow: 'hidden',
         minHeight: 42,
         position: 'relative',
-        background: '#0a0a0a',
+        background: '#171717',
       }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -134,7 +134,7 @@ export default function TickerStrip({ items, onSelect }: Props) {
         left: 0,
         width: 18,
         height: '100%',
-        background: '#0a0a0a',
+        background: '#171717',
         zIndex: 2,
         pointerEvents: 'none',
       }} />
@@ -144,7 +144,7 @@ export default function TickerStrip({ items, onSelect }: Props) {
         right: 0,
         width: 18,
         height: '100%',
-        background: '#0a0a0a',
+        background: '#171717',
         zIndex: 2,
         pointerEvents: 'none',
       }} />
