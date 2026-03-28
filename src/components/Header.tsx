@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <img src="/aifax_white.png" alt="N4" style={{ height: 44, marginRight: 10, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
+        <img src="/aifax_white.png" alt="N4" style={{ height: 48, marginRight: 10, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
         <span style={{
           fontSize: 10,
           fontWeight: 500,
