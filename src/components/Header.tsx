@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <img src="/noBgWhite.png" alt="N4" style={{ height: 38, marginRight: 10, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
+        <img src="/Executive_logo_white_x.png" alt="N4" style={{ height: 38, marginRight: 10, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
         <span style={{
           fontSize: 10,
           fontWeight: 500,
@@ -45,7 +45,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           position: 'relative',
           top: 4,
           marginLeft: 4,
-        }}>Artificial Intelligence for Managers</span>
+        }}>AI for Managers</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks
