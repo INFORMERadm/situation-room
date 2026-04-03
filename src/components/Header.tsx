@@ -43,7 +43,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           textTransform: 'uppercase',
           color: 'rgba(255,255,255,0.5)',
           position: 'relative',
-          top: 4,
+          top: 3,
           marginLeft: 4,
         }}>AI for Managers</span>
       </div>
