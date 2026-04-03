@@ -124,7 +124,7 @@ export function useAIChat(
   const [isExpanded, setIsExpanded] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [selectedModel, setSelectedModel] = useState('hypermind-6.5');
+  const [selectedModel, setSelectedModel] = useState('hypermind-7.0');
   const [searchMode, setSearchModeState] = useState<SearchMode>('off');
   const [searchSources, setSearchSources] = useState<SearchSource[]>([]);
   const [searchImages, setSearchImages] = useState<SearchImage[]>([]);

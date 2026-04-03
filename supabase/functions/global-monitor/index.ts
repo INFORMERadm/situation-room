@@ -2622,7 +2622,20 @@ function getToolsForRequest(webSearchEnabled: boolean): typeof ALL_AI_TOOLS {
   return ALL_AI_TOOLS.filter(tool => tool.function.name !== "tavily_search");
 }
 
-const MODEL_CONFIGS: Record<string, { url: string; model: string }> = {
+interface ModelConfig {
+  url: string;
+  model: string;
+  tokenEnvVar?: string;
+  params?: Record<string, unknown>;
+}
+
+const MODEL_CONFIGS: Record<string, ModelConfig> = {
+  "hypermind-7.0": {
+    url: "https://api.fireworks.ai/inference/v1/chat/completions",
+    model: "accounts/fireworks/models/gpt-oss-120b",
+    tokenEnvVar: "FIREWORKS_API_KEY",
+    params: { temperature: 0.6, max_tokens: 16384, top_p: 1, top_k: 40, presence_penalty: 0, frequency_penalty: 0 },
+  },
   "hypermind-6.5": {
     url: "https://router.huggingface.co/v1/chat/completions",
     model: "openai/gpt-oss-120b:cerebras",
@@ -2642,8 +2655,8 @@ interface NativeToolCall {
 async function streamOneLLMRound(
   controller: ReadableStreamDefaultController,
   encoder: TextEncoder,
-  modelConfig: { url: string; model: string },
-  hfToken: string,
+  modelConfig: ModelConfig,
+  apiToken: string,
   chatMessages: Record<string, unknown>[],
   tools: typeof ALL_AI_TOOLS | undefined,
 ): Promise<{
@@ -2657,6 +2670,7 @@ async function streamOneLLMRound(
     stream: true,
     max_tokens: 16000,
     temperature: 0.7,
+    ...modelConfig.params,
   };
   if (tools && tools.length > 0) {
     requestBody.tools = tools;
@@ -2665,7 +2679,7 @@ async function streamOneLLMRound(
   const hfRes = await fetch(modelConfig.url, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${hfToken}`,
+      "Authorization": `Bearer ${apiToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(requestBody),
@@ -3189,13 +3203,13 @@ async function handleAIChat(req: Request): Promise<Response> {
       return jsonResponse({ error: "Missing messages array" }, 400);
     }
 
-    const HF_TOKEN = Deno.env.get("HF_TOKEN") ?? "";
-    if (!HF_TOKEN) {
+    const modelKey = typeof model === "string" && MODEL_CONFIGS[model] ? model : "hypermind-7.0";
+    const modelConfig = MODEL_CONFIGS[modelKey];
+    const tokenEnvVar = modelConfig.tokenEnvVar ?? "HF_TOKEN";
+    const API_TOKEN = Deno.env.get(tokenEnvVar) ?? "";
+    if (!API_TOKEN) {
       return jsonResponse({ error: "AI service not configured" }, 500);
     }
-
-    const modelKey = typeof model === "string" && MODEL_CONFIGS[model] ? model : "hypermind-6.5";
-    const modelConfig = MODEL_CONFIGS[modelKey];
 
     let aiTools = getToolsForRequest(!!webSearch);
     console.log(`[AI Chat] webSearch=${webSearch}, tools count=${aiTools.length}`);
@@ -3359,7 +3373,7 @@ async function handleAIChat(req: Request): Promise<Response> {
           for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
             console.log(`[AI Chat] Starting round ${depth + 1}/${MAX_CHAIN_DEPTH}`);
             const { fullContent, nativeToolCalls, textToolCalls } = await streamOneLLMRound(
-              controller, encoder, modelConfig, HF_TOKEN, chatMessages, aiTools,
+              controller, encoder, modelConfig, API_TOKEN, chatMessages, aiTools,
             );
 
             if (fullContent) sentAnyContent = true;

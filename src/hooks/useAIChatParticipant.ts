@@ -68,7 +68,7 @@ export function useAIChatParticipant(
         encrypted_content: ciphertext,
         iv,
         message_type: 'ai',
-        metadata: { aiModel: 'hypermind-6.5', originSender: userId },
+        metadata: { aiModel: 'hypermind-7.0', originSender: userId },
       });
 
       await supabase
