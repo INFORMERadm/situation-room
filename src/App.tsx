@@ -8,6 +8,7 @@ import RegisterPage from './pages/RegisterPage';
 import OnboardingPage from './pages/OnboardingPage';
 import MarketsDashboard from './pages/MarketsDashboard';
 import SmitheryOAuthCallback from './pages/SmitheryOAuthCallback';
+import SharedArtifactPage from './pages/SharedArtifactPage';
 
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/share/:token" element={<SharedArtifactPage />} />
             <Route
               path="/*"
               element={

@@ -1778,6 +1778,30 @@ You have access to the following tools:
 16. switch_left_tab - Switch left sidebar tab
    Parameters: { "tab": "overview"|"gainers"|"losers"|"active" }
 
+17. fetch_ai_model_data - Fetch real-time AI model benchmarks, pricing, speed, and quality data
+   Parameters: { "category": "llms"|"text-to-image"|"text-to-speech"|"text-to-video", "filter": string (optional) }
+   Use this for any AI model comparison, pricing, or benchmark questions. Returns structured data about AI models.
+
+========================================
+ARTIFACT GENERATION - IMPORTANT:
+========================================
+
+When presenting data that benefits from rich visual representation (comparisons, charts, rankings, dashboards),
+you SHOULD generate a self-contained HTML artifact using this tag format:
+
+<artifact type="html" title="Your Title Here">
+<!-- Full self-contained HTML here -->
+</artifact>
+
+ARTIFACT RULES:
+- The HTML MUST be fully self-contained (inline CSS, no external stylesheets except CDN scripts)
+- Use dark theme: background #0a0a0a, text #e0e0e0, accent #00bcd4
+- You MAY include <script> tags for Chart.js (https://cdn.jsdelivr.net/npm/chart.js) or similar CDN libraries
+- ALWAYS include a text explanation alongside the artifact, not just the artifact alone
+- Use artifacts for: comparison tables, bar/pie/line charts, ranked lists, dashboards, data visualizations
+- Do NOT use artifacts for simple text answers or short lists
+- The artifact HTML should look professional and polished
+
 {{WEB_SEARCH_SECTION}}
 
 ========================================
@@ -1919,7 +1943,62 @@ function formatFmpAsMarkdown(endpoint: string, data: unknown): string {
   return table;
 }
 
+const ARTIFICIAL_ANALYSIS_API_KEY = Deno.env.get("ARTIFICIAL_ANALYSIS_API_KEY") ?? "";
+
+async function fetchArtificialAnalysisData(category: string): Promise<unknown> {
+  const cacheKey = `aa_${category}`;
+  const cached = await getCached(cacheKey, 7_200_000);
+  if (cached) return cached;
+
+  const endpoints: Record<string, string> = {
+    llms: "https://artificialanalysis.ai/api/v2/text/models",
+    "text-to-image": "https://artificialanalysis.ai/api/v2/text-to-image/models",
+    "text-to-speech": "https://artificialanalysis.ai/api/v2/text-to-speech/models",
+    "text-to-video": "https://artificialanalysis.ai/api/v2/text-to-video/models",
+  };
+  const url = endpoints[category] || endpoints.llms;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (ARTIFICIAL_ANALYSIS_API_KEY) {
+    headers["x-api-key"] = ARTIFICIAL_ANALYSIS_API_KEY;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(url, { headers, signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`Artificial Analysis API ${res.status}`);
+    const data = await res.json();
+    await setCache(cacheKey, data);
+    return data;
+  } catch (e) {
+    clearTimeout(timeout);
+    throw e;
+  }
+}
+
 const ALL_AI_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "fetch_ai_model_data",
+      description: "Fetch real-time AI model benchmarks, pricing, speed, and quality data from Artificial Analysis. Use this for any AI model comparison, pricing, or benchmark questions. Returns structured data about AI models including quality scores, latency, throughput, and pricing.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: ["llms", "text-to-image", "text-to-speech", "text-to-video"],
+            description: "Category of AI models to fetch data for",
+          },
+          filter: {
+            type: "string",
+            description: "Optional filter to narrow results by model name or creator (e.g. 'GPT', 'Claude', 'Gemini')",
+          },
+        },
+        required: ["category"],
+      },
+    },
+  },
   {
     type: "function",
     function: {
@@ -2163,7 +2242,7 @@ const ALL_AI_TOOLS = [
   },
 ];
 
-const SERVER_TOOLS = new Set(["fetch_fmp_data", "tavily_search", "customgpt_search"]);
+const SERVER_TOOLS = new Set(["fetch_fmp_data", "tavily_search", "customgpt_search", "fetch_ai_model_data"]);
 
 interface SmitheryMCPServer {
   url: string;
@@ -2789,6 +2868,31 @@ async function executeServerTool(
   tc: { tool: string; params: Record<string, unknown> },
   sendChunk: (content: string) => void,
 ): Promise<string> {
+  if (tc.tool === "fetch_ai_model_data") {
+    try {
+      const category = (tc.params.category as string) || "llms";
+      const filter = (tc.params.filter as string) || "";
+      const rawData = await fetchArtificialAnalysisData(category);
+      let models = Array.isArray(rawData) ? rawData : (rawData as Record<string, unknown>)?.data ?? (rawData as Record<string, unknown>)?.models ?? [];
+      if (!Array.isArray(models)) models = [models];
+      if (filter) {
+        const lf = filter.toLowerCase();
+        models = (models as Record<string, unknown>[]).filter((m: Record<string, unknown>) => {
+          const name = String(m.name || m.model_name || "").toLowerCase();
+          const creator = String(m.creator || m.provider || "").toLowerCase();
+          return name.includes(lf) || creator.includes(lf);
+        });
+      }
+      const top = (models as unknown[]).slice(0, 30);
+      const markdown = `\n\n**AI Model Data (${category})** — ${(models as unknown[]).length} models found\n\n\`\`\`json\n${JSON.stringify(top, null, 2)}\n\`\`\`\n`;
+      sendChunk(markdown);
+      return markdown;
+    } catch (e) {
+      const errMsg = `Error fetching AI model data: ${e instanceof Error ? e.message : "unknown"}`;
+      sendChunk(`\n\n_${errMsg}_\n`);
+      return errMsg;
+    }
+  }
   if (tc.tool === "fetch_fmp_data") {
     try {
       const ep = (tc.params.endpoint as string) || "";

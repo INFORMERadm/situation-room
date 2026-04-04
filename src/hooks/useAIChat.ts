@@ -11,6 +11,12 @@ import type { AttachedDoc } from './useDocumentAttachment';
 
 export type SearchMode = 'off' | 'tavily' | 'advanced';
 
+export interface ArtifactData {
+  type: string;
+  title: string;
+  html: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -19,6 +25,7 @@ export interface ChatMessage {
   timestamp: number;
   searchSources?: SearchSource[];
   searchImages?: SearchImage[];
+  artifacts?: ArtifactData[];
 }
 
 export interface ChatSession {
@@ -99,6 +106,26 @@ function parseSearchTags(fullText: string): {
   }
 
   return { sources, images, progress };
+}
+
+function parseArtifactTags(fullText: string): ArtifactData[] {
+  const artifacts: ArtifactData[] = [];
+  const regex = /<artifact\s+type="([^"]*?)"\s+title="([^"]*?)">([\s\S]*?)<\/artifact>/g;
+  let match;
+  while ((match = regex.exec(fullText)) !== null) {
+    artifacts.push({
+      type: match[1],
+      title: match[2],
+      html: match[3].trim(),
+    });
+  }
+  return artifacts;
+}
+
+function stripArtifactTags(text: string): string {
+  return text
+    .replace(/<artifact\s+type="[^"]*?"\s+title="[^"]*?">[\s\S]*?<\/artifact>/g, '')
+    .trim();
 }
 
 export function useAIChat(
@@ -332,7 +359,9 @@ export function useAIChat(
         setSearchProgress(null);
 
         const { sources, images } = parseSearchTags(finalText);
+        const artifacts = parseArtifactTags(finalText);
         const parsed = parseAIResponse(finalText);
+        const cleanContent = stripArtifactTags(parsed.text);
         const clientCalls = parsed.toolCalls.filter(isClientToolCall);
         const statuses: string[] = [];
 
@@ -344,10 +373,10 @@ export function useAIChat(
         }
 
         const hasRichDataContent = !hasChartNavCall && (
-          parsed.text.length > 80 ||
-          parsed.text.includes('|') ||
-          parsed.text.includes('```') ||
-          parsed.text.includes('**')
+          cleanContent.length > 80 ||
+          cleanContent.includes('|') ||
+          cleanContent.includes('```') ||
+          cleanContent.includes('**')
         );
 
         if (statuses.length > 0 && !hasRichDataContent) {
@@ -359,11 +388,12 @@ export function useAIChat(
         const assistantMsg: ChatMessage = {
           id: generateId(),
           role: 'assistant',
-          content: parsed.text,
+          content: cleanContent,
           toolCalls: parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined,
           timestamp: Date.now(),
           searchSources: sources.length > 0 ? sources : undefined,
           searchImages: images.length > 0 ? images : undefined,
+          artifacts: artifacts.length > 0 ? artifacts : undefined,
         };
         setMessages(prev => [...prev, assistantMsg]);
 
@@ -487,7 +517,9 @@ export function useAIChat(
         setStreamingContent('');
         setSearchProgress(null);
         const { sources, images } = parseSearchTags(finalText);
+        const artifacts = parseArtifactTags(finalText);
         const parsed = parseAIResponse(finalText);
+        const cleanContent = stripArtifactTags(parsed.text);
         const clientCalls = parsed.toolCalls.filter(isClientToolCall);
         for (const tc of clientCalls) {
           await executeToolCall(tc, platformActionsRef.current);
@@ -495,14 +527,15 @@ export function useAIChat(
         const assistantMsg: ChatMessage = {
           id: generateId(),
           role: 'assistant',
-          content: parsed.text,
+          content: cleanContent,
           toolCalls: parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined,
           timestamp: Date.now(),
           searchSources: sources.length > 0 ? sources : undefined,
           searchImages: images.length > 0 ? images : undefined,
+          artifacts: artifacts.length > 0 ? artifacts : undefined,
         };
         setMessages(prev => [...prev, assistantMsg]);
-        saveAIMessage(sessionId, 'assistant', parsed.text, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined).then(() => refreshSessions()).catch(() => {});
+        saveAIMessage(sessionId, 'assistant', cleanContent, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined).then(() => refreshSessions()).catch(() => {});
       },
       (err) => {
         setIsStreaming(false);
@@ -666,20 +699,23 @@ export function useAIChat(
           setStreamingContent('');
           setSearchProgress(null);
           const { sources, images } = parseSearchTags(finalText);
+          const artifacts = parseArtifactTags(finalText);
           const parsed = parseAIResponse(finalText);
+          const cleanContent = stripArtifactTags(parsed.text);
           const clientCalls = parsed.toolCalls.filter(isClientToolCall);
           for (const tc of clientCalls) await executeToolCall(tc, platformActionsRef.current);
           const assistantMsg: ChatMessage = {
             id: generateId(),
             role: 'assistant',
-            content: parsed.text,
+            content: cleanContent,
             toolCalls: parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined,
             timestamp: Date.now(),
             searchSources: sources.length > 0 ? sources : undefined,
             searchImages: images.length > 0 ? images : undefined,
+            artifacts: artifacts.length > 0 ? artifacts : undefined,
           };
           setMessages(p => [...p, assistantMsg]);
-          saveAIMessage(sessionId, 'assistant', parsed.text, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined)
+          saveAIMessage(sessionId, 'assistant', cleanContent, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined)
             .then(() => refreshSessions()).catch(() => {});
         },
         (err) => {

@@ -13,6 +13,7 @@ const MCP_BORDER = '#16a34a';
 const TOOL_LABELS: Record<string, ToolInfo> = {
   tavily_search: { tool: 'tavily_search', label: 'Searching the web', icon: 'search', color: '#00bcd4' },
   fetch_fmp_data: { tool: 'fetch_fmp_data', label: 'Fetching financial data', icon: 'data', color: '#ffffff' },
+  fetch_ai_model_data: { tool: 'fetch_ai_model_data', label: 'Fetching AI model data', icon: 'data', color: '#00bcd4' },
   change_symbol: { tool: 'change_symbol', label: 'Navigating to symbol', icon: 'navigate', color: '#00c853' },
   change_timeframe: { tool: 'change_timeframe', label: 'Changing timeframe', icon: 'chart', color: '#ffffff' },
   change_chart_type: { tool: 'change_chart_type', label: 'Changing chart type', icon: 'chart', color: '#ffffff' },
@@ -64,6 +65,11 @@ function getToolDetail(raw: string): string | null {
       const ep = parsed.params?.endpoint || '';
       const sym = parsed.params?.params?.symbol || '';
       return sym ? `${ep} (${sym})` : ep;
+    }
+    if (parsed.tool === 'fetch_ai_model_data') {
+      const cat = parsed.params?.category || 'llms';
+      const filter = parsed.params?.filter || '';
+      return filter ? `${cat} (${filter})` : cat;
     }
     if (parsed.tool === 'change_symbol') return parsed.params?.symbol || null;
     if (parsed.tool?.startsWith('customgpt_')) {

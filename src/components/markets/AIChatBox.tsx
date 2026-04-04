@@ -3,6 +3,7 @@ import type { ChatMessage, ChatSession, SearchMode } from '../../hooks/useAIChat
 import type { SearchSource, SearchImage, SearchProgress } from '../../types/index';
 import type { AttachedDoc } from '../../hooks/useDocumentAttachment';
 import AIMessageRenderer from './AIMessageRenderer';
+import ArtifactRenderer from './ArtifactRenderer';
 import ToolCallIndicator, { extractToolCalls } from './ToolCallIndicator';
 import SourcePills from './SourcePills';
 import SourcesPanel from './SourcesPanel';
@@ -310,6 +311,8 @@ export default function AIChatBox({
     .replace(/<search_status>[\s\S]*$/g, '')
     .replace(/<search_sources>[\s\S]*?<\/search_sources>/g, '')
     .replace(/<search_sources>[\s\S]*$/g, '')
+    .replace(/<artifact\s+type="[^"]*?"\s+title="[^"]*?">[\s\S]*?<\/artifact>/g, '')
+    .replace(/<artifact\s+[^>]*>[\s\S]*$/g, '')
     .trim();
 
   const activeToolCalls = useMemo(
@@ -1161,6 +1164,13 @@ export default function AIChatBox({
                                 searchSources={msg.searchSources}
                                 onOpenSourcesPanel={onToggleSourcesPanel}
                               />
+                              {msg.artifacts && msg.artifacts.length > 0 && (
+                                <div style={{ marginTop: 8 }}>
+                                  {msg.artifacts.map((art, ai) => (
+                                    <ArtifactRenderer key={ai} artifact={art} />
+                                  ))}
+                                </div>
+                              )}
                             </>
                           )}
                           <div style={{ color: '#777', fontSize: 9, marginTop: 4, textAlign: msg.role === 'user' ? 'right' : 'left' }}>
