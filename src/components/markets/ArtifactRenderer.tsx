@@ -21,47 +21,68 @@ export default function ArtifactRenderer({ artifact }: Props) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: auto; max-height: 600px; }
-  body { padding: 16px; }
+  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: auto; width: 100%; }
+  body { padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: #444; }
   * { scrollbar-width: thin; scrollbar-color: #333 transparent; }
+  table { width: 100%; border-collapse: collapse; }
+  canvas { max-width: 100%; }
 </style>
 </head>
 <body>
 ${artifact.html}
 <script>
   (function() {
-    var maxH = 650;
-    var minH = 300;
+    var maxH = 800;
+    var minH = 400;
     var debounceTimer = null;
     var reportCount = 0;
     var observer = null;
+    function getContentHeight() {
+      var h = document.body.scrollHeight;
+      var children = document.body.children;
+      for (var i = 0; i < children.length; i++) {
+        var el = children[i];
+        var sh = el.scrollHeight || 0;
+        var oh = el.offsetHeight || 0;
+        var rect = el.getBoundingClientRect();
+        var ch = Math.max(sh, oh, rect.bottom);
+        if (ch > h) h = ch;
+      }
+      var slides = document.querySelectorAll('[data-slide], [class*="slide"]');
+      if (slides.length > 0) {
+        var container = slides[0].parentElement;
+        if (container) {
+          var containerH = container.scrollHeight || container.offsetHeight || 0;
+          var navBar = container.nextElementSibling;
+          var navH = navBar ? (navBar.offsetHeight || 50) : 50;
+          h = Math.max(h, containerH + navH + 80);
+        }
+      }
+      return h;
+    }
     function reportHeight() {
-      if (reportCount > 30) { if (observer) observer.disconnect(); return; }
+      if (reportCount > 40) { if (observer) observer.disconnect(); return; }
       reportCount++;
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(function() {
-        var h = document.body.scrollHeight;
-        var children = document.body.children;
-        for (var i = 0; i < children.length; i++) {
-          var ch = children[i].scrollHeight || children[i].offsetHeight || 0;
-          if (ch > h) h = ch;
-        }
+        var h = getContentHeight();
         h = Math.max(Math.min(h, maxH), minH);
         window.parent.postMessage({ type: 'artifact-height', height: h }, '*');
-      }, 150);
+      }, 120);
     }
     reportHeight();
     observer = new MutationObserver(reportHeight);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
     window.addEventListener('load', reportHeight);
-    setTimeout(reportHeight, 300);
-    setTimeout(reportHeight, 800);
-    setTimeout(reportHeight, 2000);
-    setTimeout(function() { if (observer) observer.disconnect(); }, 8000);
+    setTimeout(reportHeight, 200);
+    setTimeout(reportHeight, 600);
+    setTimeout(reportHeight, 1500);
+    setTimeout(reportHeight, 3000);
+    setTimeout(function() { if (observer) observer.disconnect(); }, 10000);
   })();
 </script>
 </body>
@@ -70,7 +91,7 @@ ${artifact.html}
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type === 'artifact-height' && typeof e.data.height === 'number') {
-        setIframeHeight(Math.min(Math.max(e.data.height + 16, 300), 650));
+        setIframeHeight(Math.min(Math.max(e.data.height + 16, 400), 800));
       }
     };
     window.addEventListener('message', handler);

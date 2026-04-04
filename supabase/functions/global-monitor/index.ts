@@ -1833,41 +1833,67 @@ TYPOGRAPHY & SPACING (CRITICAL — artifacts must feel spacious, not cramped):
 SCROLLBARS:
 - Thin (5px), rounded (4px border-radius), dark (#333 thumb, transparent track)
 
-LAYOUT & STRUCTURE (CRITICAL — artifacts must be compact and self-contained):
-- NEVER use min-height: 100vh or height: 100vh — artifacts render inside a constrained iframe, not a full page
-- DO NOT try to fill or stretch to fit the viewport. Let content determine its own natural height.
+LAYOUT & STRUCTURE (CRITICAL):
+- Artifacts render inside an iframe. The wrapper sets: width 100%, centered, padding provided.
+- ALL artifact content MUST use width: 100% and max-width: 100%. NEVER use fixed pixel widths that are smaller than the container.
 - Charts (Chart.js canvas) MUST have an explicit fixed height: use a wrapper div with a set height (e.g., 280px for standard charts, 350px max for complex ones). NEVER let charts auto-size or use percentages for height.
-- Example: <div style="height:280px"><canvas id="myChart"></canvas></div> with Chart.js option maintainAspectRatio: false, responsive: true
-- For presentations/dashboards: use a structured grid layout (e.g., 2-column or 3-column grids for KPI tiles, side-by-side charts, comparison tables)
-- Title section at the top, then key metrics, charts, tables, and details flowing naturally
-- If there is enough data, organize into clear visual sections: summary tiles at top, charts/graphs in the middle, detailed tables or lists at the bottom
+- Example: <div style="height:280px;width:100%"><canvas id="myChart"></canvas></div> with Chart.js option maintainAspectRatio: false, responsive: true
+- For dashboards: use CSS grid with grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) for responsive tile layouts
+- For 2-column layouts: use display:grid; grid-template-columns: 1fr 1fr; gap: 16px
+- Title section at top, then key metrics, charts, tables, and details flowing naturally
+- Organize into clear visual sections: summary tiles at top, charts/graphs in the middle, detailed tables or lists at the bottom
 - Think like a dashboard designer: every section should have a purpose and the page should feel balanced and complete
-- Total artifact content should aim to be under 600px tall — if more content is needed, use scrollable sections
+- Tables MUST use width: 100% — never let tables be narrower than their container
 
 CONTENT APPROACH (presentations, comparisons, research):
 - Be COMPREHENSIVE — include all relevant data, metrics, and insights available
 - Use a MINIMALIST visual style — clean, spacious, no decorative clutter — but pack in real substance
-- Always include a mix of content types where appropriate: KPI/stat tiles, charts (bar, line, pie), comparison tables, bullet-point insights
-- For comparisons: use side-by-side layouts, highlight key differences visually
-- For data-heavy topics: include interactive Chart.js visualizations, not just static text
-- Tables should have alternating row backgrounds (#111111 / #0d0d0d) for readability
-- KPI tiles: display the metric value large (20-24px, font-weight 500, #ffffff), label small above (11px, #666666, uppercase, letter-spacing 0.5px)
-- Every artifact should feel like a polished, information-rich dashboard — not a text document with a colored background
+- ALWAYS include a mix of visual content types. NEVER use only bullet points. Every artifact MUST have at least 2 of: KPI/stat tiles, Chart.js charts (bar, line, pie, doughnut, radar), comparison tables, progress bars, metric cards, or grid layouts.
+- For comparisons: use side-by-side grid layouts (grid-template-columns: 1fr 1fr), highlight key differences with color-coded borders or accent bars
+- For data-heavy topics: include interactive Chart.js visualizations with real or representative data, not just static text
+- Tables: width 100%, alternating row backgrounds (#111111 / #0d0d0d), header with border-bottom: 2px solid #2196F3, hover effect on rows
+- KPI tiles: background #1a1a1a, border-radius 10px, padding 20px, border-left 3px solid #2196F3. Label (11px, #666, uppercase, letter-spacing 1px), value (24px, #ffffff, font-weight 500), optional change indicator
+- Use CSS grid for tile layouts: grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; width: 100%
+- Every artifact should feel like a polished Bloomberg/Reuters-quality dashboard — not a text document with a colored background
+- Add subtle visual flourishes: thin accent borders on cards, gradient overlays on title slides, small separator lines between sections (border-top: 1px solid #1e1e1e with margin 24px 0)
 
 PRESENTATIONS & SLIDES (MANDATORY for any presentation, pitch deck, or slide request):
 - When the user asks for a presentation, slides, or pitch deck, you MUST create a slide-based artifact with navigation.
 - Structure: Create individual slides as separate div elements. Only ONE slide is visible at a time.
-- Each slide should have a fixed height (e.g., 500px) with overflow hidden, styled as a card with background #111111, border-radius 12px, padding 32px.
-- Navigation: Include "Back" and "Next" buttons below the slide area. Buttons should be styled with background #1a1a1a, border 1px solid #333, color #fff, padding 10px 28px, border-radius 8px, cursor pointer, font-size 14px.
-- Transition: When clicking Next, the current slide slides out to the LEFT and the new slide slides in from the RIGHT. When clicking Back, the current slide slides out to the RIGHT and the new slide slides in from the LEFT. Use CSS transform translateX with a smooth transition (0.4s ease).
-- Show a slide counter between the buttons (e.g., "2 / 8") in #666666 font color.
-- Disable the Back button on the first slide and the Next button on the last slide (opacity 0.3, pointer-events none).
-- MINIMUM SLIDES: Every presentation MUST have at least 8 to 12 slides by default. Never create fewer than 8 slides unless the user explicitly asks for fewer.
-- Each slide MUST be rich in detail and substance. Do NOT create thin slides with just a title and a few bullet points. Every slide should have a meaningful title (h2), detailed body content (paragraphs, data points, statistics, quotes, or analysis), and where appropriate include charts (Chart.js), tables, comparison grids, KPI tiles, or visual elements. Think of each slide as a standalone information-rich card.
-- Suggested slide structure for most presentations: (1) Title slide, (2) Overview/Agenda, (3-4) Key context/background slides, (5-8) Core content slides with data, charts, and analysis, (9-10) Implications/insights slides, (11) Summary/key takeaways, (12) Closing/next steps or call to action.
-- NEVER pad slides with filler content. Every slide must deliver real, substantive information relevant to the topic.
-- The slide container should use overflow: hidden to clip the sliding animation.
-- All JavaScript for navigation must be inline in a <script> tag. Use vanilla JS, no frameworks.
+
+SLIDE CONTAINER & SIZING (CRITICAL — slides must fill the available space):
+- The outer presentation wrapper MUST be: width: 100%; display: flex; flex-direction: column; align-items: center;
+- The slide viewport (the div that clips slides) MUST be: width: 100%; position: relative; overflow: hidden; background: #111111; border-radius: 12px; min-height: 480px;
+- Each slide MUST be: position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 40px 48px; box-sizing: border-box; display: flex; flex-direction: column;
+- NEVER use fixed pixel widths (like width: 700px or max-width: 800px) on slides or the slide container. ALWAYS use width: 100%.
+- The slide viewport height should be set via JavaScript after measuring content, or use min-height: 480px.
+
+SLIDE CONTENT RICHNESS (CRITICAL — every slide must be visually impressive):
+- Title slide: Large title (28-32px, #ffffff, font-weight 600), subtitle below (16px, #999), and at the bottom include 3-4 KPI stat tiles in a row using CSS grid (grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))).
+- Data slides MUST include at least TWO of: KPI tiles, Chart.js charts, data tables, comparison grids, progress bars, or metric cards. NEVER just bullet points.
+- KPI tile design: background #1a1a1a, border-radius 10px, padding 20px, border-left: 3px solid #2196F3. Label on top (11px, #666, uppercase, letter-spacing 1px), value below (24-28px, #ffffff, font-weight 500), optional delta/change line (12px, green for positive, red for negative).
+- For slides with charts: use a 60/40 or 50/50 split layout. Left side: chart in a fixed-height container (250px). Right side: 3-4 key insight bullet points or metric tiles stacked vertically.
+- Progress bars: height 8px, border-radius 4px, background #1a1a1a, fill with #2196F3, label above (13px, #bbb), percentage on the right.
+- Comparison grids: use display: grid; grid-template-columns: 1fr 1fr; gap: 12px; with each cell as a card (#1a1a1a background).
+- Data tables inside slides: width 100%, alternating rows (#111/#0d0d0d), header row with border-bottom: 2px solid #2196F3.
+- Icon indicators: Use simple unicode or SVG icons for visual interest (e.g., up/down arrows for trends, bullet markers, status dots).
+
+NAVIGATION:
+- Navigation bar below the slide: display: flex; justify-content: center; align-items: center; gap: 16px; padding: 16px 0; width: 100%;
+- Buttons: background #1a1a1a, border 1px solid #333, color #fff, padding 10px 32px, border-radius 8px, cursor pointer, font-size 13px, font-weight 500, transition: all 0.2s.
+- Button hover: border-color #2196F3, color #2196F3.
+- Slide counter between buttons: font-size 13px, color #666, min-width 60px, text-align center.
+- Disable Back on first slide, Next on last slide (opacity 0.3, pointer-events none).
+
+TRANSITIONS:
+- Use CSS transform translateX with transition: transform 0.4s ease, opacity 0.4s ease.
+- Next: current slide exits left (translateX(-100%), opacity 0), new slide enters from right (translateX(100%) -> translateX(0)).
+- Back: current slide exits right (translateX(100%), opacity 0), new slide enters from left (translateX(-100%) -> translateX(0)).
+
+MINIMUM SLIDES: Every presentation MUST have at least 8 to 12 slides. Never fewer than 8 unless explicitly requested.
+- Suggested structure: (1) Title slide with KPI overview, (2) Agenda/overview, (3-4) Context with data visuals, (5-8) Core content with charts+tables+tiles, (9-10) Analysis/implications, (11) Key takeaways, (12) Next steps/CTA.
+- NEVER create thin slides with just a title and bullet points. Every slide must have rich visual elements.
+- All JavaScript for navigation must be inline in a script tag. Use vanilla JS, no frameworks.
 
 ARTIFACT RULES:
 - The HTML MUST be fully self-contained (inline CSS, no external stylesheets except CDN scripts)
