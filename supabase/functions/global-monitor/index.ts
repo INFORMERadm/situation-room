@@ -1833,14 +1833,16 @@ TYPOGRAPHY & SPACING (CRITICAL — artifacts must feel spacious, not cramped):
 SCROLLBARS:
 - Thin (5px), rounded (4px border-radius), dark (#333 thumb, transparent track)
 
-LAYOUT & STRUCTURE (CRITICAL — artifacts must fill the viewport, not cluster at the top):
-- The artifact container MUST use min-height: 100vh and fill the available viewport
-- Use CSS Grid or Flexbox to distribute content across the full page height
-- NEVER leave large empty space at the bottom while cramming everything at the top
+LAYOUT & STRUCTURE (CRITICAL — artifacts must be compact and self-contained):
+- NEVER use min-height: 100vh or height: 100vh — artifacts render inside a constrained iframe, not a full page
+- DO NOT try to fill or stretch to fit the viewport. Let content determine its own natural height.
+- Charts (Chart.js canvas) MUST have an explicit fixed height: use a wrapper div with a set height (e.g., 280px for standard charts, 350px max for complex ones). NEVER let charts auto-size or use percentages for height.
+- Example: <div style="height:280px"><canvas id="myChart"></canvas></div> with Chart.js option maintainAspectRatio: false, responsive: true
 - For presentations/dashboards: use a structured grid layout (e.g., 2-column or 3-column grids for KPI tiles, side-by-side charts, comparison tables)
-- Title section at the top, then spread key metrics, charts, tables, and details evenly across the full viewport
+- Title section at the top, then key metrics, charts, tables, and details flowing naturally
 - If there is enough data, organize into clear visual sections: summary tiles at top, charts/graphs in the middle, detailed tables or lists at the bottom
 - Think like a dashboard designer: every section should have a purpose and the page should feel balanced and complete
+- Total artifact content should aim to be under 600px tall — if more content is needed, use scrollable sections
 
 CONTENT APPROACH (presentations, comparisons, research):
 - Be COMPREHENSIVE — include all relevant data, metrics, and insights available
@@ -1857,7 +1859,8 @@ ARTIFACT RULES:
 - You MAY include <script> tags for Chart.js (https://cdn.jsdelivr.net/npm/chart.js) or similar CDN libraries
 - ALWAYS include a text explanation alongside the artifact, not just the artifact alone
 - Do NOT use artifacts for simple text answers or short lists
-- The artifact HTML should look professional, polished, and premium — prioritize readability, breathing room, and full viewport utilization
+- The artifact HTML should look professional, polished, and premium — prioritize readability and breathing room
+- CRITICAL: Every Chart.js chart MUST set maintainAspectRatio: false and be inside a fixed-height container (280-350px). NEVER omit this.
 
 {{WEB_SEARCH_SECTION}}
 
