@@ -110,21 +110,22 @@ function parseSearchTags(fullText: string): {
 
 function parseArtifactTags(fullText: string): ArtifactData[] {
   const artifacts: ArtifactData[] = [];
-  const regex = /<artifact\s+type="([^"]*?)"\s+title="([^"]*?)">([\s\S]*?)<\/artifact>/g;
+  const regex = /<artifact\s+(?:type="([^"]*?)"\s+title="([^"]*?)"|title="([^"]*?)"\s+type="([^"]*?)")\s*>([\s\S]*?)<\/artifact>/g;
   let match;
   while ((match = regex.exec(fullText)) !== null) {
-    artifacts.push({
-      type: match[1],
-      title: match[2],
-      html: match[3].trim(),
-    });
+    const type = match[1] || match[4] || 'html';
+    const title = match[2] || match[3] || 'Artifact';
+    const html = (match[5] || '').trim();
+    if (html) {
+      artifacts.push({ type, title, html });
+    }
   }
   return artifacts;
 }
 
 function stripArtifactTags(text: string): string {
   return text
-    .replace(/<artifact\s+type="[^"]*?"\s+title="[^"]*?">[\s\S]*?<\/artifact>/g, '')
+    .replace(/<artifact\s+(?:type="[^"]*?"\s+title="[^"]*?"|title="[^"]*?"\s+type="[^"]*?")\s*>[\s\S]*?<\/artifact>/g, '')
     .trim();
 }
 
@@ -239,13 +240,18 @@ export function useAIChat(
     if (sessionId) {
       loadAIHistory(sessionId).then((msgs: { role: string; content: string; tool_calls?: unknown; created_at: string }[]) => {
         if (msgs.length > 0) {
-          setMessages(msgs.map((m: { role: string; content: string; tool_calls?: unknown; created_at: string }) => ({
-            id: generateId(),
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-            toolCalls: m.tool_calls,
-            timestamp: new Date(m.created_at).getTime(),
-          })));
+          setMessages(msgs.map((m: { role: string; content: string; tool_calls?: unknown; created_at: string }) => {
+            const artifacts = m.role === 'assistant' ? parseArtifactTags(m.content) : [];
+            const cleanContent = m.role === 'assistant' ? stripArtifactTags(m.content) : m.content;
+            return {
+              id: generateId(),
+              role: m.role as 'user' | 'assistant',
+              content: cleanContent,
+              toolCalls: m.tool_calls,
+              timestamp: new Date(m.created_at).getTime(),
+              artifacts: artifacts.length > 0 ? artifacts : undefined,
+            };
+          }));
         }
       }).catch(() => {});
 

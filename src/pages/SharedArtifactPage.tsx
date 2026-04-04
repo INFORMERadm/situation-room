@@ -221,7 +221,7 @@ ${htmlContent}
       </div>
       <iframe
         srcDoc={wrappedHtml}
-        sandbox="allow-scripts"
+        sandbox="allow-scripts allow-same-origin"
         style={{
           flex: 1,
           width: '100%',

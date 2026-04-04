@@ -9,7 +9,7 @@ interface Props {
 
 export default function ArtifactRenderer({ artifact }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [iframeHeight, setIframeHeight] = useState(320);
+  const [iframeHeight, setIframeHeight] = useState(400);
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -21,7 +21,7 @@ export default function ArtifactRenderer({ artifact }: Props) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; max-height: 600px; }
+  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: auto; max-height: 600px; }
   body { padding: 16px; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -34,16 +34,23 @@ export default function ArtifactRenderer({ artifact }: Props) {
 ${artifact.html}
 <script>
   (function() {
-    var maxH = 600;
+    var maxH = 650;
+    var minH = 300;
     var debounceTimer = null;
     var reportCount = 0;
     var observer = null;
     function reportHeight() {
-      if (reportCount > 20) { if (observer) observer.disconnect(); return; }
+      if (reportCount > 30) { if (observer) observer.disconnect(); return; }
       reportCount++;
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(function() {
-        var h = Math.min(document.body.scrollHeight, maxH);
+        var h = document.body.scrollHeight;
+        var children = document.body.children;
+        for (var i = 0; i < children.length; i++) {
+          var ch = children[i].scrollHeight || children[i].offsetHeight || 0;
+          if (ch > h) h = ch;
+        }
+        h = Math.max(Math.min(h, maxH), minH);
         window.parent.postMessage({ type: 'artifact-height', height: h }, '*');
       }, 150);
     }
@@ -51,9 +58,10 @@ ${artifact.html}
     observer = new MutationObserver(reportHeight);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
     window.addEventListener('load', reportHeight);
-    setTimeout(reportHeight, 500);
+    setTimeout(reportHeight, 300);
+    setTimeout(reportHeight, 800);
     setTimeout(reportHeight, 2000);
-    setTimeout(function() { if (observer) observer.disconnect(); }, 5000);
+    setTimeout(function() { if (observer) observer.disconnect(); }, 8000);
   })();
 </script>
 </body>
@@ -62,7 +70,7 @@ ${artifact.html}
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type === 'artifact-height' && typeof e.data.height === 'number') {
-        setIframeHeight(Math.min(Math.max(e.data.height + 16, 120), 600));
+        setIframeHeight(Math.min(Math.max(e.data.height + 16, 300), 650));
       }
     };
     window.addEventListener('message', handler);
@@ -157,7 +165,7 @@ ${artifact.html}
         <iframe
           ref={iframeRef}
           srcDoc={wrappedHtml}
-          sandbox="allow-scripts"
+          sandbox="allow-scripts allow-same-origin"
           style={{
             width: '100%',
             height: iframeHeight,
