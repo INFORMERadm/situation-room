@@ -1871,6 +1871,8 @@ CRITICAL RULES:
 
 MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
 
+IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a script tag BEFORE the main script, and initialize all charts inside an onload callback. See the bottom of this template.
+
 <style>
   #pres{width:100%;display:flex;flex-direction:column;height:calc(100vh - 32px)}
   #viewport{width:100%;position:relative;overflow:hidden;background:#111;border-radius:12px;flex:1;min-height:0}
@@ -1878,6 +1880,8 @@ MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
   .slide-nav{display:flex;justify-content:center;align-items:center;gap:20px;padding:14px 0;flex-shrink:0}
   .slide-nav button{background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 32px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all 0.2s}
   .slide-nav button:hover{border-color:#2196F3;color:#2196F3}
+  .chart-box{height:260px;width:100%;position:relative}
+  .chart-box canvas{width:100%!important;height:100%!important}
 </style>
 <div id="pres">
   <div id="viewport">
@@ -1893,13 +1897,13 @@ MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
         <!-- Repeat 2-3 more KPI tiles -->
       </div>
     </div>
-    <!-- Slide 2: Content with grid -->
+    <!-- Slide 2: Content with chart + tiles -->
     <div class="slide" style="transform:translateX(100%);opacity:0">
       <h2 style="font-size:22px;color:#fff;font-weight:600;margin-bottom:8px">Section Title</h2>
       <div style="height:1px;background:linear-gradient(90deg,#2196F3,transparent);margin-bottom:24px;width:120px"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;min-height:0">
-        <div style="background:#1a1a1a;border-radius:10px;padding:24px;overflow:hidden">
-          <div style="height:100%;max-height:300px;width:100%"><canvas id="chart1"></canvas></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div style="background:#1a1a1a;border-radius:10px;padding:20px">
+          <div class="chart-box"><canvas id="chart1"></canvas></div>
         </div>
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="background:#1a1a1a;border-radius:10px;padding:18px 20px;border-left:3px solid #2196F3">
@@ -1907,7 +1911,7 @@ MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
             <div style="font-size:20px;color:#fff;font-weight:500">Value</div>
             <div style="font-size:11px;color:#4caf50;margin-top:4px">+12.5% change</div>
           </div>
-          <!-- More insight tiles stacked -->
+          <!-- More insight tiles stacked vertically -->
         </div>
       </div>
     </div>
@@ -1919,6 +1923,8 @@ MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
     <button id="nextBtn" onclick="nav(1)">Next</button>
   </div>
 </div>
+<!-- CRITICAL: Load Chart.js FIRST, then your script -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 var cur=0,slides=document.querySelectorAll('.slide'),total=slides.length;
 function show(){
@@ -1934,27 +1940,42 @@ function show(){
 }
 function nav(d){cur=Math.max(0,Math.min(total-1,cur+d));show();}
 show();
-// Initialize any Chart.js charts here
+function initCharts(){
+  if(typeof Chart==='undefined') return;
+  Chart.defaults.color='#999';
+  Chart.defaults.borderColor='#1a1a1a';
+  // Initialize all Chart.js charts here, for example:
+  // new Chart(document.getElementById('chart1'),{type:'bar',data:{...},options:{responsive:true,maintainAspectRatio:false}});
+}
+if(typeof Chart!=='undefined'){initCharts();}
+else{document.querySelector('script[src*=\"chart.js\"]').addEventListener('load',initCharts);}
 </script>
 
 END OF TEMPLATE.
 
-KEY SIZING RULES for the template:
-- #pres uses height:calc(100vh - 32px) to fill the full viewport minus body padding.
-- #viewport uses flex:1 so it stretches to fill all available height between the nav bar and the top.
-- Each .slide uses position:absolute;width:100%;height:100% so it fills the viewport div exactly.
-- The slide-nav is flex-shrink:0 so it always stays visible at the bottom.
-- This means slides automatically expand to use ALL available vertical space — no wasted dead space above or below.
-- NEVER add height:520px or any fixed height to #viewport — flex:1 handles it.
-- Chart containers inside slides should use max-height:300px with height:100% so they scale with the slide.
+CRITICAL CHART.JS RULES (charts will show as EMPTY BOXES if you break these):
+1. You MUST include <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> BEFORE the main <script> block.
+2. ALL chart initialization code MUST go inside the initCharts() function in the template. NEVER create charts outside this function.
+3. Chart containers MUST use the class="chart-box" which gives a FIXED height of 260px. NEVER use flex:1, height:100%, or auto on chart containers — they will expand to fill empty space and look broken.
+4. NEVER use flex:1 on a grid or div that contains a chart. Use explicit grid without flex:1. Charts need a KNOWN FIXED height to render.
+5. Every Chart.js chart MUST use: responsive:true, maintainAspectRatio:false.
+6. Use the blue palette: #2196F3, #1976D2, #42A5F5, #64B5F6, #90CAF9, #1565C0.
+7. If Chart.js fails to load, the chart-box class ensures the container stays at 260px instead of collapsing or expanding.
+
+SLIDE LAYOUT RULES (preventing empty dead space):
+- NEVER use flex:1 on grid containers or chart parent divs. It causes them to stretch and fill the slide with empty space when content is small.
+- Instead, let content flow naturally from top to bottom. Use gap and padding for spacing.
+- The slide itself (class="slide") already has flex-direction:column. Content stacks naturally.
+- For two-column layouts: use display:grid;grid-template-columns:1fr 1fr;gap:16px (NO flex:1).
+- Fill vertical space with MORE CONTENT (extra KPI rows, tables, insight cards) rather than with CSS stretching.
 
 SLIDE CONTENT REQUIREMENTS (every slide MUST follow these):
 1. Title slide: Big title, subtitle, 3-4 KPI metric tiles at the bottom in a grid row.
 2. Every other slide MUST have: a heading (h2, 22px), a colored accent line below it (the gradient div), and then rich content — NOT just text.
-3. Rich content means at least one of per slide: a CSS grid of KPI tiles, a Chart.js chart (bar/line/pie/doughnut) inside a fixed-height container, a full-width data table with alternating rows, a progress bar section, or a comparison grid.
+3. Rich content means at least one of per slide: a CSS grid of KPI tiles, a Chart.js chart inside a chart-box container, a full-width data table with alternating rows, a progress bar section, or a comparison grid.
 4. For text-style points, use the custom styled div pattern shown above (flex div with colored arrow span + text span). NEVER use <ul><li> tags — the iframe strips list markers.
 5. Tables: <table style="width:100%;border-collapse:collapse"> with <th> cells styled background:#1a1a1a;color:#bbb;padding:12px 16px;text-align:left;font-weight:500;font-size:12px;border-bottom:2px solid #2196F3 and <td> styled padding:10px 16px;color:#999;font-size:13px;border-bottom:1px solid #1a1a1a with alternating row background (#111 / transparent).
-6. Chart.js charts MUST: be inside <div style="height:250px;width:100%"><canvas id="uniqueId"></canvas></div>, use maintainAspectRatio:false, responsive:true, use the blue color palette (#2196F3, #1976D2, #42A5F5, #64B5F6, #90CAF9), hide grid lines or use #1a1a1a for them, and be initialized in the script block at the bottom.
+6. Chart.js charts MUST: be inside <div class="chart-box"><canvas id="uniqueId"></canvas></div> (which gives fixed 260px height), use maintainAspectRatio:false, responsive:true, and be initialized inside the initCharts() function.
 7. Progress bars: <div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#bbb;font-size:12px">Label</span><span style="color:#fff;font-size:12px;font-weight:500">75%</span></div><div style="height:8px;background:#1a1a1a;border-radius:4px;overflow:hidden"><div style="height:100%;width:75%;background:linear-gradient(90deg,#1976D2,#2196F3);border-radius:4px"></div></div></div>
 
 ARTIFACT RULES:
@@ -1963,9 +1984,11 @@ ARTIFACT RULES:
 - ALWAYS include a text explanation alongside the artifact, not just the artifact alone
 - Do NOT use artifacts for simple text answers or short lists
 - The artifact HTML should look professional, polished, and premium — prioritize readability and breathing room
-- CRITICAL: Every Chart.js chart MUST set maintainAspectRatio: false and be inside a fixed-height container (250-350px). NEVER omit this.
+- CRITICAL: Every Chart.js chart MUST set maintainAspectRatio: false and be inside a fixed-height container (use class="chart-box" at 260px). NEVER use flex:1 or height:100% on chart containers.
+- CRITICAL: You MUST load Chart.js via <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> BEFORE your initialization script. Initialize charts inside an initCharts() function that checks if Chart is defined. NEVER initialize charts inline before the library loads.
 - CRITICAL: NEVER use <ul>, <ol>, or <li> tags inside artifacts. The iframe wrapper resets list-style to none, so native list markers will not render. Instead, use styled div rows with a colored prefix span for bullet-style content.
 - CRITICAL: ALL artifact content must use width:100%. NEVER use fixed pixel widths like width:700px or max-width:800px. The content should stretch to fill the available container.
+- CRITICAL: NEVER use flex:1 on any div that contains a chart canvas or grid of charts. This causes empty chart containers to expand and fill the entire slide with dead space. Use fixed heights only.
 
 {{WEB_SEARCH_SECTION}}
 
