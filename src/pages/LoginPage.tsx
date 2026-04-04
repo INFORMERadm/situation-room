@@ -149,6 +149,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center' as const,
     fontSize: 22,
     fontWeight: 700,
+    fontFamily: 'Arial, Helvetica, sans-serif',
     color: '#f0f6fc',
     margin: 0,
     letterSpacing: -0.3,
