@@ -1858,42 +1858,89 @@ CONTENT APPROACH (presentations, comparisons, research):
 - Add subtle visual flourishes: thin accent borders on cards, gradient overlays on title slides, small separator lines between sections (border-top: 1px solid #1e1e1e with margin 24px 0)
 
 PRESENTATIONS & SLIDES (MANDATORY for any presentation, pitch deck, or slide request):
-- When the user asks for a presentation, slides, or pitch deck, you MUST create a slide-based artifact with navigation.
-- Structure: Create individual slides as separate div elements. Only ONE slide is visible at a time.
 
-SLIDE CONTAINER & SIZING (CRITICAL — slides must fill the available space):
-- The outer presentation wrapper MUST be: width: 100%; display: flex; flex-direction: column; align-items: center;
-- The slide viewport (the div that clips slides) MUST be: width: 100%; position: relative; overflow: hidden; background: #111111; border-radius: 12px; min-height: 480px;
-- Each slide MUST be: position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 40px 48px; box-sizing: border-box; display: flex; flex-direction: column;
-- NEVER use fixed pixel widths (like width: 700px or max-width: 800px) on slides or the slide container. ALWAYS use width: 100%.
-- The slide viewport height should be set via JavaScript after measuring content, or use min-height: 480px.
+You MUST follow the EXACT HTML template below. Copy this structure and fill in your slide content. Do NOT deviate from this template.
 
-SLIDE CONTENT RICHNESS (CRITICAL — every slide must be visually impressive):
-- Title slide: Large title (28-32px, #ffffff, font-weight 600), subtitle below (16px, #999), and at the bottom include 3-4 KPI stat tiles in a row using CSS grid (grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))).
-- Data slides MUST include at least TWO of: KPI tiles, Chart.js charts, data tables, comparison grids, progress bars, or metric cards. NEVER just bullet points.
-- KPI tile design: background #1a1a1a, border-radius 10px, padding 20px, border-left: 3px solid #2196F3. Label on top (11px, #666, uppercase, letter-spacing 1px), value below (24-28px, #ffffff, font-weight 500), optional delta/change line (12px, green for positive, red for negative).
-- For slides with charts: use a 60/40 or 50/50 split layout. Left side: chart in a fixed-height container (250px). Right side: 3-4 key insight bullet points or metric tiles stacked vertically.
-- Progress bars: height 8px, border-radius 4px, background #1a1a1a, fill with #2196F3, label above (13px, #bbb), percentage on the right.
-- Comparison grids: use display: grid; grid-template-columns: 1fr 1fr; gap: 12px; with each cell as a card (#1a1a1a background).
-- Data tables inside slides: width 100%, alternating rows (#111/#0d0d0d), header row with border-bottom: 2px solid #2196F3.
-- Icon indicators: Use simple unicode or SVG icons for visual interest (e.g., up/down arrows for trends, bullet markers, status dots).
+CRITICAL RULES:
+- The presentation wrapper uses width:100% — NEVER set a fixed pixel width.
+- The iframe body uses flexbox centering. Your outermost div just needs width:100%.
+- Each slide uses position:absolute and fills its container. Content is padded inside.
+- NEVER use native HTML list markers. The wrapper resets list-style:none. Use custom styled divs for list items with a colored dot or dash as a prefix span.
+- MINIMUM 8 slides. Each slide MUST contain rich visual elements — KPI tiles, grids, tables, Chart.js charts, or progress bars. NEVER a slide with only a heading and bullet points.
+- For bullet-style content, use styled divs like: <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:10px"><span style="color:#2196F3;font-size:16px">&#9654;</span><span style="color:#999;font-size:13px;line-height:1.6">Point text here</span></div>
 
-NAVIGATION:
-- Navigation bar below the slide: display: flex; justify-content: center; align-items: center; gap: 16px; padding: 16px 0; width: 100%;
-- Buttons: background #1a1a1a, border 1px solid #333, color #fff, padding 10px 32px, border-radius 8px, cursor pointer, font-size 13px, font-weight 500, transition: all 0.2s.
-- Button hover: border-color #2196F3, color #2196F3.
-- Slide counter between buttons: font-size 13px, color #666, min-width 60px, text-align center.
-- Disable Back on first slide, Next on last slide (opacity 0.3, pointer-events none).
+MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
 
-TRANSITIONS:
-- Use CSS transform translateX with transition: transform 0.4s ease, opacity 0.4s ease.
-- Next: current slide exits left (translateX(-100%), opacity 0), new slide enters from right (translateX(100%) -> translateX(0)).
-- Back: current slide exits right (translateX(100%), opacity 0), new slide enters from left (translateX(-100%) -> translateX(0)).
+<div id="pres" style="width:100%">
+  <div id="viewport" style="width:100%;position:relative;overflow:hidden;background:#111;border-radius:12px;height:520px">
+    <!-- Slide 1: Title -->
+    <div class="slide" style="position:absolute;top:0;left:0;width:100%;height:100%;padding:48px 56px;display:flex;flex-direction:column;justify-content:center;transition:transform 0.45s ease,opacity 0.45s ease">
+      <div style="margin-bottom:auto"></div>
+      <h1 style="font-size:32px;color:#fff;font-weight:600;margin-bottom:12px">Presentation Title</h1>
+      <p style="font-size:16px;color:#888;margin-bottom:40px">Subtitle or tagline here</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:auto">
+        <div style="background:#1a1a1a;border-radius:10px;padding:18px 20px;border-left:3px solid #2196F3">
+          <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">METRIC</div>
+          <div style="font-size:24px;color:#fff;font-weight:500">Value</div>
+        </div>
+        <!-- Repeat 2-3 more KPI tiles -->
+      </div>
+    </div>
+    <!-- Slide 2: Content with grid -->
+    <div class="slide" style="position:absolute;top:0;left:0;width:100%;height:100%;padding:48px 56px;display:flex;flex-direction:column;transform:translateX(100%);opacity:0;transition:transform 0.45s ease,opacity 0.45s ease">
+      <h2 style="font-size:22px;color:#fff;font-weight:600;margin-bottom:8px">Section Title</h2>
+      <div style="height:1px;background:linear-gradient(90deg,#2196F3,transparent);margin-bottom:24px;width:120px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1">
+        <div style="background:#1a1a1a;border-radius:10px;padding:24px">
+          <!-- Chart container or data table or KPI cards -->
+          <div style="height:250px;width:100%"><canvas id="chart1"></canvas></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:#1a1a1a;border-radius:10px;padding:18px 20px;border-left:3px solid #2196F3">
+            <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">INSIGHT</div>
+            <div style="font-size:20px;color:#fff;font-weight:500">Value</div>
+            <div style="font-size:11px;color:#4caf50;margin-top:4px">+12.5% change</div>
+          </div>
+          <!-- More insight tiles stacked -->
+        </div>
+      </div>
+    </div>
+    <!-- Slide 3+: More slides with same position:absolute structure, initially transform:translateX(100%);opacity:0 -->
+  </div>
+  <div style="display:flex;justify-content:center;align-items:center;gap:20px;padding:18px 0;width:100%">
+    <button id="prevBtn" onclick="nav(-1)" style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 32px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all 0.2s">Back</button>
+    <span id="counter" style="font-size:13px;color:#666;min-width:60px;text-align:center">1 / N</span>
+    <button id="nextBtn" onclick="nav(1)" style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 32px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all 0.2s">Next</button>
+  </div>
+</div>
+<script>
+var cur=0,slides=document.querySelectorAll('.slide'),total=slides.length;
+function show(){
+  slides.forEach(function(s,i){
+    if(i===cur){s.style.transform='translateX(0)';s.style.opacity='1';}
+    else if(i<cur){s.style.transform='translateX(-100%)';s.style.opacity='0';}
+    else{s.style.transform='translateX(100%)';s.style.opacity='0';}
+  });
+  document.getElementById('counter').textContent=(cur+1)+' / '+total;
+  var pb=document.getElementById('prevBtn'),nb=document.getElementById('nextBtn');
+  pb.style.opacity=cur===0?'0.3':'1';pb.style.pointerEvents=cur===0?'none':'auto';
+  nb.style.opacity=cur===total-1?'0.3':'1';nb.style.pointerEvents=cur===total-1?'none':'auto';
+}
+function nav(d){cur=Math.max(0,Math.min(total-1,cur+d));show();}
+show();
+// Initialize any Chart.js charts here
+</script>
 
-MINIMUM SLIDES: Every presentation MUST have at least 8 to 12 slides. Never fewer than 8 unless explicitly requested.
-- Suggested structure: (1) Title slide with KPI overview, (2) Agenda/overview, (3-4) Context with data visuals, (5-8) Core content with charts+tables+tiles, (9-10) Analysis/implications, (11) Key takeaways, (12) Next steps/CTA.
-- NEVER create thin slides with just a title and bullet points. Every slide must have rich visual elements.
-- All JavaScript for navigation must be inline in a script tag. Use vanilla JS, no frameworks.
+END OF TEMPLATE.
+
+SLIDE CONTENT REQUIREMENTS (every slide MUST follow these):
+1. Title slide: Big title, subtitle, 3-4 KPI metric tiles at the bottom in a grid row.
+2. Every other slide MUST have: a heading (h2, 22px), a colored accent line below it (the gradient div), and then rich content — NOT just text.
+3. Rich content means at least one of per slide: a CSS grid of KPI tiles, a Chart.js chart (bar/line/pie/doughnut) inside a fixed-height container, a full-width data table with alternating rows, a progress bar section, or a comparison grid.
+4. For text-style points, use the custom styled div pattern shown above (flex div with colored arrow span + text span). NEVER use <ul><li> tags — the iframe strips list markers.
+5. Tables: <table style="width:100%;border-collapse:collapse"> with <th> cells styled background:#1a1a1a;color:#bbb;padding:12px 16px;text-align:left;font-weight:500;font-size:12px;border-bottom:2px solid #2196F3 and <td> styled padding:10px 16px;color:#999;font-size:13px;border-bottom:1px solid #1a1a1a with alternating row background (#111 / transparent).
+6. Chart.js charts MUST: be inside <div style="height:250px;width:100%"><canvas id="uniqueId"></canvas></div>, use maintainAspectRatio:false, responsive:true, use the blue color palette (#2196F3, #1976D2, #42A5F5, #64B5F6, #90CAF9), hide grid lines or use #1a1a1a for them, and be initialized in the script block at the bottom.
+7. Progress bars: <div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#bbb;font-size:12px">Label</span><span style="color:#fff;font-size:12px;font-weight:500">75%</span></div><div style="height:8px;background:#1a1a1a;border-radius:4px;overflow:hidden"><div style="height:100%;width:75%;background:linear-gradient(90deg,#1976D2,#2196F3);border-radius:4px"></div></div></div>
 
 ARTIFACT RULES:
 - The HTML MUST be fully self-contained (inline CSS, no external stylesheets except CDN scripts)
@@ -1901,7 +1948,9 @@ ARTIFACT RULES:
 - ALWAYS include a text explanation alongside the artifact, not just the artifact alone
 - Do NOT use artifacts for simple text answers or short lists
 - The artifact HTML should look professional, polished, and premium — prioritize readability and breathing room
-- CRITICAL: Every Chart.js chart MUST set maintainAspectRatio: false and be inside a fixed-height container (280-350px). NEVER omit this.
+- CRITICAL: Every Chart.js chart MUST set maintainAspectRatio: false and be inside a fixed-height container (250-350px). NEVER omit this.
+- CRITICAL: NEVER use <ul>, <ol>, or <li> tags inside artifacts. The iframe wrapper resets list-style to none, so native list markers will not render. Instead, use styled div rows with a colored prefix span for bullet-style content.
+- CRITICAL: ALL artifact content must use width:100%. NEVER use fixed pixel widths like width:700px or max-width:800px. The content should stretch to fill the available container.
 
 {{WEB_SEARCH_SECTION}}
 

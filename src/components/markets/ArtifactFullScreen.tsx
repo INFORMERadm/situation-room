@@ -25,11 +25,12 @@ export default function ArtifactFullScreen({ artifact, onClose, onShare }: Props
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: auto; width: 100%; min-height: 100vh; }
-  body { padding: 40px 60px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
-  body > * { width: 100%; max-width: 100%; }
+  html { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; height: 100%; overflow: hidden; }
+  body { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; padding: 32px 48px; overflow: auto; }
+  body > * { width: 100%; max-width: 1200px; }
   table { width: 100%; border-collapse: collapse; }
   canvas { max-width: 100%; }
+  ul, ol { list-style: none; padding: 0; margin: 0; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
