@@ -1853,10 +1853,11 @@ CONTENT APPROACH (presentations, comparisons, research):
 - For comparisons: use side-by-side grid layouts (grid-template-columns: 1fr 1fr), highlight key differences with color-coded borders or accent bars
 - For data-heavy topics: include interactive Chart.js visualizations with real or representative data, not just static text
 - Tables: width 100%, alternating row backgrounds (#111111 / #0d0d0d), header with border-bottom: 2px solid #2196F3, hover effect on rows
-- KPI tiles: background #1a1a1a, border-radius 10px, padding 20px, border-left 3px solid #2196F3. Label (11px, #666, uppercase, letter-spacing 1px), value (24px, #ffffff, font-weight 500), optional change indicator
+- KPI tiles: background #1a1a1a, border-radius 10px, padding 20px, border: 1px solid #2a2a2a. NEVER use border-left only (side accent borders look cheap). Use either a full 1px border (border: 1px solid #2a2a2a) or no border at all. Label (11px, #666, uppercase, letter-spacing 1px), value (24px, #ffffff, font-weight 500), optional change indicator
 - Use CSS grid for tile layouts: grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; width: 100%
 - Every artifact should feel like a polished Bloomberg/Reuters-quality dashboard — not a text document with a colored background
-- Add subtle visual flourishes: thin accent borders on cards, gradient overlays on title slides, small separator lines between sections (border-top: 1px solid #1e1e1e with margin 24px 0)
+- Add subtle visual flourishes: full thin borders on cards (border: 1px solid #2a2a2a), gradient overlays on title slides, small separator lines between sections (border-top: 1px solid #1e1e1e with margin 24px 0)
+- NEVER use border-left only as a card accent. Side-only borders look cheap and overused. Use full borders (border: 1px solid #2a2a2a) or no borders. If you need to distinguish a card, use a subtle top border (border-top: 2px solid #2196F3) or a full border with slightly lighter color.
 
 PRESENTATIONS & SLIDES (MANDATORY for any presentation, pitch deck, or slide request):
 
@@ -1880,9 +1881,11 @@ IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a 
   #pres{width:100%;display:flex;flex-direction:column;height:calc(100vh - 32px)}
   #viewport{width:100%;position:relative;overflow:hidden;background:#111;border-radius:12px;flex:1;min-height:0}
   .slide{position:absolute;top:0;left:0;width:100%;height:100%;padding:48px 56px;display:flex;flex-direction:column;transition:transform 0.45s ease,opacity 0.45s ease;overflow-y:auto}
-  .slide-nav{display:flex;justify-content:center;align-items:center;gap:20px;padding:14px 0;flex-shrink:0}
-  .slide-nav button{background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 32px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all 0.2s}
+  .slide-nav{display:flex;justify-content:center;align-items:center;gap:12px;padding:14px 0;flex-shrink:0}
+  .slide-nav button{background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all 0.2s}
   .slide-nav button:hover{border-color:#2196F3;color:#2196F3}
+  .slide-nav button.nav-icon{padding:10px 14px;font-size:16px;line-height:1}
+  .slide-nav button.nav-icon.active{border-color:#2196F3;color:#2196F3}
   .chart-box{height:260px;width:100%;position:relative}
   .chart-box canvas{width:100%!important;height:100%!important}
 </style>
@@ -1893,7 +1896,7 @@ IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a 
       <h1 style="font-size:32px;color:#fff;font-weight:600;margin-bottom:12px">Presentation Title</h1>
       <p style="font-size:16px;color:#888;margin-bottom:40px">Subtitle or tagline here</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:auto">
-        <div style="background:#1a1a1a;border-radius:10px;padding:18px 20px;border-left:3px solid #2196F3">
+        <div style="background:#1a1a1a;border-radius:10px;padding:18px 20px;border:1px solid #2a2a2a">
           <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">METRIC</div>
           <div style="font-size:24px;color:#fff;font-weight:500">Value</div>
         </div>
@@ -1909,7 +1912,7 @@ IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a 
           <div class="chart-box"><canvas id="chart1"></canvas></div>
         </div>
         <div style="display:flex;flex-direction:column;gap:12px">
-          <div style="background:#1a1a1a;border-radius:10px;padding:18px 20px;border-left:3px solid #2196F3">
+          <div style="background:#1a1a1a;border-radius:10px;padding:18px 20px;border:1px solid #2a2a2a">
             <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">INSIGHT</div>
             <div style="font-size:20px;color:#fff;font-weight:500">Value</div>
             <div style="font-size:11px;color:#4caf50;margin-top:4px">+12.5% change</div>
@@ -1921,15 +1924,17 @@ IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a 
     <!-- Slide 3+: More slides, each with class="slide" and initial style="transform:translateX(100%);opacity:0" -->
   </div>
   <div class="slide-nav">
+    <button class="nav-icon" id="homeBtn" onclick="goHome()" title="Return to first slide">&#8676;</button>
     <button id="prevBtn" onclick="nav(-1)">Back</button>
     <span id="counter" style="font-size:13px;color:#666;min-width:60px;text-align:center">1 / N</span>
     <button id="nextBtn" onclick="nav(1)">Next</button>
+    <button class="nav-icon" id="autoBtn" onclick="toggleAuto()" title="Autoplay">&#9654;</button>
   </div>
 </div>
 <!-- CRITICAL: Load Chart.js FIRST, then your script -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-var cur=0,slides=document.querySelectorAll('.slide'),total=slides.length;
+var cur=0,slides=document.querySelectorAll('.slide'),total=slides.length,autoInterval=null;
 function show(){
   slides.forEach(function(s,i){
     if(i===cur){s.style.transform='translateX(0)';s.style.opacity='1';}
@@ -1942,6 +1947,12 @@ function show(){
   nb.style.opacity=cur===total-1?'0.3':'1';nb.style.pointerEvents=cur===total-1?'none':'auto';
 }
 function nav(d){cur=Math.max(0,Math.min(total-1,cur+d));show();}
+function goHome(){cur=0;show();}
+function toggleAuto(){
+  var btn=document.getElementById('autoBtn');
+  if(autoInterval){clearInterval(autoInterval);autoInterval=null;btn.classList.remove('active');btn.innerHTML='&#9654;';}
+  else{btn.classList.add('active');btn.innerHTML='&#9646;&#9646;';autoInterval=setInterval(function(){if(cur<total-1){nav(1);}else{clearInterval(autoInterval);autoInterval=null;btn.classList.remove('active');btn.innerHTML='&#9654;';}},4000);}
+}
 show();
 function initCharts(){
   if(typeof Chart==='undefined') return;
