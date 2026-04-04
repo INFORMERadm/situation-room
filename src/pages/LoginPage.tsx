@@ -33,7 +33,7 @@ export default function LoginPage() {
       <div style={styles.card}>
         <div style={styles.logoRow}>
           <img
-            src="/datadesk_main_icon.png"
+            src="/datadesk_main_icon_green_special.png"
             alt="DATADESK Logo"
             style={styles.logo}
           />

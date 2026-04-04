@@ -72,7 +72,7 @@ function LoadingScreen() {
         gap: 16,
       }}>
         <img
-          src="/white_transparent.png"
+          src="/datadesk_main_icon_green_special.png"
           alt="DATADESK"
           style={{ width: 48, height: 48, objectFit: 'contain', opacity: 0.7 }}
         />
