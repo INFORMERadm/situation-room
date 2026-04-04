@@ -312,6 +312,17 @@ export default function MarketsDashboard() {
               onTabChange={platform.setLeftTab}
             />
           </div>
+          <div style={{
+            padding: '10px 12px',
+            borderTop: '1px solid #1e1e1e',
+            fontSize: 9,
+            color: '#4a4a4a',
+            lineHeight: 1.5,
+            flexShrink: 0,
+          }}>
+            <div>&copy; 2026 by Nionium Inc, United States. Version N4.</div>
+            <div style={{ marginTop: 2 }}>AI can make mistakes, always verify its responses.</div>
+          </div>
         </div>
 
         <div style={{
