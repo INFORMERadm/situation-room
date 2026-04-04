@@ -1867,6 +1867,7 @@ CRITICAL RULES:
 - The presentation wrapper uses width:100% — NEVER set a fixed pixel width.
 - The iframe body uses flexbox centering. Your outermost div just needs width:100%.
 - Each slide uses position:absolute and fills its container. Content is padded inside.
+- NEVER use inline onclick attributes on buttons or any element. Artifacts render inside sandboxed iframes where inline event handlers are blocked. ALWAYS use document.getElementById('id').addEventListener('click', function(){...}) in the script block instead.
 - NEVER use native HTML list markers. The wrapper resets list-style:none. Use custom styled divs for list items with a colored dot or dash as a prefix span.
 - MINIMUM 8 slides. ALWAYS generate at least 8 slides — no exceptions. If you feel there are only 5-6 topics, break them into more granular slides or add an extra analysis/deep-dive slide to reach 8.
 - Each slide MUST contain rich visual elements — KPI tiles, grids, tables, Chart.js charts, or progress bars. NEVER a slide with only a heading and bullet points.
@@ -1924,11 +1925,11 @@ IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a 
     <!-- Slide 3+: More slides, each with class="slide" and initial style="transform:translateX(100%);opacity:0" -->
   </div>
   <div class="slide-nav">
-    <button class="nav-icon" id="homeBtn" onclick="goHome()" title="Return to first slide">&#8676;</button>
-    <button id="prevBtn" onclick="nav(-1)">Back</button>
+    <button class="nav-icon" id="homeBtn" title="Return to first slide">&#8676;</button>
+    <button id="prevBtn">Back</button>
     <span id="counter" style="font-size:13px;color:#666;min-width:60px;text-align:center">1 / N</span>
-    <button id="nextBtn" onclick="nav(1)">Next</button>
-    <button class="nav-icon" id="autoBtn" onclick="toggleAuto()" title="Autoplay">&#9654;</button>
+    <button id="nextBtn">Next</button>
+    <button class="nav-icon" id="autoBtn" title="Autoplay">&#9654;</button>
   </div>
 </div>
 <!-- CRITICAL: Load Chart.js FIRST, then your script -->
@@ -1950,9 +1951,13 @@ function nav(d){cur=Math.max(0,Math.min(total-1,cur+d));show();}
 function goHome(){cur=0;show();}
 function toggleAuto(){
   var btn=document.getElementById('autoBtn');
-  if(autoInterval){clearInterval(autoInterval);autoInterval=null;btn.classList.remove('active');btn.innerHTML='&#9654;';}
-  else{btn.classList.add('active');btn.innerHTML='&#9646;&#9646;';autoInterval=setInterval(function(){if(cur<total-1){nav(1);}else{clearInterval(autoInterval);autoInterval=null;btn.classList.remove('active');btn.innerHTML='&#9654;';}},4000);}
+  if(autoInterval){clearInterval(autoInterval);autoInterval=null;btn.classList.remove('active');btn.innerHTML='\\u25B6';}
+  else{btn.classList.add('active');btn.innerHTML='\\u23F8';autoInterval=setInterval(function(){if(cur<total-1){nav(1);}else{clearInterval(autoInterval);autoInterval=null;btn.classList.remove('active');btn.innerHTML='\\u25B6';}},4000);}
 }
+document.getElementById('prevBtn').addEventListener('click',function(){nav(-1);});
+document.getElementById('nextBtn').addEventListener('click',function(){nav(1);});
+document.getElementById('homeBtn').addEventListener('click',function(){goHome();});
+document.getElementById('autoBtn').addEventListener('click',function(){toggleAuto();});
 show();
 function initCharts(){
   if(typeof Chart==='undefined') return;
