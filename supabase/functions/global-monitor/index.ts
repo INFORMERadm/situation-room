@@ -1951,10 +1951,10 @@ async function fetchArtificialAnalysisData(category: string): Promise<unknown> {
   if (cached) return cached;
 
   const endpoints: Record<string, string> = {
-    llms: "https://artificialanalysis.ai/api/v2/text/models",
-    "text-to-image": "https://artificialanalysis.ai/api/v2/text-to-image/models",
-    "text-to-speech": "https://artificialanalysis.ai/api/v2/text-to-speech/models",
-    "text-to-video": "https://artificialanalysis.ai/api/v2/text-to-video/models",
+    llms: "https://artificialanalysis.ai/api/v2/data/llms/models",
+    "text-to-image": "https://artificialanalysis.ai/api/v2/data/media/text-to-image",
+    "text-to-speech": "https://artificialanalysis.ai/api/v2/data/media/text-to-speech",
+    "text-to-video": "https://artificialanalysis.ai/api/v2/data/media/text-to-video",
   };
   const url = endpoints[category] || endpoints.llms;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
