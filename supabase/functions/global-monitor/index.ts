@@ -1969,13 +1969,30 @@ SLIDE LAYOUT RULES (preventing empty dead space):
 - For two-column layouts: use display:grid;grid-template-columns:1fr 1fr;gap:16px (NO flex:1).
 - Fill vertical space with MORE CONTENT (extra KPI rows, tables, insight cards) rather than with CSS stretching.
 
+SLIDE DENSITY RULES (CRITICAL — EVERY SLIDE MUST BE FULL):
+- Each slide has a large viewport area. You MUST fill at least 85% of the slide area with visible content. NEVER leave more than 15% of a slide empty.
+- If a slide has a chart at the top, add a row of 3-4 KPI insight tiles or a context explanation section BELOW it. NEVER leave the area below a chart empty.
+- If a slide has text points (bullet-style divs), you MUST include at least 6-8 points per slide, or combine them with a data table, KPI tiles, or an explainer box below.
+- ALWAYS add contextual explanation sections to fill remaining space. For example: on a benchmarks slide, add an "Understanding These Metrics" section that explains what HLE, LCR, GPQA, TAU2, etc. actually measure. On a pricing slide, add a "Cost Analysis" section with calculated usage scenarios.
+- Use the following pattern for explainer/context sections (placed below charts or main content):
+  <div style="background:#0d1117;border:1px solid #1a1a1a;border-radius:10px;padding:20px 24px;margin-top:16px">
+    <div style="font-size:11px;color:#2196F3;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:600">Understanding the Data</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px">
+      <div style="margin-bottom:8px"><span style="color:#bbb;font-size:12px;font-weight:500">Metric Name</span><span style="color:#666;font-size:11px;display:block;line-height:1.5;margin-top:2px">Brief explanation of what this metric measures and why it matters.</span></div>
+      <!-- Repeat for each metric/concept -->
+    </div>
+  </div>
+- Alternatively, add a row of mini KPI tiles below charts: <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px"> with small tiles showing key takeaways.
+- NEVER submit a slide that has only a heading + 2 bullet points. That is UNACCEPTABLE. Expand with: more detail per point (2-3 sentences each), additional related data points, a comparison table, context explainer tiles, or a "Key Takeaway" summary box.
+- When comparing two things (models, products, companies), ALWAYS fill the slide with a side-by-side breakdown: multiple comparison rows, score differentials, and an analyst-style verdict section.
+
 SLIDE CONTENT REQUIREMENTS (every slide MUST follow these):
 1. Title slide: Big title, subtitle, 3-4 KPI metric tiles at the bottom in a grid row.
 2. Every other slide MUST have: a heading (h2, 22px), a colored accent line below it (the gradient div), and then rich content — NOT just text.
-3. Rich content means at least one of per slide: a CSS grid of KPI tiles, a Chart.js chart inside a chart-box container, a full-width data table with alternating rows, a progress bar section, or a comparison grid.
-4. For text-style points, use the custom styled div pattern shown above (flex div with colored arrow span + text span). NEVER use <ul><li> tags — the iframe strips list markers.
+3. Rich content means at least one of per slide: a CSS grid of KPI tiles, a Chart.js chart inside a chart-box container, a full-width data table with alternating rows, a progress bar section, or a comparison grid. PLUS an additional section below (explainer box, extra KPI row, or context tiles) to fill remaining vertical space.
+4. For text-style points, use the custom styled div pattern shown above (flex div with colored arrow span + text span). NEVER use <ul><li> tags — the iframe strips list markers. Always include at least 6 points, or supplement fewer points with an explainer/context section.
 5. Tables: <table style="width:100%;border-collapse:collapse"> with <th> cells styled background:#1a1a1a;color:#bbb;padding:12px 16px;text-align:left;font-weight:500;font-size:12px;border-bottom:2px solid #2196F3 and <td> styled padding:10px 16px;color:#999;font-size:13px;border-bottom:1px solid #1a1a1a with alternating row background (#111 / transparent).
-6. Chart.js charts MUST: be inside <div class="chart-box"><canvas id="uniqueId"></canvas></div> (which gives fixed 260px height), use maintainAspectRatio:false, responsive:true, and be initialized inside the initCharts() function.
+6. Chart.js charts MUST: be inside <div class="chart-box"><canvas id="uniqueId"></canvas></div> (which gives fixed 260px height), use maintainAspectRatio:false, responsive:true, and be initialized inside the initCharts() function. ALWAYS add insight tiles or an explainer box below the chart to fill remaining slide space.
 7. Progress bars: <div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#bbb;font-size:12px">Label</span><span style="color:#fff;font-size:12px;font-weight:500">75%</span></div><div style="height:8px;background:#1a1a1a;border-radius:4px;overflow:hidden"><div style="height:100%;width:75%;background:linear-gradient(90deg,#1976D2,#2196F3);border-radius:4px"></div></div></div>
 
 ARTIFACT RULES:
