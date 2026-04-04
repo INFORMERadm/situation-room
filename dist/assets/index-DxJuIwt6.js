@@ -59,11 +59,12 @@ ${z}`}class tn extends Error{constructor({message:e,code:r,cause:a,name:c}){var 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: auto; width: 100%; min-height: 100vh; }
-  body { padding: 40px 60px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
-  body > * { width: 100%; max-width: 100%; }
+  html { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; height: 100%; overflow: hidden; }
+  body { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; padding: 32px 48px; overflow: auto; }
+  body > * { width: 100%; max-width: 1200px; }
   table { width: 100%; border-collapse: collapse; }
   canvas { max-width: 100%; }
+  ul, ol { list-style: none; padding: 0; margin: 0; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
@@ -81,15 +82,17 @@ ${t.html}
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: auto; width: 100%; }
-  body { padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
+  html { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; height: 100%; }
+  body { width: 100%; min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 24px; }
+  body > * { width: 100%; max-width: 100%; }
+  table { width: 100%; border-collapse: collapse; }
+  canvas { max-width: 100%; }
+  ul, ol { list-style: none; padding: 0; margin: 0; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: #444; }
   * { scrollbar-width: thin; scrollbar-color: #333 transparent; }
-  table { width: 100%; border-collapse: collapse; }
-  canvas { max-width: 100%; }
 </style>
 </head>
 <body>
