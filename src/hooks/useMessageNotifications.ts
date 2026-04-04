@@ -26,7 +26,7 @@ export function showDesktopNotification(title: string, body: string) {
 
 export function testNotification() {
   playChatNotification();
-  showDesktopNotification('N4 Notifications', 'Notifications are working correctly.');
+  showDesktopNotification('DATADESK Notifications', 'Notifications are working correctly.');
 }
 
 interface Options {

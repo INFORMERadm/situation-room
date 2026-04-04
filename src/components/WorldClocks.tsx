@@ -28,7 +28,7 @@ const TIMEZONE_OPTIONS: { label: string; zone: string }[] = [
   { label: 'Riyadh', zone: 'Asia/Riyadh' },
 ];
 
-const STORAGE_KEY = 'global-monitor-world-clocks';
+const STORAGE_KEY = 'datadesk-world-clocks';
 
 const DEFAULT_CLOCKS = [
   { label: 'New York', zone: 'America/New_York' },

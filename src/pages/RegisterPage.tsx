@@ -58,11 +58,11 @@ export default function RegisterPage() {
         <div style={styles.logoRow}>
           <img
             src="/white_transparent.png"
-            alt="N4 Logo"
+            alt="DATADESK Logo"
             style={styles.logo}
           />
         </div>
-        <h1 style={styles.title}>Create your N4 account</h1>
+        <h1 style={styles.title}>Create your DATADESK account</h1>
         <p style={styles.subtitle}>Get started with the agentic information platform</p>
 
         <form onSubmit={handleSubmit} style={styles.form}>

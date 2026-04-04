@@ -73,7 +73,7 @@ function LoadingScreen() {
       }}>
         <img
           src="/white_transparent.png"
-          alt="N4"
+          alt="DATADESK"
           style={{ width: 48, height: 48, objectFit: 'contain', opacity: 0.7 }}
         />
         <div style={{

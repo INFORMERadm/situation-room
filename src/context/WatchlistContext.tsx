@@ -30,8 +30,8 @@ interface WatchlistState {
 
 const WatchlistContext = createContext<WatchlistState | null>(null);
 
-const LOCAL_KEY = 'global-monitor-multi-watchlists';
-const LOCAL_ACTIVE_KEY = 'global-monitor-active-watchlist';
+const LOCAL_KEY = 'datadesk-multi-watchlists';
+const LOCAL_ACTIVE_KEY = 'datadesk-active-watchlist';
 
 const DEFAULT_WATCHLIST_ITEMS: WatchlistEntry[] = [
   { symbol: 'EURUSD', name: 'EUR/USD' },

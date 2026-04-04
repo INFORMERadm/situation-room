@@ -34,7 +34,7 @@ export default function OnboardingPage() {
 
     if (emailError || !emailData) {
       setIsSubmitting(false);
-      setError(emailError?.message || 'Failed to generate N4 email.');
+      setError(emailError?.message || 'Failed to generate DATADESK email.');
       return;
     }
 
@@ -70,20 +70,20 @@ export default function OnboardingPage() {
           <div style={styles.logoRow}>
             <img
               src="/white_transparent.png"
-              alt="N4 Logo"
+              alt="DATADESK Logo"
               style={styles.logo}
             />
           </div>
-          <h1 style={styles.title}>Welcome to N4</h1>
+          <h1 style={styles.title}>Welcome to DATADESK</h1>
           <p style={styles.subtitle}>Your account is ready</p>
 
           <div style={styles.emailDisplay}>
-            <span style={styles.emailLabel}>Your N4 Email Address</span>
+            <span style={styles.emailLabel}>Your DATADESK Email Address</span>
             <span style={styles.emailValue}>{generatedEmail}</span>
           </div>
 
           <p style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', margin: '16px 0 24px', lineHeight: 1.6 }}>
-            This is your unique N4 platform email address. You can use it to communicate with other N4 users.
+            This is your unique DATADESK platform email address. You can use it to communicate with other DATADESK users.
           </p>
 
           <a href="/" style={styles.button}>
@@ -100,13 +100,13 @@ export default function OnboardingPage() {
         <div style={styles.logoRow}>
           <img
             src="/white_transparent.png"
-            alt="N4 Logo"
+            alt="DATADESK Logo"
             style={styles.logo}
           />
         </div>
         <h1 style={styles.title}>Set Up Your Profile</h1>
         <p style={styles.subtitle}>
-          Tell us your name and we'll generate your unique N4 email address
+          Tell us your name and we'll generate your unique DATADESK email address
         </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -150,7 +150,7 @@ export default function OnboardingPage() {
               cursor: isSubmitting ? 'not-allowed' : 'pointer',
             }}
           >
-            {isSubmitting ? 'Generating...' : 'Generate My N4 Email'}
+            {isSubmitting ? 'Generating...' : 'Generate My DATADESK Email'}
           </button>
         </form>
       </div>

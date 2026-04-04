@@ -33,11 +33,11 @@ export default function LoginPage() {
         <div style={styles.logoRow}>
           <img
             src="/new_n4_logo.png"
-            alt="N4 Logo"
+            alt="DATADESK Logo"
             style={styles.logo}
           />
         </div>
-        <h1 style={styles.title}>Sign in to N4</h1>
+        <h1 style={styles.title}>Sign in to DATADESK</h1>
         <p style={styles.subtitle}>Access your agentic information platform</p>
 
         <form onSubmit={handleSubmit} style={styles.form}>

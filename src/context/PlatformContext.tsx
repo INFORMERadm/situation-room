@@ -3,9 +3,9 @@ import type { ReactNode } from 'react';
 import type { IndicatorConfig } from '../lib/indicators';
 import { DEFAULT_INDICATORS } from '../lib/indicators';
 
-const WATCHLIST_STORAGE_KEY = 'global-monitor-watchlist';
-const WATCHLIST_VERSION_KEY = 'global-monitor-watchlist-v';
-const CLOCKS_STORAGE_KEY = 'global-monitor-world-clocks';
+const WATCHLIST_STORAGE_KEY = 'datadesk-watchlist';
+const WATCHLIST_VERSION_KEY = 'datadesk-watchlist-v';
+const CLOCKS_STORAGE_KEY = 'datadesk-world-clocks';
 const CURRENT_VERSION = '3';
 
 const DEFAULT_WATCHLIST = [

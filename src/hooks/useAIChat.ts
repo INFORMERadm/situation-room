@@ -70,7 +70,7 @@ function generateId(): string {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const SESSION_KEY = 'global-monitor-ai-session';
+const SESSION_KEY = 'datadesk-ai-session';
 
 function parseSearchTags(fullText: string): {
   sources: SearchSource[];

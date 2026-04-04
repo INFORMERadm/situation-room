@@ -409,7 +409,7 @@ Deno.serve(async (req: Request) => {
 
     const res = await fetch(feedUrl, {
       headers: {
-        "User-Agent": "N4-RSS-Proxy/1.0",
+        "User-Agent": "DATADESK-RSS-Proxy/1.0",
         Accept:
           "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
       },
