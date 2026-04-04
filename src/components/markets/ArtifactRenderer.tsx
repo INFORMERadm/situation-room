@@ -21,7 +21,7 @@ export default function ArtifactRenderer({ artifact }: Props) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; max-height: 600px; }
   body { padding: 16px; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -33,15 +33,28 @@ export default function ArtifactRenderer({ artifact }: Props) {
 <body>
 ${artifact.html}
 <script>
-  function reportHeight() {
-    const h = document.documentElement.scrollHeight;
-    window.parent.postMessage({ type: 'artifact-height', height: h }, '*');
-  }
-  reportHeight();
-  new MutationObserver(reportHeight).observe(document.body, { childList: true, subtree: true, attributes: true });
-  window.addEventListener('load', reportHeight);
-  setTimeout(reportHeight, 500);
-  setTimeout(reportHeight, 2000);
+  (function() {
+    var maxH = 600;
+    var debounceTimer = null;
+    var reportCount = 0;
+    var observer = null;
+    function reportHeight() {
+      if (reportCount > 20) { if (observer) observer.disconnect(); return; }
+      reportCount++;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function() {
+        var h = Math.min(document.body.scrollHeight, maxH);
+        window.parent.postMessage({ type: 'artifact-height', height: h }, '*');
+      }, 150);
+    }
+    reportHeight();
+    observer = new MutationObserver(reportHeight);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    window.addEventListener('load', reportHeight);
+    setTimeout(reportHeight, 500);
+    setTimeout(reportHeight, 2000);
+    setTimeout(function() { if (observer) observer.disconnect(); }, 5000);
+  })();
 </script>
 </body>
 </html>`;
@@ -49,7 +62,7 @@ ${artifact.html}
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type === 'artifact-height' && typeof e.data.height === 'number') {
-        setIframeHeight(Math.min(Math.max(e.data.height + 16, 120), 800));
+        setIframeHeight(Math.min(Math.max(e.data.height + 16, 120), 600));
       }
     };
     window.addEventListener('message', handler);
