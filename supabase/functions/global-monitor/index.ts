@@ -1887,6 +1887,10 @@ IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a 
   .slide-nav button:hover{border-color:#2196F3;color:#2196F3}
   .slide-nav button.nav-icon{padding:10px 14px;font-size:16px;line-height:1}
   .slide-nav button.nav-icon.active{border-color:#2196F3;color:#2196F3}
+  .speed-control{display:flex;align-items:center;gap:6px;margin-left:8px;padding-left:12px;border-left:1px solid #2a2a2a}
+  .speed-control label{font-size:11px;color:#555;white-space:nowrap}
+  .speed-control select{background:#1a1a1a;border:1px solid #333;color:#ccc;padding:5px 8px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;outline:none;appearance:auto}
+  .speed-control select:hover{border-color:#2196F3}
   .chart-box{height:260px;width:100%;position:relative}
   .chart-box canvas{width:100%!important;height:100%!important}
 </style>
@@ -1923,6 +1927,12 @@ IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a 
       </div>
     </div>
     <!-- Slide 3+: More slides, each with class="slide" and initial style="transform:translateX(100%);opacity:0" -->
+    <!-- LAST SLIDE: Thank You (ALWAYS include as the final slide) -->
+    <div class="slide" style="transform:translateX(100%);opacity:0;justify-content:center;align-items:center;text-align:center">
+      <div style="font-size:42px;color:#fff;font-weight:700;margin-bottom:12px">Thank You</div>
+      <div style="font-size:15px;color:#666;margin-bottom:32px">Powered by N4</div>
+      <div style="width:60px;height:2px;background:#2196F3;border-radius:2px;margin:0 auto"></div>
+    </div>
   </div>
   <div class="slide-nav">
     <button class="nav-icon" id="homeBtn" title="Return to first slide">&#8676;</button>
@@ -1930,12 +1940,24 @@ IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a 
     <span id="counter" style="font-size:13px;color:#666;min-width:60px;text-align:center">1 / N</span>
     <button id="nextBtn">Next</button>
     <button class="nav-icon" id="autoBtn" title="Autoplay">&#9654;</button>
+    <div class="speed-control">
+      <label for="speedSelect">Speed</label>
+      <select id="speedSelect">
+        <option value="2">2s</option>
+        <option value="3">3s</option>
+        <option value="4" selected>4s</option>
+        <option value="5">5s</option>
+        <option value="7">7s</option>
+        <option value="10">10s</option>
+        <option value="15">15s</option>
+      </select>
+    </div>
   </div>
 </div>
 <!-- CRITICAL: Load Chart.js FIRST, then your script -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-var cur=0,slides=document.querySelectorAll('.slide'),total=slides.length,autoInterval=null;
+var cur=0,slides=document.querySelectorAll('.slide'),total=slides.length,autoInterval=null,speedSelect=document.getElementById('speedSelect');
 function show(){
   slides.forEach(function(s,i){
     if(i===cur){s.style.transform='translateX(0)';s.style.opacity='1';}
@@ -1949,15 +1971,17 @@ function show(){
 }
 function nav(d){cur=Math.max(0,Math.min(total-1,cur+d));show();}
 function goHome(){cur=0;show();}
+function getSpeed(){return(speedSelect?parseInt(speedSelect.value,10):4)*1000;}
 function toggleAuto(){
   var btn=document.getElementById('autoBtn');
   if(autoInterval){clearInterval(autoInterval);autoInterval=null;btn.classList.remove('active');btn.innerHTML='\\u25B6';}
-  else{btn.classList.add('active');btn.innerHTML='\\u23F8';autoInterval=setInterval(function(){if(cur<total-1){nav(1);}else{clearInterval(autoInterval);autoInterval=null;btn.classList.remove('active');btn.innerHTML='\\u25B6';}},4000);}
+  else{btn.classList.add('active');btn.innerHTML='\\u23F8';autoInterval=setInterval(function(){if(cur<total-1){nav(1);}else{clearInterval(autoInterval);autoInterval=null;btn.classList.remove('active');btn.innerHTML='\\u25B6';}},getSpeed());}
 }
 document.getElementById('prevBtn').addEventListener('click',function(){nav(-1);});
 document.getElementById('nextBtn').addEventListener('click',function(){nav(1);});
 document.getElementById('homeBtn').addEventListener('click',function(){goHome();});
 document.getElementById('autoBtn').addEventListener('click',function(){toggleAuto();});
+if(speedSelect){speedSelect.addEventListener('change',function(){if(autoInterval){clearInterval(autoInterval);autoInterval=null;toggleAuto();}});}
 show();
 function initCharts(){
   if(typeof Chart==='undefined') return;
