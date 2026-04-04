@@ -23,6 +23,11 @@ export default function ArtifactRenderer({ artifact }: Props) {
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   body { padding: 16px; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #444; }
+  * { scrollbar-width: thin; scrollbar-color: #333 transparent; }
 </style>
 </head>
 <body>
@@ -60,7 +65,14 @@ ${artifact.html}
 
   return (
     <>
-      <div style={{
+      <style>{`
+        .artifact-panel::-webkit-scrollbar { width: 5px; height: 5px; }
+        .artifact-panel::-webkit-scrollbar-track { background: transparent; }
+        .artifact-panel::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        .artifact-panel::-webkit-scrollbar-thumb:hover { background: #444; }
+        .artifact-panel { scrollbar-width: thin; scrollbar-color: #333 transparent; }
+      `}</style>
+      <div className="artifact-panel" style={{
         border: '1px solid #1e1e1e',
         borderRadius: 10,
         overflow: 'hidden',

@@ -1135,7 +1135,7 @@ export default function AIChatBox({
                       }}>
                         {msg.role === 'user' ? 'U' : 'DD'}
                       </div>
-                      <div style={{ maxWidth: '85%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                      <div style={{ maxWidth: msg.role === 'assistant' && msg.artifacts && msg.artifacts.length > 0 ? '100%' : '85%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0, flex: msg.role === 'assistant' && msg.artifacts && msg.artifacts.length > 0 ? 1 : undefined }}>
                         <div style={{
                           overflow: 'hidden',
                           background: msg.role === 'user' ? '#1a1a1a' : '#0d0d0d',
