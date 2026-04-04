@@ -1800,23 +1800,45 @@ Use this tag format:
 <!-- Full self-contained HTML here -->
 </artifact>
 
-ARTIFACT DESIGN SYSTEM (MANDATORY):
-- Background: #0a0a0a (primary), #111111 (cards/panels), #1a1a1a (elevated surfaces)
-- Text: #ffffff (headings), #e0e0e0 (body), #999999 (secondary), #666666 (muted)
+ARTIFACT DESIGN SYSTEM (MANDATORY — follow exactly):
+
+COLOR PALETTE:
+- Background: #0a0a0a (page), #111111 (cards/panels), #1a1a1a (elevated surfaces)
+- Titles (h1, h2): #ffffff (white) — font-weight: 600 (semi-bold, NOT bold 700+)
+- Subtitles (h3, h4): #bbbbbb (light grey) — font-weight: 500 (medium)
+- Body text, paragraphs, list items: #999999 (grey) — font-weight: 400 (regular/normal)
+- Secondary/muted text (captions, labels): #666666
 - Borders: #1e1e1e (subtle), #2a2a2a (medium), #333333 (prominent)
-- Accent color for graphs, charts, tiles, interactive elements: use BLUE SCALE (#2196F3 primary, #1976D2 dark, #42A5F5 light, #64B5F6 lighter, #90CAF9 lightest)
+- Accent for graphs, charts, tiles, interactive elements: BLUE SCALE only (#2196F3 primary, #1976D2 dark, #42A5F5 light, #64B5F6 lighter, #90CAF9 lightest)
 - Secondary chart colors when multiple series needed: #1565C0, #0D47A1, #5C6BC0, #78909C, #B0BEC5 (blue-grey scale)
-- NEVER use cyan (#00bcd4), green, or other accent colors for charts/graphs — always blue scale
+- NEVER use cyan (#00bcd4), green, or bright accent colors for charts/graphs — always blue scale
 - Overall aesthetic: dark monochrome black and white with greyscale. Clean, premium, minimal.
-- Typography: use system fonts (-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif)
-- Scrollbars inside artifacts: thin (5px), rounded (4px border-radius), dark (#333 thumb, transparent track)
+
+TYPOGRAPHY & SPACING (CRITICAL — artifacts must feel spacious, not cramped):
+- Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif
+- DO NOT overuse bold. Only titles (h1/h2) should be semi-bold (600). Everything else normal weight (400).
+- Labels in cards/tiles: font-weight 400, NOT bold. Only the value itself may be 500 at most.
+- Line height: 1.6 for body text, 1.3 for headings
+- h1 (main title): font-size 22-26px, color #ffffff, font-weight 600, margin-bottom 24px
+- h2 (section title): font-size 16-18px, color #ffffff, font-weight 600, margin-top 32px, margin-bottom 16px
+- h3 (subtitle): font-size 14-15px, color #bbbbbb, font-weight 500, margin-top 20px, margin-bottom 12px
+- Body/paragraph text: font-size 13px, color #999999, font-weight 400, margin-bottom 12px
+- Between a title and the content below it: ALWAYS at least 16px gap. Never let titles touch content.
+- Between sections: ALWAYS at least 28-32px vertical spacing
+- Card/panel internal padding: at least 16px on all sides, 20px preferred
+- Between cards in a grid: at least 12-16px gap
+- Bullet points / list items: use color #999999, font-weight 400, line-height 1.7, padding-left 16px
+- Table cells: padding 10px 14px, font-weight 400, color #999999 for data cells, #bbbbbb for header cells
+
+SCROLLBARS:
+- Thin (5px), rounded (4px border-radius), dark (#333 thumb, transparent track)
 
 ARTIFACT RULES:
 - The HTML MUST be fully self-contained (inline CSS, no external stylesheets except CDN scripts)
 - You MAY include <script> tags for Chart.js (https://cdn.jsdelivr.net/npm/chart.js) or similar CDN libraries
 - ALWAYS include a text explanation alongside the artifact, not just the artifact alone
 - Do NOT use artifacts for simple text answers or short lists
-- The artifact HTML should look professional, polished, and premium
+- The artifact HTML should look professional, polished, and premium — prioritize readability and breathing room over density
 
 {{WEB_SEARCH_SECTION}}
 
