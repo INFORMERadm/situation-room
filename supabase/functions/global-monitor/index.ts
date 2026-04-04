@@ -1854,6 +1854,18 @@ CONTENT APPROACH (presentations, comparisons, research):
 - KPI tiles: display the metric value large (20-24px, font-weight 500, #ffffff), label small above (11px, #666666, uppercase, letter-spacing 0.5px)
 - Every artifact should feel like a polished, information-rich dashboard — not a text document with a colored background
 
+PRESENTATIONS & SLIDES (MANDATORY for any presentation, pitch deck, or slide request):
+- When the user asks for a presentation, slides, or pitch deck, you MUST create a slide-based artifact with navigation.
+- Structure: Create individual slides as separate div elements. Only ONE slide is visible at a time.
+- Each slide should have a fixed height (e.g., 500px) with overflow hidden, styled as a card with background #111111, border-radius 12px, padding 32px.
+- Navigation: Include "Back" and "Next" buttons below the slide area. Buttons should be styled with background #1a1a1a, border 1px solid #333, color #fff, padding 10px 28px, border-radius 8px, cursor pointer, font-size 14px.
+- Transition: When clicking Next, the current slide slides out to the LEFT and the new slide slides in from the RIGHT. When clicking Back, the current slide slides out to the RIGHT and the new slide slides in from the LEFT. Use CSS transform translateX with a smooth transition (0.4s ease).
+- Show a slide counter between the buttons (e.g., "2 / 8") in #666666 font color.
+- Disable the Back button on the first slide and the Next button on the last slide (opacity 0.3, pointer-events none).
+- Each slide should be content-rich: use a title (h2), body content, charts, tables, or bullet points as appropriate. Aim for 5-12 slides depending on the topic.
+- The slide container should use overflow: hidden to clip the sliding animation.
+- All JavaScript for navigation must be inline in a <script> tag. Use vanilla JS, no frameworks.
+
 ARTIFACT RULES:
 - The HTML MUST be fully self-contained (inline CSS, no external stylesheets except CDN scripts)
 - You MAY include <script> tags for Chart.js (https://cdn.jsdelivr.net/npm/chart.js) or similar CDN libraries
