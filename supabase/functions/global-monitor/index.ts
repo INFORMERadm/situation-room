@@ -1806,7 +1806,7 @@ COLOR PALETTE:
 - Background: #0a0a0a (page), #111111 (cards/panels), #1a1a1a (elevated surfaces)
 - Titles (h1, h2): #ffffff (white) — font-weight: 600 (semi-bold, NOT bold 700+)
 - Subtitles (h3, h4): #bbbbbb (light grey) — font-weight: 500 (medium)
-- Body text, paragraphs, list items: #999999 (grey) — font-weight: 400 (regular/normal)
+- Body text, paragraphs, list items, card descriptions, insight text: #999999 (grey) — font-weight: 400 (regular/normal). NEVER use font-weight 500, 600, or 700 on body text or card description text. Only headings (h1, h2) and KPI numeric values may use font-weight above 400.
 - Secondary/muted text (captions, labels): #666666
 - Borders: #1e1e1e (subtle), #2a2a2a (medium), #333333 (prominent)
 - Accent for graphs, charts, tiles, interactive elements: BLUE SCALE only (#2196F3 primary, #1976D2 dark, #42A5F5 light, #64B5F6 lighter, #90CAF9 lightest)
@@ -1817,7 +1817,8 @@ COLOR PALETTE:
 TYPOGRAPHY & SPACING (CRITICAL — artifacts must feel spacious, not cramped):
 - Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif
 - DO NOT overuse bold. Only titles (h1/h2) should be semi-bold (600). Everything else normal weight (400).
-- Labels in cards/tiles: font-weight 400, NOT bold. Only the value itself may be 500 at most.
+- Labels in cards/tiles: font-weight 400, NOT bold. Only the numeric value itself may be 500 at most.
+- CRITICAL: Card body text, insight descriptions, and takeaway paragraphs MUST use font-weight:400. The screenshot shows clumsy bold body text — this is WRONG. Only h1/h2 headings and KPI numeric values may be semi-bold (500-600). Everything else is 400.
 - Line height: 1.6 for body text, 1.3 for headings
 - h1 (main title): font-size 22-26px, color #ffffff, font-weight 600, margin-bottom 24px
 - h2 (section title): font-size 16-18px, color #ffffff, font-weight 600, margin-top 32px, margin-bottom 16px
@@ -1866,8 +1867,10 @@ CRITICAL RULES:
 - The iframe body uses flexbox centering. Your outermost div just needs width:100%.
 - Each slide uses position:absolute and fills its container. Content is padded inside.
 - NEVER use native HTML list markers. The wrapper resets list-style:none. Use custom styled divs for list items with a colored dot or dash as a prefix span.
-- MINIMUM 8 slides. Each slide MUST contain rich visual elements — KPI tiles, grids, tables, Chart.js charts, or progress bars. NEVER a slide with only a heading and bullet points.
-- For bullet-style content, use styled divs like: <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:10px"><span style="color:#2196F3;font-size:16px">&#9654;</span><span style="color:#999;font-size:13px;line-height:1.6">Point text here</span></div>
+- MINIMUM 8 slides. ALWAYS generate at least 8 slides — no exceptions. If you feel there are only 5-6 topics, break them into more granular slides or add an extra analysis/deep-dive slide to reach 8.
+- Each slide MUST contain rich visual elements — KPI tiles, grids, tables, Chart.js charts, or progress bars. NEVER a slide with only a heading and bullet points.
+- For bullet-style content, use styled divs like: <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:10px"><span style="color:#2196F3;font-size:16px">&#9654;</span><span style="color:#999;font-size:13px;line-height:1.6;font-weight:400">Point text here</span></div>
+- THE LAST SLIDE MUST ALWAYS be a "Thank You" / closing slide. Use this structure: centered content with a large "Thank You" heading (h1, 36px, #fff, font-weight:600), a subtitle line below (14px, #888, font-weight:400) like "Questions? Reach out anytime." or a relevant closing remark, and optionally a row of 3-4 small summary stat tiles at the bottom recapping the key numbers from the presentation.
 
 MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
 
@@ -1978,7 +1981,7 @@ SLIDE DENSITY RULES (CRITICAL — EVERY SLIDE MUST BE FULL):
   <div style="background:#0d1117;border:1px solid #1a1a1a;border-radius:10px;padding:20px 24px;margin-top:16px">
     <div style="font-size:11px;color:#2196F3;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:600">Understanding the Data</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px">
-      <div style="margin-bottom:8px"><span style="color:#bbb;font-size:12px;font-weight:500">Metric Name</span><span style="color:#666;font-size:11px;display:block;line-height:1.5;margin-top:2px">Brief explanation of what this metric measures and why it matters.</span></div>
+      <div style="margin-bottom:8px"><span style="color:#bbb;font-size:12px;font-weight:400">Metric Name</span><span style="color:#666;font-size:11px;display:block;line-height:1.5;margin-top:2px;font-weight:400">Brief explanation of what this metric measures and why it matters.</span></div>
       <!-- Repeat for each metric/concept -->
     </div>
   </div>
