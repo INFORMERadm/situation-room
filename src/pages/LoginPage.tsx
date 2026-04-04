@@ -32,7 +32,7 @@ export default function LoginPage() {
       <div style={styles.card}>
         <div style={styles.logoRow}>
           <img
-            src="/new_n4_logo.png"
+            src="/datadesk_main_icon.png"
             alt="DATADESK Logo"
             style={styles.logo}
           />

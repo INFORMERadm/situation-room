@@ -57,7 +57,7 @@ export default function RegisterPage() {
       <div style={styles.card}>
         <div style={styles.logoRow}>
           <img
-            src="/white_transparent.png"
+            src="/datadesk_main_icon.png"
             alt="DATADESK Logo"
             style={styles.logo}
           />
