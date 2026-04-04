@@ -73,7 +73,7 @@ ${t.html}
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; max-height: 600px; }
   body { padding: 16px; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -85,18 +85,31 @@ ${t.html}
 <body>
 ${t.html}
 <script>
-  function reportHeight() {
-    const h = document.documentElement.scrollHeight;
-    window.parent.postMessage({ type: 'artifact-height', height: h }, '*');
-  }
-  reportHeight();
-  new MutationObserver(reportHeight).observe(document.body, { childList: true, subtree: true, attributes: true });
-  window.addEventListener('load', reportHeight);
-  setTimeout(reportHeight, 500);
-  setTimeout(reportHeight, 2000);
+  (function() {
+    var maxH = 600;
+    var debounceTimer = null;
+    var reportCount = 0;
+    var observer = null;
+    function reportHeight() {
+      if (reportCount > 20) { if (observer) observer.disconnect(); return; }
+      reportCount++;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function() {
+        var h = Math.min(document.body.scrollHeight, maxH);
+        window.parent.postMessage({ type: 'artifact-height', height: h }, '*');
+      }, 150);
+    }
+    reportHeight();
+    observer = new MutationObserver(reportHeight);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    window.addEventListener('load', reportHeight);
+    setTimeout(reportHeight, 500);
+    setTimeout(reportHeight, 2000);
+    setTimeout(function() { if (observer) observer.disconnect(); }, 5000);
+  })();
 <\/script>
 </body>
-</html>`;v.useEffect(()=>{const S=C=>{C.data?.type==="artifact-height"&&typeof C.data.height=="number"&&a(Math.min(Math.max(C.data.height+16,120),800))};return window.addEventListener("message",S),()=>window.removeEventListener("message",S)},[]);const w=()=>{navigator.clipboard.writeText(t.html).then(()=>{y(!0),setTimeout(()=>y(!1),2e3)})};return s.jsxs(s.Fragment,{children:[s.jsx("style",{children:`
+</html>`;v.useEffect(()=>{const S=C=>{C.data?.type==="artifact-height"&&typeof C.data.height=="number"&&a(Math.min(Math.max(C.data.height+16,120),600))};return window.addEventListener("message",S),()=>window.removeEventListener("message",S)},[]);const w=()=>{navigator.clipboard.writeText(t.html).then(()=>{y(!0),setTimeout(()=>y(!1),2e3)})};return s.jsxs(s.Fragment,{children:[s.jsx("style",{children:`
         .artifact-panel::-webkit-scrollbar { width: 5px; height: 5px; }
         .artifact-panel::-webkit-scrollbar-track { background: transparent; }
         .artifact-panel::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
