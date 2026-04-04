@@ -1833,12 +1833,31 @@ TYPOGRAPHY & SPACING (CRITICAL — artifacts must feel spacious, not cramped):
 SCROLLBARS:
 - Thin (5px), rounded (4px border-radius), dark (#333 thumb, transparent track)
 
+LAYOUT & STRUCTURE (CRITICAL — artifacts must fill the viewport, not cluster at the top):
+- The artifact container MUST use min-height: 100vh and fill the available viewport
+- Use CSS Grid or Flexbox to distribute content across the full page height
+- NEVER leave large empty space at the bottom while cramming everything at the top
+- For presentations/dashboards: use a structured grid layout (e.g., 2-column or 3-column grids for KPI tiles, side-by-side charts, comparison tables)
+- Title section at the top, then spread key metrics, charts, tables, and details evenly across the full viewport
+- If there is enough data, organize into clear visual sections: summary tiles at top, charts/graphs in the middle, detailed tables or lists at the bottom
+- Think like a dashboard designer: every section should have a purpose and the page should feel balanced and complete
+
+CONTENT APPROACH (presentations, comparisons, research):
+- Be COMPREHENSIVE — include all relevant data, metrics, and insights available
+- Use a MINIMALIST visual style — clean, spacious, no decorative clutter — but pack in real substance
+- Always include a mix of content types where appropriate: KPI/stat tiles, charts (bar, line, pie), comparison tables, bullet-point insights
+- For comparisons: use side-by-side layouts, highlight key differences visually
+- For data-heavy topics: include interactive Chart.js visualizations, not just static text
+- Tables should have alternating row backgrounds (#111111 / #0d0d0d) for readability
+- KPI tiles: display the metric value large (20-24px, font-weight 500, #ffffff), label small above (11px, #666666, uppercase, letter-spacing 0.5px)
+- Every artifact should feel like a polished, information-rich dashboard — not a text document with a colored background
+
 ARTIFACT RULES:
 - The HTML MUST be fully self-contained (inline CSS, no external stylesheets except CDN scripts)
 - You MAY include <script> tags for Chart.js (https://cdn.jsdelivr.net/npm/chart.js) or similar CDN libraries
 - ALWAYS include a text explanation alongside the artifact, not just the artifact alone
 - Do NOT use artifacts for simple text answers or short lists
-- The artifact HTML should look professional, polished, and premium — prioritize readability and breathing room over density
+- The artifact HTML should look professional, polished, and premium — prioritize readability, breathing room, and full viewport utilization
 
 {{WEB_SEARCH_SECTION}}
 
