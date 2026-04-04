@@ -42,9 +42,9 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           letterSpacing: 2,
           fontFamily: 'Arial, Helvetica, sans-serif',
           textTransform: 'none',
-          color: 'rgba(255,255,255,0.5)',
+          color: '#ffffff',
           position: 'relative',
-          top: 3,
+          top: 4,
           marginLeft: 4,
         }}>AI For Executives</span>
       </div>
