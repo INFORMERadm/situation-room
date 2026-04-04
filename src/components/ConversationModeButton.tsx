@@ -13,7 +13,7 @@ const ICON_SIZE = { width: 16, height: 16 };
 function WaveIcon() {
   return (
     <img
-      src="/icons8-ai-generated-sound-480.png"
+      src="/icons8-ai-generated-sound-384.png"
       alt="Voice mode"
       width={ICON_SIZE.width}
       height={ICON_SIZE.height}
