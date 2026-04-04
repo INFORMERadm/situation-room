@@ -1867,7 +1867,8 @@ CRITICAL RULES:
 - The presentation wrapper uses width:100% — NEVER set a fixed pixel width.
 - The iframe body uses flexbox centering. Your outermost div just needs width:100%.
 - Each slide uses position:absolute and fills its container. Content is padded inside.
-- NEVER use inline onclick attributes on buttons or any element. Artifacts render inside sandboxed iframes where inline event handlers are blocked. ALWAYS use document.getElementById('id').addEventListener('click', function(){...}) in the script block instead.
+- NEVER use inline onclick attributes on buttons or any element. Artifacts render inside sandboxed iframes where inline event handlers are blocked by CSP. ALWAYS use document.getElementById('id').addEventListener('click', function(){...}) in the script block instead. This is the #1 cause of broken navigation — if you use onclick="..." the buttons will silently fail. The ONLY way to attach events is addEventListener in a script tag.
+- ALWAYS wrap your entire navigation script inside document.addEventListener('DOMContentLoaded', function(){ ... }) to ensure the DOM is ready before attaching event listeners.
 - NEVER use native HTML list markers. The wrapper resets list-style:none. Use custom styled divs for list items with a colored dot or dash as a prefix span.
 - MINIMUM 8 slides. ALWAYS generate at least 8 slides — no exceptions. If you feel there are only 5-6 topics, break them into more granular slides or add an extra analysis/deep-dive slide to reach 8.
 - Each slide MUST contain rich visual elements — KPI tiles, grids, tables, Chart.js charts, or progress bars. NEVER a slide with only a heading and bullet points.
@@ -1957,6 +1958,7 @@ IMPORTANT: If your slides include Chart.js charts, you MUST load Chart.js via a 
 <!-- CRITICAL: Load Chart.js FIRST, then your script -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function(){
 var cur=0,slides=document.querySelectorAll('.slide'),total=slides.length,autoInterval=null,speedSelect=document.getElementById('speedSelect');
 function show(){
   slides.forEach(function(s,i){
@@ -1991,7 +1993,8 @@ function initCharts(){
   // new Chart(document.getElementById('chart1'),{type:'bar',data:{...},options:{responsive:true,maintainAspectRatio:false}});
 }
 if(typeof Chart!=='undefined'){initCharts();}
-else{document.querySelector('script[src*=\"chart.js\"]').addEventListener('load',initCharts);}
+else{var cs=document.querySelector('script[src*=\"chart.js\"]');if(cs){cs.addEventListener('load',initCharts);}}
+});
 </script>
 
 END OF TEMPLATE.
