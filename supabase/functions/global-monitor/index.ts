@@ -1862,7 +1862,10 @@ PRESENTATIONS & SLIDES (MANDATORY for any presentation, pitch deck, or slide req
 - Transition: When clicking Next, the current slide slides out to the LEFT and the new slide slides in from the RIGHT. When clicking Back, the current slide slides out to the RIGHT and the new slide slides in from the LEFT. Use CSS transform translateX with a smooth transition (0.4s ease).
 - Show a slide counter between the buttons (e.g., "2 / 8") in #666666 font color.
 - Disable the Back button on the first slide and the Next button on the last slide (opacity 0.3, pointer-events none).
-- Each slide should be content-rich: use a title (h2), body content, charts, tables, or bullet points as appropriate. Aim for 5-12 slides depending on the topic.
+- MINIMUM SLIDES: Every presentation MUST have at least 8 to 12 slides by default. Never create fewer than 8 slides unless the user explicitly asks for fewer.
+- Each slide MUST be rich in detail and substance. Do NOT create thin slides with just a title and a few bullet points. Every slide should have a meaningful title (h2), detailed body content (paragraphs, data points, statistics, quotes, or analysis), and where appropriate include charts (Chart.js), tables, comparison grids, KPI tiles, or visual elements. Think of each slide as a standalone information-rich card.
+- Suggested slide structure for most presentations: (1) Title slide, (2) Overview/Agenda, (3-4) Key context/background slides, (5-8) Core content slides with data, charts, and analysis, (9-10) Implications/insights slides, (11) Summary/key takeaways, (12) Closing/next steps or call to action.
+- NEVER pad slides with filler content. Every slide must deliver real, substantive information relevant to the topic.
 - The slide container should use overflow: hidden to clip the sliding animation.
 - All JavaScript for navigation must be inline in a <script> tag. Use vanilla JS, no frameworks.
 
