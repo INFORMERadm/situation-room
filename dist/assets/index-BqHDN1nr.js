@@ -59,8 +59,8 @@ ${z}`}class tn extends Error{constructor({message:e,code:r,cause:a,name:c}){var 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; }
-  body { padding: 24px; }
+  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: auto; }
+  body { padding: 24px; max-width: 1200px; margin: 0 auto; }
 </style>
 </head>
 <body>
