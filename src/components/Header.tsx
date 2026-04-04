@@ -40,7 +40,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           fontSize: 10,
           fontWeight: 500,
           letterSpacing: 2,
-          textTransform: 'uppercase',
+          fontFamily: 'Arial, Helvetica, sans-serif',
           color: 'rgba(255,255,255,0.5)',
           position: 'relative',
           top: 3,
