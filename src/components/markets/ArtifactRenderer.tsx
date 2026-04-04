@@ -21,8 +21,8 @@ export default function ArtifactRenderer({ artifact }: Props) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; height: 100%; }
-  body { width: 100%; min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 24px; }
+  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; }
+  body { display: flex; flex-direction: column; align-items: center; padding: 16px 24px; }
   body > * { width: 100%; max-width: 100%; }
   table { width: 100%; border-collapse: collapse; }
   canvas { max-width: 100%; }

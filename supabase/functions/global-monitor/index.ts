@@ -1871,11 +1871,18 @@ CRITICAL RULES:
 
 MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
 
-<div id="pres" style="width:100%">
-  <div id="viewport" style="width:100%;position:relative;overflow:hidden;background:#111;border-radius:12px;height:520px">
+<style>
+  #pres{width:100%;display:flex;flex-direction:column;height:calc(100vh - 32px)}
+  #viewport{width:100%;position:relative;overflow:hidden;background:#111;border-radius:12px;flex:1;min-height:0}
+  .slide{position:absolute;top:0;left:0;width:100%;height:100%;padding:48px 56px;display:flex;flex-direction:column;transition:transform 0.45s ease,opacity 0.45s ease;overflow-y:auto}
+  .slide-nav{display:flex;justify-content:center;align-items:center;gap:20px;padding:14px 0;flex-shrink:0}
+  .slide-nav button{background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 32px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all 0.2s}
+  .slide-nav button:hover{border-color:#2196F3;color:#2196F3}
+</style>
+<div id="pres">
+  <div id="viewport">
     <!-- Slide 1: Title -->
-    <div class="slide" style="position:absolute;top:0;left:0;width:100%;height:100%;padding:48px 56px;display:flex;flex-direction:column;justify-content:center;transition:transform 0.45s ease,opacity 0.45s ease">
-      <div style="margin-bottom:auto"></div>
+    <div class="slide" style="justify-content:center">
       <h1 style="font-size:32px;color:#fff;font-weight:600;margin-bottom:12px">Presentation Title</h1>
       <p style="font-size:16px;color:#888;margin-bottom:40px">Subtitle or tagline here</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:auto">
@@ -1887,13 +1894,12 @@ MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
       </div>
     </div>
     <!-- Slide 2: Content with grid -->
-    <div class="slide" style="position:absolute;top:0;left:0;width:100%;height:100%;padding:48px 56px;display:flex;flex-direction:column;transform:translateX(100%);opacity:0;transition:transform 0.45s ease,opacity 0.45s ease">
+    <div class="slide" style="transform:translateX(100%);opacity:0">
       <h2 style="font-size:22px;color:#fff;font-weight:600;margin-bottom:8px">Section Title</h2>
       <div style="height:1px;background:linear-gradient(90deg,#2196F3,transparent);margin-bottom:24px;width:120px"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1">
-        <div style="background:#1a1a1a;border-radius:10px;padding:24px">
-          <!-- Chart container or data table or KPI cards -->
-          <div style="height:250px;width:100%"><canvas id="chart1"></canvas></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;min-height:0">
+        <div style="background:#1a1a1a;border-radius:10px;padding:24px;overflow:hidden">
+          <div style="height:100%;max-height:300px;width:100%"><canvas id="chart1"></canvas></div>
         </div>
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="background:#1a1a1a;border-radius:10px;padding:18px 20px;border-left:3px solid #2196F3">
@@ -1905,12 +1911,12 @@ MANDATORY HTML TEMPLATE (follow this exactly — only change slide content):
         </div>
       </div>
     </div>
-    <!-- Slide 3+: More slides with same position:absolute structure, initially transform:translateX(100%);opacity:0 -->
+    <!-- Slide 3+: More slides, each with class="slide" and initial style="transform:translateX(100%);opacity:0" -->
   </div>
-  <div style="display:flex;justify-content:center;align-items:center;gap:20px;padding:18px 0;width:100%">
-    <button id="prevBtn" onclick="nav(-1)" style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 32px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all 0.2s">Back</button>
+  <div class="slide-nav">
+    <button id="prevBtn" onclick="nav(-1)">Back</button>
     <span id="counter" style="font-size:13px;color:#666;min-width:60px;text-align:center">1 / N</span>
-    <button id="nextBtn" onclick="nav(1)" style="background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 32px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all 0.2s">Next</button>
+    <button id="nextBtn" onclick="nav(1)">Next</button>
   </div>
 </div>
 <script>
@@ -1932,6 +1938,15 @@ show();
 </script>
 
 END OF TEMPLATE.
+
+KEY SIZING RULES for the template:
+- #pres uses height:calc(100vh - 32px) to fill the full viewport minus body padding.
+- #viewport uses flex:1 so it stretches to fill all available height between the nav bar and the top.
+- Each .slide uses position:absolute;width:100%;height:100% so it fills the viewport div exactly.
+- The slide-nav is flex-shrink:0 so it always stays visible at the bottom.
+- This means slides automatically expand to use ALL available vertical space — no wasted dead space above or below.
+- NEVER add height:520px or any fixed height to #viewport — flex:1 handles it.
+- Chart containers inside slides should use max-height:300px with height:100% so they scale with the slide.
 
 SLIDE CONTENT REQUIREMENTS (every slide MUST follow these):
 1. Title slide: Big title, subtitle, 3-4 KPI metric tiles at the bottom in a grid row.
