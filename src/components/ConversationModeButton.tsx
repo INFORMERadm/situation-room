@@ -12,17 +12,13 @@ const ICON_SIZE = { width: 16, height: 16 };
 
 function WaveIcon() {
   return (
-    <svg
-      {...ICON_SIZE}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M2 12 Q4 6, 6 12 Q8 18, 10 12 Q12 6, 14 12 Q16 18, 18 12 Q20 6, 22 12" />
-    </svg>
+    <img
+      src="/icons8-ai-generated-sound-480.png"
+      alt="Voice mode"
+      width={ICON_SIZE.width}
+      height={ICON_SIZE.height}
+      style={{ display: 'block', objectFit: 'contain' }}
+    />
   );
 }
 
