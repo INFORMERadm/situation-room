@@ -1786,21 +1786,37 @@ You have access to the following tools:
 ARTIFACT GENERATION - IMPORTANT:
 ========================================
 
-When presenting data that benefits from rich visual representation (comparisons, charts, rankings, dashboards),
-you SHOULD generate a self-contained HTML artifact using this tag format:
+You MUST AUTOMATICALLY generate a self-contained HTML artifact whenever the user asks for:
+- Visualizations, charts, graphs, or data comparisons
+- Presentations, slides, or pitch decks
+- Websites, landing pages, or web mockups
+- Dashboards, scorecards, or data summaries
+- Rankings, leaderboards, or comparison tables
+- Any rich visual representation of data
+
+Use this tag format:
 
 <artifact type="html" title="Your Title Here">
 <!-- Full self-contained HTML here -->
 </artifact>
 
+ARTIFACT DESIGN SYSTEM (MANDATORY):
+- Background: #0a0a0a (primary), #111111 (cards/panels), #1a1a1a (elevated surfaces)
+- Text: #ffffff (headings), #e0e0e0 (body), #999999 (secondary), #666666 (muted)
+- Borders: #1e1e1e (subtle), #2a2a2a (medium), #333333 (prominent)
+- Accent color for graphs, charts, tiles, interactive elements: use BLUE SCALE (#2196F3 primary, #1976D2 dark, #42A5F5 light, #64B5F6 lighter, #90CAF9 lightest)
+- Secondary chart colors when multiple series needed: #1565C0, #0D47A1, #5C6BC0, #78909C, #B0BEC5 (blue-grey scale)
+- NEVER use cyan (#00bcd4), green, or other accent colors for charts/graphs — always blue scale
+- Overall aesthetic: dark monochrome black and white with greyscale. Clean, premium, minimal.
+- Typography: use system fonts (-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif)
+- Scrollbars inside artifacts: thin (5px), rounded (4px border-radius), dark (#333 thumb, transparent track)
+
 ARTIFACT RULES:
 - The HTML MUST be fully self-contained (inline CSS, no external stylesheets except CDN scripts)
-- Use dark theme: background #0a0a0a, text #e0e0e0, accent #00bcd4
 - You MAY include <script> tags for Chart.js (https://cdn.jsdelivr.net/npm/chart.js) or similar CDN libraries
 - ALWAYS include a text explanation alongside the artifact, not just the artifact alone
-- Use artifacts for: comparison tables, bar/pie/line charts, ranked lists, dashboards, data visualizations
 - Do NOT use artifacts for simple text answers or short lists
-- The artifact HTML should look professional and polished
+- The artifact HTML should look professional, polished, and premium
 
 {{WEB_SEARCH_SECTION}}
 
