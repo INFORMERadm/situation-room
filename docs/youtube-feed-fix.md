@@ -56,6 +56,33 @@ Replaced the RSS XML fetch approach with a page-scraping strategy:
 
 No database changes required. The stored feed URLs (`https://www.youtube.com/feeds/videos.xml?channel_id=...`) still work as identifiers — the channel ID is extracted from them to construct the scraping URL.
 
+## Chronological Sort Fix (2026-04-04)
+
+### Problem
+
+Videos from multiple YouTube channels appeared in channel-grouped blocks instead of being interleaved chronologically. For example, all CNN videos would appear together, then all BBC videos, rather than being sorted by actual publish time across all channels.
+
+### Root Cause
+
+YouTube returns relative date strings ("6 days ago", "2 weeks ago") instead of precise timestamps. The frontend's `parseRelativeDate()` converted these, but all videos from one channel with the same relative date got identical timestamps. Since `flatMap` processes channels sequentially, same-timestamp videos stayed grouped by channel.
+
+### Solution
+
+Moved date parsing from the frontend to the backend edge function (`rss-proxy`):
+
+1. **New `relativeTextToISO()` function in `rss-proxy/index.ts`** — Converts relative date strings to ISO timestamps server-side, with a per-video offset (`index * 60000ms`) so that videos within the same relative-date bucket get unique, correctly-ordered timestamps.
+
+2. **Backend now returns ISO timestamps** — The `published` field in the JSON response is now a proper ISO date string (e.g., `"2026-03-29T14:30:00.000Z"`) instead of a relative string (e.g., `"6 days ago"`).
+
+3. **Frontend uses ISO timestamps directly** — `useNewsDeckFeeds.ts` now uses the backend-provided ISO timestamp as-is, with a fallback to the old `parseRelativeDate()` for backward compatibility.
+
+4. **No sort logic changes needed** — The existing chronological sort in `FeedColumn.tsx` now naturally interleaves videos from all channels since timestamps are unique and accurate.
+
+### Files Changed
+
+- `supabase/functions/rss-proxy/index.ts` — Added `relativeTextToISO()`, updated `fetchYoutubeChannel()` to return ISO dates
+- `src/hooks/useNewsDeckFeeds.ts` — Updated `fetchYoutubeFeed` to use ISO timestamps directly with fallback
+
 ## Notes
 
 - The old `resolveYoutubeUrl()` function was removed since we no longer need to resolve handles to RSS feed URLs.

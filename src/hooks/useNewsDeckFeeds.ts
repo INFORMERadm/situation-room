@@ -250,7 +250,7 @@ export function useNewsDeckFeeds(userId: string | undefined): UseNewsDeckFeedsRe
         title: v.title || 'YouTube Video',
         url: `https://www.youtube.com/watch?v=${v.videoId}`,
         description: v.description || '',
-        publishedAt: parseRelativeDate(v.published),
+        publishedAt: isNaN(Date.parse(v.published)) ? parseRelativeDate(v.published) : v.published,
         thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
         source: feed.display_name,
       }));

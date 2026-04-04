@@ -22,6 +22,26 @@ interface YouTubeVideo {
   description: string;
 }
 
+function relativeTextToISO(text: string, index: number): string {
+  if (!text) return new Date(Date.now() - index * 60000).toISOString();
+  const now = Date.now();
+  const match = text.match(/(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago/i);
+  if (!match) return new Date(now - index * 60000).toISOString();
+  const num = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  const ms: Record<string, number> = {
+    second: 1000,
+    minute: 60000,
+    hour: 3600000,
+    day: 86400000,
+    week: 604800000,
+    month: 2592000000,
+    year: 31536000000,
+  };
+  const base = now - num * (ms[unit] || 0);
+  return new Date(base - index * 60000).toISOString();
+}
+
 function parseTelegramHtml(html: string, channelUrl: string): TelegramPost[] {
   const posts: TelegramPost[] = [];
   const msgRegex = /<div class="tgme_widget_message_wrap[^"]*"[^>]*>[\s\S]*?<div class="tgme_widget_message[^"]*"[^>]*data-post="([^"]+)"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>\s*<\/div>/g;
@@ -226,7 +246,7 @@ async function fetchYoutubeChannel(channelIdentifier: string): Promise<YouTubeVi
       videos.push({
         videoId,
         title,
-        published: publishedText,
+        published: relativeTextToISO(publishedText, videos.length),
         thumbnail,
         description,
       });
