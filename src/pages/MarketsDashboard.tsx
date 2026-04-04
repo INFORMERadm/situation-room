@@ -316,7 +316,7 @@ export default function MarketsDashboard() {
             padding: '10px 12px',
             borderTop: '1px solid #1e1e1e',
             fontSize: 9,
-            color: '#4a4a4a',
+            color: '#6b6b6b',
             lineHeight: 1.5,
             flexShrink: 0,
           }}>
