@@ -1450,7 +1450,8 @@ export default function AIChatBox({
                   </button>
                 </div>
               )}
-              {showYoutubeInput && (
+              {/* HIDDEN: YouTube URL transcription panel - re-enable when proxy/API solution is ready */}
+              {false && showYoutubeInput && (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '6px 10px', marginBottom: 4,
@@ -1647,7 +1648,8 @@ export default function AIChatBox({
                   )}
                   File
                 </button>
-                <button
+                {/* HIDDEN: YouTube transcription button - re-enable when proxy/API solution is ready */}
+                {false && <button
                   onClick={() => setShowYoutubeInput(p => !p)}
                   title="Transcribe YouTube video"
                   style={{
@@ -1670,7 +1672,7 @@ export default function AIChatBox({
                     <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" />
                   </svg>
                   YT
-                </button>
+                </button>}
                 <textarea
                   ref={textareaRef}
                   value={input}
