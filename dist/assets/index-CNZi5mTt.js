@@ -170,7 +170,7 @@ ${String(A)}`)}return o&&c&&f.path.startsWith("http")?yield new Promise((A,w)=>{
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; height: 100%; overflow: hidden; }
+  html, body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; height: 100%; overflow: auto; }
   body { display: flex; flex-direction: column; align-items: center; padding: 16px 40px; }
   body > * { width: 100%; max-width: 1200px; flex-shrink: 0; }
   body > *:only-child, body > div:first-child:last-of-type { flex: 1; display: flex; flex-direction: column; }
