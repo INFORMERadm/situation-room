@@ -2,7 +2,9 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { ChatMessage, ChatSession, SearchMode } from '../../hooks/useAIChat';
 import type { SearchSource, SearchImage, SearchProgress } from '../../types/index';
 import type { AttachedDoc } from '../../hooks/useDocumentAttachment';
+import { isMediaFile } from '../../hooks/useDocumentAttachment';
 import AIMessageRenderer from './AIMessageRenderer';
+import LanguageSelector from './LanguageSelector';
 import ArtifactRenderer from './ArtifactRenderer';
 import ToolCallIndicator, { extractToolCalls } from './ToolCallIndicator';
 import SourcePills from './SourcePills';
@@ -54,7 +56,8 @@ interface Props {
   attachedDoc: AttachedDoc | null;
   isUploadingDoc: boolean;
   uploadDocError: string | null;
-  onAttachFile: (file: File) => Promise<void>;
+  onAttachFile: (file: File, language?: string) => Promise<void>;
+  onAttachUrl: (url: string, language: string) => Promise<void>;
   onClearDocAttachment: () => void;
   conversationStatus: ConversationStatus;
   onConversationToggle: () => void;
@@ -151,7 +154,7 @@ export default function AIChatBox({
   searchSources, searchImages, searchProgress,
   isSourcesPanelOpen,
   attachedDoc, isUploadingDoc, uploadDocError,
-  onAttachFile, onClearDocAttachment,
+  onAttachFile, onAttachUrl, onClearDocAttachment,
   onSend, onStop, onRegenerate, onDeleteMessage, onRegenerateFrom,
   onToggleExpand, onCollapse, onLoadSession, onNewSession,
   onModelChange, onShowChart, onSetSearchMode, onToggleSourcesPanel, onRefreshSessions,
@@ -173,6 +176,11 @@ export default function AIChatBox({
   const [rawMsgId, setRawMsgId] = useState<string | null>(null);
   const menuBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [stickyToolCalls, setStickyToolCalls] = useState<{ name: string; detail: string | null }[]>([]);
+  const [pendingMediaFile, setPendingMediaFile] = useState<File | null>(null);
+  const [transcriptionLang, setTranscriptionLang] = useState('en');
+  const [showYoutubeInput, setShowYoutubeInput] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const youtubeInputRef = useRef<HTMLInputElement>(null);
   const stickyTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const searchMenuRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -293,8 +301,33 @@ export default function AIChatBox({
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    await onAttachFile(file);
+    if (isMediaFile(file)) {
+      setPendingMediaFile(file);
+    } else {
+      await onAttachFile(file);
+    }
   }, [onAttachFile]);
+
+  const handleConfirmMediaUpload = useCallback(async () => {
+    if (!pendingMediaFile) return;
+    const file = pendingMediaFile;
+    setPendingMediaFile(null);
+    await onAttachFile(file, transcriptionLang);
+  }, [pendingMediaFile, transcriptionLang, onAttachFile]);
+
+  const handleCancelMediaUpload = useCallback(() => {
+    setPendingMediaFile(null);
+  }, []);
+
+  const handleSubmitYoutubeUrl = useCallback(async () => {
+    const url = youtubeUrl.trim();
+    if (!url) return;
+    const ytPattern = /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)/;
+    if (!ytPattern.test(url)) return;
+    setYoutubeUrl('');
+    setShowYoutubeInput(false);
+    await onAttachUrl(url, transcriptionLang);
+  }, [youtubeUrl, transcriptionLang, onAttachUrl]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -396,7 +429,7 @@ export default function AIChatBox({
         </div>
         <button
           onClick={() => { if (!isUploadingDoc) fileInputRef.current?.click(); }}
-          title="Attach document"
+          title="Attach file"
           style={{
             background: attachedDoc ? 'rgba(250,238,30,0.1)' : 'transparent',
             border: `1px solid ${attachedDoc ? '#ffffff' : '#333'}`,
@@ -428,7 +461,7 @@ export default function AIChatBox({
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={attachedDoc ? `${attachedDoc.filename} attached — ask anything...` : "Ask DATADESK... (e.g. 'Show me TSLA balance sheet')"}
+          placeholder={attachedDoc ? `${attachedDoc.filename} attached${attachedDoc.mediaType ? ' (transcribed)' : ''} — ask anything...` : "Ask DATADESK... (e.g. 'Show me TSLA balance sheet')"}
           style={{
             flex: 1,
             background: 'transparent',
@@ -1377,6 +1410,99 @@ export default function AIChatBox({
             )}
 
             <div style={{ margin: '0 8px 8px 8px', flexShrink: 0 }}>
+              {pendingMediaFile && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 10px', marginBottom: 4,
+                  background: 'rgba(0,188,212,0.06)',
+                  border: '1px solid #00bcd4',
+                  borderRadius: 5,
+                  animation: 'aiFadeIn 0.2s ease-out',
+                }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00bcd4" strokeWidth="2" style={{ flexShrink: 0 }}>
+                    <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                  </svg>
+                  <span style={{ flex: 1, fontSize: 10, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {pendingMediaFile.name}
+                  </span>
+                  <LanguageSelector value={transcriptionLang} onChange={setTranscriptionLang} />
+                  <button
+                    onClick={handleConfirmMediaUpload}
+                    style={{
+                      background: '#00bcd4', border: 'none', borderRadius: 3,
+                      color: '#000', fontSize: 9, fontWeight: 600, padding: '3px 10px',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Transcribe
+                  </button>
+                  <button
+                    onClick={handleCancelMediaUpload}
+                    style={{
+                      background: 'transparent', border: 'none', color: '#555',
+                      cursor: 'pointer', padding: 2, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              {showYoutubeInput && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 10px', marginBottom: 4,
+                  background: 'rgba(255,0,0,0.04)',
+                  border: '1px solid #cc0000',
+                  borderRadius: 5,
+                  animation: 'aiFadeIn 0.2s ease-out',
+                }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cc0000" strokeWidth="2" style={{ flexShrink: 0 }}>
+                    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.13C5.12 19.56 12 19.56 12 19.56s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.43z" />
+                    <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" />
+                  </svg>
+                  <input
+                    ref={youtubeInputRef}
+                    value={youtubeUrl}
+                    onChange={e => setYoutubeUrl(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSubmitYoutubeUrl(); if (e.key === 'Escape') { setShowYoutubeInput(false); setYoutubeUrl(''); } }}
+                    placeholder="Paste YouTube URL..."
+                    autoFocus
+                    style={{
+                      flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                      color: '#e0e0e0', fontSize: 10, fontFamily: 'JetBrains Mono, monospace',
+                    }}
+                  />
+                  <LanguageSelector value={transcriptionLang} onChange={setTranscriptionLang} />
+                  <button
+                    onClick={handleSubmitYoutubeUrl}
+                    disabled={!youtubeUrl.trim()}
+                    style={{
+                      background: youtubeUrl.trim() ? '#cc0000' : 'transparent',
+                      border: youtubeUrl.trim() ? 'none' : '1px solid #555',
+                      borderRadius: 3, color: youtubeUrl.trim() ? '#fff' : '#555',
+                      fontSize: 9, fontWeight: 600, padding: '3px 10px',
+                      cursor: youtubeUrl.trim() ? 'pointer' : 'default', fontFamily: 'inherit',
+                    }}
+                  >
+                    Transcribe
+                  </button>
+                  <button
+                    onClick={() => { setShowYoutubeInput(false); setYoutubeUrl(''); }}
+                    style={{
+                      background: 'transparent', border: 'none', color: '#555',
+                      cursor: 'pointer', padding: 2, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              )}
               {(attachedDoc || uploadDocError) && (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -1394,6 +1520,17 @@ export default function AIChatBox({
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ff1744" strokeWidth="2" style={{ flexShrink: 0 }}>
                       <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
+                  ) : attachedDoc?.mediaType ? (
+                    attachedDoc.mediaType === 'youtube' ? (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" style={{ flexShrink: 0 }}>
+                        <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.13C5.12 19.56 12 19.56 12 19.56s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.43z" />
+                        <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" />
+                      </svg>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" style={{ flexShrink: 0 }}>
+                        <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                      </svg>
+                    )
                   ) : (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" style={{ flexShrink: 0 }}>
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -1407,13 +1544,19 @@ export default function AIChatBox({
                     {uploadDocError
                       ? uploadDocError
                       : attachedDoc?.status === 'processing'
-                        ? `Processing ${attachedDoc.filename}...`
-                        : `${attachedDoc!.filename} · ${(attachedDoc!.charCount / 1000).toFixed(1)}k chars`
+                        ? (attachedDoc.mediaType === 'youtube'
+                          ? 'Transcribing YouTube video...'
+                          : attachedDoc.mediaType
+                            ? `Transcribing ${attachedDoc.filename}...`
+                            : `Processing ${attachedDoc.filename}...`)
+                        : attachedDoc?.mediaType
+                          ? `${attachedDoc!.filename} · ${(attachedDoc!.charCount / 1000).toFixed(1)}k chars transcribed`
+                          : `${attachedDoc!.filename} · ${(attachedDoc!.charCount / 1000).toFixed(1)}k chars`
                     }
                   </span>
                   <button
                     onClick={onClearDocAttachment}
-                    title="Remove document"
+                    title="Remove attachment"
                     style={{
                       background: 'transparent', border: 'none', color: '#555',
                       cursor: 'pointer', padding: 2, display: 'flex',
@@ -1432,7 +1575,7 @@ export default function AIChatBox({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.docx,.xlsx,.pptx,.txt,.md"
+                accept=".pdf,.docx,.xlsx,.pptx,.txt,.md,.mp3,.wav,.m4a,.ogg,.flac,.webm,.mp4,.mov"
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
               />
@@ -1477,7 +1620,7 @@ export default function AIChatBox({
                 </div>
                 <button
                   onClick={() => { if (!isUploadingDoc) fileInputRef.current?.click(); }}
-                  title="Attach document (PDF, DOCX, XLSX, PPTX, TXT, MD)"
+                  title="Attach file (PDF, DOCX, XLSX, PPTX, TXT, MD, MP3, WAV, M4A, MP4, MOV)"
                   style={{
                     background: attachedDoc ? 'rgba(250,238,30,0.1)' : 'transparent',
                     border: `1px solid ${attachedDoc ? '#ffffff' : '#333'}`,
@@ -1504,12 +1647,36 @@ export default function AIChatBox({
                   )}
                   File
                 </button>
+                <button
+                  onClick={() => setShowYoutubeInput(p => !p)}
+                  title="Transcribe YouTube video"
+                  style={{
+                    background: showYoutubeInput ? 'rgba(204,0,0,0.1)' : 'transparent',
+                    border: `1px solid ${showYoutubeInput ? '#cc0000' : '#333'}`,
+                    borderRadius: 4,
+                    color: showYoutubeInput ? '#cc0000' : '#555',
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 10, fontWeight: 500,
+                    fontFamily: 'inherit', transition: 'all 0.15s',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => { if (!showYoutubeInput) { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.color = '#ffffff'; } }}
+                  onMouseLeave={e => { if (!showYoutubeInput) { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#555'; } }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.13C5.12 19.56 12 19.56 12 19.56s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.43z" />
+                    <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" />
+                  </svg>
+                  YT
+                </button>
                 <textarea
                   ref={textareaRef}
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={attachedDoc ? 'Ask about the attached document...' : 'Ask DATADESK about any financial data...'}
+                  placeholder={attachedDoc ? (attachedDoc.mediaType ? 'Ask about the transcribed audio/video...' : 'Ask about the attached document...') : 'Ask DATADESK about any financial data...'}
                   rows={1}
                   style={{
                     flex: 1, background: 'transparent', border: 'none', outline: 'none',

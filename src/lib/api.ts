@@ -407,6 +407,9 @@ export interface ChatDocument {
   status: 'processing' | 'ready' | 'error';
   error_message: string | null;
   created_at: string;
+  media_type: 'audio' | 'video' | 'youtube' | null;
+  source_url: string | null;
+  transcription_language: string | null;
 }
 
 export async function uploadChatDocument(
@@ -446,6 +449,54 @@ export async function getSessionDocument(sessionId: string): Promise<ChatDocumen
 
   if (error) return null;
   return data as ChatDocument | null;
+}
+
+export async function uploadMediaForTranscription(
+  file: File,
+  sessionId: string,
+  language: string,
+): Promise<{ documentId: string; filename: string; charCount: number; status: string; errorMessage: string | null; mediaType: string }> {
+  const authHeaders = await getAuthHeaders();
+  const { 'Content-Type': _ct, ...headersWithoutContentType } = authHeaders;
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('sessionId', sessionId);
+  form.append('language', language);
+
+  const res = await fetch(`${API_BASE}/transcribe-media`, {
+    method: 'POST',
+    headers: headersWithoutContentType,
+    body: form,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error || `Upload failed: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function transcribeFromUrl(
+  sourceUrl: string,
+  sessionId: string,
+  language: string,
+): Promise<{ documentId: string; filename: string; charCount: number; status: string; errorMessage: string | null; mediaType: string }> {
+  const authHeaders = await getAuthHeaders();
+
+  const res = await fetch(`${API_BASE}/transcribe-media`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ sourceUrl, sessionId, language }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error || `Transcription failed: ${res.status}`);
+  }
+
+  return res.json();
 }
 
 export async function fetchWebSearchSources(sessionId: string) {

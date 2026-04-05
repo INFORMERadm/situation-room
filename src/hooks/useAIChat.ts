@@ -69,7 +69,8 @@ export interface UseAIChatReturn {
   deleteSession: (id: string) => Promise<void>;
   deleteSessions: (ids: string[]) => Promise<void>;
   deleteAllSessions: () => Promise<void>;
-  attachFile: (file: File) => Promise<void>;
+  attachFile: (file: File, language?: string) => Promise<void>;
+  attachUrl: (url: string, language: string) => Promise<void>;
   clearDocAttachment: () => void;
 }
 
@@ -147,6 +148,7 @@ export function useAIChat(
     isUploading: isUploadingDoc,
     uploadError: uploadDocError,
     attachFile: attachFileRaw,
+    attachUrl: attachUrlRaw,
     clearAttachment: clearDocAttachment,
     loadSessionDocument,
   } = useDocumentAttachment();
@@ -299,12 +301,15 @@ export function useAIChat(
     const historyMessages: AIMessage[] = messages.map(m => ({ role: m.role, content: m.content }));
     historyMessages.push({ role: 'user' as const, content: messageText });
 
-    const aiMessages: AIMessage[] = attachedDoc?.extractedText
+    const docSystemPrompt = attachedDoc?.extractedText
+      ? attachedDoc.mediaType
+        ? `The user has attached a media file titled "${attachedDoc.filename}". Below is the full transcript:\n\n${attachedDoc.extractedText}\n\n---\nThis is a transcription of ${attachedDoc.mediaType === 'youtube' ? 'a YouTube video' : `an ${attachedDoc.mediaType} recording`}. The user may ask for summaries, key points, quotes, or analysis. Always refer to this transcript when answering unless told otherwise.`
+        : `The user has attached a document titled "${attachedDoc.filename}". Full document content:\n\n${attachedDoc.extractedText}\n\n---\nAlways refer to this document when answering the user's questions unless told otherwise.`
+      : null;
+
+    const aiMessages: AIMessage[] = docSystemPrompt
       ? [
-          {
-            role: 'system' as const,
-            content: `The user has attached a document titled "${attachedDoc.filename}". Full document content:\n\n${attachedDoc.extractedText}\n\n---\nAlways refer to this document when answering the user's questions unless told otherwise.`,
-          },
+          { role: 'system' as const, content: docSystemPrompt },
           ...historyMessages,
         ]
       : historyMessages;
@@ -659,9 +664,13 @@ export function useAIChat(
     refreshSessions();
   }, [refreshSessions, clearDocAttachment]);
 
-  const attachFile = useCallback(async (file: File) => {
-    await attachFileRaw(file, sessionId);
+  const attachFile = useCallback(async (file: File, language?: string) => {
+    await attachFileRaw(file, sessionId, language);
   }, [attachFileRaw, sessionId]);
+
+  const attachUrl = useCallback(async (url: string, language: string) => {
+    await attachUrlRaw(url, sessionId, language);
+  }, [attachUrlRaw, sessionId]);
 
   const deleteMessage = useCallback((id: string) => {
     setMessages(prev => prev.filter(m => m.id !== id));
@@ -782,6 +791,7 @@ export function useAIChat(
     deleteSessions: handleDeleteSessions,
     deleteAllSessions: handleDeleteAllSessions,
     attachFile,
+    attachUrl,
     clearDocAttachment,
   };
 }

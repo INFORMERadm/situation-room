@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
-import { uploadChatDocument, getSessionDocument } from '../lib/api';
+import { uploadChatDocument, getSessionDocument, uploadMediaForTranscription, transcribeFromUrl } from '../lib/api';
 import type { ChatDocument } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
-const MAX_FILE_BYTES = 100 * 1024 * 1024;
+const MAX_FILE_BYTES = 500 * 1024 * 1024;
 
 const ALLOWED_TYPES = new Set([
   'application/pdf',
@@ -12,9 +12,36 @@ const ALLOWED_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'text/plain',
   'text/markdown',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/mp4',
+  'audio/ogg',
+  'audio/flac',
+  'audio/webm',
+  'audio/x-m4a',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
 ]);
 
-const ALLOWED_EXTS = new Set(['pdf', 'docx', 'xlsx', 'pptx', 'txt', 'md']);
+const ALLOWED_EXTS = new Set([
+  'pdf', 'docx', 'xlsx', 'pptx', 'txt', 'md',
+  'mp3', 'wav', 'm4a', 'ogg', 'flac', 'webm', 'mp4', 'mov',
+]);
+
+const MEDIA_EXTS = new Set(['mp3', 'wav', 'm4a', 'ogg', 'flac', 'webm', 'mp4', 'mov']);
+const MEDIA_TYPES = new Set([
+  'audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/ogg', 'audio/flac', 'audio/webm', 'audio/x-m4a',
+  'video/mp4', 'video/webm', 'video/quicktime',
+]);
+
+export function isMediaFile(file: File): boolean {
+  if (MEDIA_TYPES.has(file.type)) return true;
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  return MEDIA_EXTS.has(ext);
+}
+
+export type MediaType = 'audio' | 'video' | 'youtube' | null;
 
 export interface AttachedDoc {
   documentId: string;
@@ -23,13 +50,15 @@ export interface AttachedDoc {
   status: 'processing' | 'ready' | 'error';
   extractedText: string;
   errorMessage: string | null;
+  mediaType: MediaType;
 }
 
 export interface UseDocumentAttachmentReturn {
   attachedDoc: AttachedDoc | null;
   isUploading: boolean;
   uploadError: string | null;
-  attachFile: (file: File, sessionId: string) => Promise<void>;
+  attachFile: (file: File, sessionId: string, language?: string) => Promise<void>;
+  attachUrl: (url: string, sessionId: string, language: string) => Promise<void>;
   clearAttachment: () => void;
   loadSessionDocument: (sessionId: string) => Promise<void>;
 }
@@ -39,19 +68,24 @@ export function useDocumentAttachment(): UseDocumentAttachmentReturn {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const attachFile = useCallback(async (file: File, sessionId: string) => {
+  const attachFile = useCallback(async (file: File, sessionId: string, language?: string) => {
     setUploadError(null);
 
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
     if (!ALLOWED_TYPES.has(file.type) && !ALLOWED_EXTS.has(ext)) {
-      setUploadError('Unsupported file type. Please use PDF, DOCX, XLSX, PPTX, TXT, or MD.');
+      setUploadError('Unsupported file type. Supported: PDF, DOCX, XLSX, PPTX, TXT, MD, MP3, WAV, M4A, OGG, FLAC, MP4, MOV, WEBM.');
       return;
     }
 
     if (file.size > MAX_FILE_BYTES) {
-      setUploadError('File exceeds 100 MB limit.');
+      setUploadError('File exceeds 500 MB limit.');
       return;
     }
+
+    const media = isMediaFile(file);
+    const mediaType: MediaType = media
+      ? (file.type.startsWith('video/') || ['mp4', 'mov', 'webm'].includes(ext) ? 'video' : 'audio')
+      : null;
 
     setIsUploading(true);
     setAttachedDoc({
@@ -61,14 +95,68 @@ export function useDocumentAttachment(): UseDocumentAttachmentReturn {
       status: 'processing',
       extractedText: '',
       errorMessage: null,
+      mediaType,
     });
 
     try {
-      const result = await uploadChatDocument(file, sessionId);
+      let result: { documentId: string; filename: string; charCount: number; status: string; errorMessage: string | null; mediaType?: string };
+
+      if (media) {
+        result = await uploadMediaForTranscription(file, sessionId, language || 'en');
+      } else {
+        result = await uploadChatDocument(file, sessionId);
+      }
 
       if (result.status === 'error') {
         setAttachedDoc(null);
-        setUploadError(result.errorMessage || 'Failed to extract text from file.');
+        setUploadError(result.errorMessage || 'Failed to process file.');
+        return;
+      }
+
+      const { data } = await supabase
+        .from('chat_documents')
+        .select('extracted_text, media_type')
+        .eq('id', result.documentId)
+        .maybeSingle();
+
+      const doc = data as { extracted_text?: string; media_type?: string } | null;
+
+      setAttachedDoc({
+        documentId: result.documentId,
+        filename: result.filename,
+        charCount: result.charCount,
+        status: 'ready',
+        extractedText: doc?.extracted_text ?? '',
+        errorMessage: null,
+        mediaType: (doc?.media_type as MediaType) ?? mediaType,
+      });
+    } catch (e) {
+      setAttachedDoc(null);
+      setUploadError((e as Error).message || 'Upload failed.');
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
+
+  const attachUrl = useCallback(async (url: string, sessionId: string, language: string) => {
+    setUploadError(null);
+    setIsUploading(true);
+    setAttachedDoc({
+      documentId: '',
+      filename: 'YouTube video',
+      charCount: 0,
+      status: 'processing',
+      extractedText: '',
+      errorMessage: null,
+      mediaType: 'youtube',
+    });
+
+    try {
+      const result = await transcribeFromUrl(url, sessionId, language);
+
+      if (result.status === 'error') {
+        setAttachedDoc(null);
+        setUploadError(result.errorMessage || 'Failed to transcribe video.');
         return;
       }
 
@@ -85,10 +173,11 @@ export function useDocumentAttachment(): UseDocumentAttachmentReturn {
         status: 'ready',
         extractedText: (data as { extracted_text?: string } | null)?.extracted_text ?? '',
         errorMessage: null,
+        mediaType: 'youtube',
       });
     } catch (e) {
       setAttachedDoc(null);
-      setUploadError((e as Error).message || 'Upload failed.');
+      setUploadError((e as Error).message || 'Transcription failed.');
     } finally {
       setIsUploading(false);
     }
@@ -113,11 +202,12 @@ export function useDocumentAttachment(): UseDocumentAttachmentReturn {
         status: doc.status as 'ready',
         extractedText: doc.extracted_text,
         errorMessage: doc.error_message,
+        mediaType: doc.media_type ?? null,
       });
     } catch {
       setAttachedDoc(null);
     }
   }, []);
 
-  return { attachedDoc, isUploading, uploadError, attachFile, clearAttachment, loadSessionDocument };
+  return { attachedDoc, isUploading, uploadError, attachFile, attachUrl, clearAttachment, loadSessionDocument };
 }

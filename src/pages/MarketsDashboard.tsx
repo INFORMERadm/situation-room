@@ -430,6 +430,7 @@ export default function MarketsDashboard() {
               isUploadingDoc={ai.isUploadingDoc}
               uploadDocError={ai.uploadDocError}
               onAttachFile={ai.attachFile}
+              onAttachUrl={ai.attachUrl}
               onClearDocAttachment={ai.clearDocAttachment}
               conversationStatus={conversationStatus}
               onConversationToggle={handleConversationToggle}
