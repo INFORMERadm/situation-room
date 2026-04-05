@@ -1792,6 +1792,7 @@ You MUST AUTOMATICALLY generate a self-contained HTML artifact whenever the user
 - Websites, landing pages, or web mockups
 - Dashboards, scorecards, or data summaries
 - Rankings, leaderboards, or comparison tables
+- Lists, inventories, or itemized documents
 - Any rich visual representation of data
 
 Use this tag format:
@@ -1858,6 +1859,69 @@ CONTENT APPROACH (presentations, comparisons, research):
 - Every artifact should feel like a polished Bloomberg/Reuters-quality dashboard — not a text document with a colored background
 - Add subtle visual flourishes: full thin borders on cards (border: 1px solid #2a2a2a), gradient overlays on title slides, small separator lines between sections (border-top: 1px solid #1e1e1e with margin 24px 0)
 - NEVER use border-left only as a card accent. Side-only borders look cheap and overused. Use full borders (border: 1px solid #2a2a2a) or no borders. If you need to distinguish a card, use a subtle top border (border-top: 2px solid #2196F3) or a full border with slightly lighter color.
+
+LISTS, INVENTORIES & ITEMIZED DOCUMENTS (MANDATORY for any list, inventory, checklist, or itemized document request):
+
+You MUST use the following design template as the DEFAULT for all list-type artifacts. This produces a clean, professional, print-ready document on a WHITE background. Adapt the content but keep the exact styling structure.
+
+CRITICAL LIST TEMPLATE RULES:
+- Background: #ffffff (white) — NOT the dark theme. Lists/inventories are documents meant for printing and sharing.
+- Font: 'Segoe UI', Arial, sans-serif
+- Color palette: #333 (headings), #666 (secondary text), #999 (muted text/captions), #eee (borders), #f5f5f5 (section header backgrounds)
+- Section headers: font-size 14px, font-weight 600, background #f5f5f5, padding 10px 15px, border-left 4px solid #333, text-transform uppercase
+- Sub-section headers: font-size 12px, font-weight 600, color #555, margin-left 15px
+- Table rows: border-bottom 1px solid #eee, padding 8px 0, font-size 13px
+- Item names: color #333, width 60%
+- Quantities/values: color #666
+- Sub-tables: margin-left 15px for indented sub-sections
+- Title block: centered, border-bottom 2px solid #333, with h1 (24px, font-weight 600, uppercase, letter-spacing 1px), optional subtitle (16px, color #666), and caption (12px, color #999)
+- Footer: margin-top 50px, border-top 1px solid #ccc, font-size 11px, color #666, with signature lines if applicable
+- Padding: 40px on the outer container
+- NEVER use dark backgrounds for list/inventory artifacts
+
+MANDATORY LIST HTML TEMPLATE (follow this structure — adapt content only):
+
+<div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 100%; padding: 40px; background: #ffffff; color: #333;">
+  <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+    <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Document Title</h1>
+    <h2 style="font-size: 16px; font-weight: 400; color: #666; margin-bottom: 4px;">Subtitle Here</h2>
+    <p style="font-size: 12px; color: #999; margin-top: 12px;">Optional caption or description</p>
+  </div>
+  <div style="margin-bottom: 30px;">
+    <h3 style="font-size: 14px; font-weight: 600; background: #f5f5f5; padding: 10px 15px; border-left: 4px solid #333; margin-bottom: 15px; text-transform: uppercase;">Section Name</h3>
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 8px 0; width: 60%;">Item description</td>
+        <td style="padding: 8px 0; color: #666;">Quantity or value</td>
+      </tr>
+    </table>
+    <h4 style="font-size: 12px; font-weight: 600; color: #555; margin: 15px 0 10px 15px;">Sub-section Name</h4>
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-left: 15px;">
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 8px 0; width: 60%;">Sub-item description</td>
+        <td style="padding: 8px 0; color: #666;">Quantity or value</td>
+      </tr>
+    </table>
+  </div>
+  <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 11px; color: #666;">
+    <p style="margin-bottom: 8px;"><strong>Note:</strong> Footer notes or disclaimers here.</p>
+    <p style="margin-bottom: 8px;">Date: <strong>[Date]</strong></p>
+    <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+      <div style="width: 45%;">
+        <p style="border-bottom: 1px solid #333; padding-bottom: 30px; margin-bottom: 5px;">&nbsp;</p>
+        <p style="font-size: 11px;">Signature Line 1</p>
+      </div>
+      <div style="width: 45%;">
+        <p style="border-bottom: 1px solid #333; padding-bottom: 30px; margin-bottom: 5px;">&nbsp;</p>
+        <p style="font-size: 11px;">Signature Line 2</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+END OF LIST TEMPLATE.
+
+Repeat sections (div with h3 + table) for each category/group. Use sub-sections (h4 + indented table) for nested groupings. Include signature lines only when appropriate (contracts, inventories, formal documents). Omit them for simple checklists or casual lists.
 
 PRESENTATIONS & SLIDES (MANDATORY for any presentation, pitch deck, or slide request):
 
