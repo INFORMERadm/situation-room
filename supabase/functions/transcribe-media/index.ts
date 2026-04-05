@@ -109,31 +109,34 @@ async function transcribeFile(
 }
 
 async function fetchYouTubeTranscript(videoId: string, language: string): Promise<string> {
-  const watchPageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+  const innertubeRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+    method: "POST",
     headers: {
+      "Content-Type": "application/json",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept-Language": "en-US,en;q=0.9",
     },
+    body: JSON.stringify({
+      videoId,
+      context: {
+        client: {
+          clientName: "WEB",
+          clientVersion: "2.20240101.00.00",
+          hl: language || "en",
+        },
+      },
+    }),
   });
 
-  if (!watchPageRes.ok) {
-    throw new Error("Failed to fetch YouTube video page");
+  if (!innertubeRes.ok) {
+    throw new Error("Failed to fetch YouTube video metadata");
   }
 
-  const html = await watchPageRes.text();
+  const playerResponse = await innertubeRes.json();
 
-  const playerMatch = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});/s)
-    || html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
-
-  if (!playerMatch) {
-    throw new Error("Could not find video metadata. The video may be private or unavailable.");
-  }
-
-  let playerResponse;
-  try {
-    playerResponse = JSON.parse(playerMatch[1]);
-  } catch {
-    throw new Error("Failed to parse YouTube video metadata");
+  const playability = playerResponse?.playabilityStatus?.status;
+  if (playability === "LOGIN_REQUIRED" || playability === "UNPLAYABLE" || playability === "ERROR") {
+    const reason = playerResponse?.playabilityStatus?.reason || "Video is unavailable";
+    throw new Error(reason);
   }
 
   const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
