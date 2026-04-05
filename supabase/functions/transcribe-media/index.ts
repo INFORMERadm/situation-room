@@ -108,6 +108,82 @@ async function transcribeFile(
   return transcripts.join("\n\n");
 }
 
+async function fetchYouTubeTranscript(videoId: string, language: string): Promise<string> {
+  const watchPageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+  });
+
+  if (!watchPageRes.ok) {
+    throw new Error("Failed to fetch YouTube video page");
+  }
+
+  const html = await watchPageRes.text();
+
+  const playerMatch = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});/s)
+    || html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
+
+  if (!playerMatch) {
+    throw new Error("Could not find video metadata. The video may be private or unavailable.");
+  }
+
+  let playerResponse;
+  try {
+    playerResponse = JSON.parse(playerMatch[1]);
+  } catch {
+    throw new Error("Failed to parse YouTube video metadata");
+  }
+
+  const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  if (!captions || captions.length === 0) {
+    throw new Error("No captions or subtitles available for this video. Only videos with captions (auto-generated or manual) can be transcribed via URL.");
+  }
+
+  let track = captions.find((t: { languageCode: string }) => t.languageCode === language);
+  if (!track) {
+    track = captions.find((t: { languageCode: string }) => t.languageCode.startsWith(language.split("-")[0]));
+  }
+  if (!track) {
+    track = captions.find((t: { languageCode: string }) => t.languageCode === "en");
+  }
+  if (!track) {
+    track = captions[0];
+  }
+
+  const captionUrl = track.baseUrl + "&fmt=srv3";
+  console.log(`[transcribe-media] Fetching captions in ${track.languageCode} from YouTube`);
+
+  const captionRes = await fetch(captionUrl);
+  if (!captionRes.ok) {
+    throw new Error("Failed to download captions from YouTube");
+  }
+
+  const captionXml = await captionRes.text();
+
+  const segments: string[] = [];
+  const textRegex = /<text[^>]*>([^<]*)<\/text>/g;
+  let match;
+  while ((match = textRegex.exec(captionXml)) !== null) {
+    const text = match[1]
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\n/g, " ")
+      .trim();
+    if (text) segments.push(text);
+  }
+
+  if (segments.length === 0) {
+    throw new Error("Captions were found but contained no text");
+  }
+
+  return segments.join(" ");
+}
+
 function errorResponse(message: string, status: number) {
   return new Response(JSON.stringify({ error: message }), {
     status,
@@ -193,46 +269,23 @@ Deno.serve(async (req: Request) => {
 
       const videoId = ytMatch[1];
       mediaType = "youtube";
-      filename = `youtube_${videoId}.mp4`;
+      filename = `youtube_${videoId}.txt`;
+      mimeType = "text/plain";
 
-      console.log(`[transcribe-media] Downloading YouTube audio for video: ${videoId}`);
+      console.log(`[transcribe-media] Fetching YouTube captions for video: ${videoId}`);
 
-      const coResponse = await fetch(`https://co.wuk.sh/api/json`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          url: sourceUrl,
-          isAudioOnly: true,
-          aFormat: "mp3",
-          filenamePattern: "basic",
-        }),
-      });
-
-      if (!coResponse.ok) {
-        return errorResponse("Failed to extract audio from YouTube video. The video may be private, age-restricted, or unavailable.", 422);
+      let ytTranscript: string;
+      try {
+        ytTranscript = await fetchYouTubeTranscript(videoId, language);
+      } catch (e) {
+        return errorResponse((e as Error).message, 422);
       }
 
-      const coData = await coResponse.json();
-      if (!coData.url) {
-        return errorResponse("Could not obtain download URL for this YouTube video.", 422);
-      }
+      const textBytes = new TextEncoder().encode(ytTranscript);
+      fileData = textBytes;
+      fileSize = textBytes.byteLength;
 
-      const audioResponse = await fetch(coData.url);
-      if (!audioResponse.ok) {
-        return errorResponse("Failed to download audio from YouTube.", 502);
-      }
-
-      const audioBuffer = await audioResponse.arrayBuffer();
-      fileData = new Uint8Array(audioBuffer);
-      fileSize = fileData.byteLength;
-      mimeType = "audio/mpeg";
-      filename = `youtube_${videoId}.mp3`;
-
-      if (fileSize > MAX_BYTES) {
-        return errorResponse("YouTube audio exceeds 500 MB limit", 413);
-      }
-
-      console.log(`[transcribe-media] Downloaded YouTube audio: ${(fileSize / 1024 / 1024).toFixed(1)} MB`);
+      console.log(`[transcribe-media] YouTube captions fetched: ${ytTranscript.length} chars`);
     } else {
       if (file!.size > MAX_BYTES) {
         return errorResponse("File exceeds 500 MB limit", 413);
@@ -280,14 +333,19 @@ Deno.serve(async (req: Request) => {
     let transcript = "";
     let errorMessage: string | null = null;
 
-    try {
-      const ext = getWhisperExtension(mimeType, filename);
-      console.log(`[transcribe-media] Starting Whisper transcription: ${filename} (${(fileSize / 1024 / 1024).toFixed(1)} MB, lang=${language})`);
-      transcript = await transcribeFile(fileData, language, OPENAI_API_KEY, ext);
-      console.log(`[transcribe-media] Transcription complete: ${transcript.length} chars`);
-    } catch (e) {
-      errorMessage = (e as Error).message;
-      console.error(`[transcribe-media] Transcription failed:`, errorMessage);
+    if (mediaType === "youtube") {
+      transcript = new TextDecoder().decode(fileData);
+      console.log(`[transcribe-media] Using YouTube captions directly: ${transcript.length} chars`);
+    } else {
+      try {
+        const ext = getWhisperExtension(mimeType, filename);
+        console.log(`[transcribe-media] Starting Whisper transcription: ${filename} (${(fileSize / 1024 / 1024).toFixed(1)} MB, lang=${language})`);
+        transcript = await transcribeFile(fileData, language, OPENAI_API_KEY, ext);
+        console.log(`[transcribe-media] Transcription complete: ${transcript.length} chars`);
+      } catch (e) {
+        errorMessage = (e as Error).message;
+        console.error(`[transcribe-media] Transcription failed:`, errorMessage);
+      }
     }
 
     if (transcript.length > MAX_CHARS) {
