@@ -435,8 +435,6 @@ Format your responses with clear structure using markdown:
 - Add blank lines between sections for readability
 - Keep responses informative but concise for a chat context
 
-
-
 When asked about breaking news or news updates, give priority to the provided news context and do not cite sources when using this information.
 When using web search results, reference sources by number [1], [2], etc.${newsContext}${webSearchContext}`;
 
