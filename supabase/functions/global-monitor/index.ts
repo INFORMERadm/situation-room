@@ -1869,17 +1869,24 @@ CRITICAL LIST TEMPLATE RULES:
 - Font: 'Segoe UI', Arial, sans-serif
 - Color palette: #333 (headings), #666 (secondary text), #999 (muted text/captions), #eee (borders), #f5f5f5 (section header backgrounds)
 - Section headers: font-size 14px, font-weight 600, background #f5f5f5, padding 10px 15px, border-left 4px solid #333, text-transform uppercase
-- Sub-section headers: font-size 12px, font-weight 600, color #555, margin-left 15px
+- Sub-section headers: font-size 12px, font-weight 600, color #555, padding-left 30px (NEVER margin-left on headings or tables)
+- ALL tables MUST use table-layout:fixed and width:100% with NO margin-left. This is critical for column alignment.
 - Table rows: border-bottom 1px solid #eee, padding 8px 0, font-size 13px
-- Item names: color #333, width 60%
-- Quantities/values: color #666
-- Sub-tables: margin-left 15px for indented sub-sections
+- Item name column (first td): uses padding-left for indentation (15px for top-level, 30px for sub-sections). No explicit width — it fills remaining space.
+- Quantity/value columns: MUST use a fixed width (120px) and text-align:right so all values align in a single vertical column across all sections
+- NEVER use margin-left on tables to indent sub-sections. Instead, increase padding-left on the first td.
 - Title block: centered, border-bottom 2px solid #333, with h1 (24px, font-weight 600, uppercase, letter-spacing 1px), optional subtitle (16px, color #666), and caption (12px, color #999)
 - Footer: margin-top 50px, border-top 1px solid #ccc, font-size 11px, color #666, with signature lines if applicable
 - Padding: 40px on the outer container
 - NEVER use dark backgrounds for list/inventory artifacts
 
 MANDATORY LIST HTML TEMPLATE (follow this structure — adapt content only):
+
+CRITICAL TABLE ALIGNMENT RULES:
+- ALL tables (including sub-section tables) MUST use width:100% with NO margin-left. Sub-section indentation is achieved ONLY via padding-left on the first td, NEVER via margin-left on the table itself.
+- The quantity/value column MUST always use a fixed width (120px) and text-align:right so all values align in a single vertical column regardless of nesting depth.
+- The first td (item name) uses no explicit width — it fills the remaining space automatically.
+- This ensures the right-hand quantity column stays perfectly aligned across all sections and sub-sections.
 
 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 100%; padding: 40px; background: #ffffff; color: #333;">
   <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #333; padding-bottom: 20px;">
@@ -1889,17 +1896,19 @@ MANDATORY LIST HTML TEMPLATE (follow this structure — adapt content only):
   </div>
   <div style="margin-bottom: 30px;">
     <h3 style="font-size: 14px; font-weight: 600; background: #f5f5f5; padding: 10px 15px; border-left: 4px solid #333; margin-bottom: 15px; text-transform: uppercase;">Section Name</h3>
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px;">
       <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 8px 0; width: 60%;">Item description</td>
-        <td style="padding: 8px 0; color: #666;">Quantity or value</td>
+        <td style="padding: 8px 0 8px 15px;">Item description</td>
+        <td style="padding: 8px 0; width: 120px; text-align: right; color: #666;">Quantity</td>
+        <td style="padding: 8px 0; width: 120px; text-align: right; color: #666;">Notes</td>
       </tr>
     </table>
-    <h4 style="font-size: 12px; font-weight: 600; color: #555; margin: 15px 0 10px 15px;">Sub-section Name</h4>
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-left: 15px;">
+    <h4 style="font-size: 12px; font-weight: 600; color: #555; margin: 15px 0 10px 0; padding-left: 30px;">Sub-section Name</h4>
+    <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px;">
       <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 8px 0; width: 60%;">Sub-item description</td>
-        <td style="padding: 8px 0; color: #666;">Quantity or value</td>
+        <td style="padding: 8px 0 8px 30px;">Sub-item description</td>
+        <td style="padding: 8px 0; width: 120px; text-align: right; color: #666;">Quantity</td>
+        <td style="padding: 8px 0; width: 120px; text-align: right; color: #666;">Notes</td>
       </tr>
     </table>
   </div>
@@ -1921,7 +1930,7 @@ MANDATORY LIST HTML TEMPLATE (follow this structure — adapt content only):
 
 END OF LIST TEMPLATE.
 
-Repeat sections (div with h3 + table) for each category/group. Use sub-sections (h4 + indented table) for nested groupings. Include signature lines only when appropriate (contracts, inventories, formal documents). Omit them for simple checklists or casual lists.
+Repeat sections (div with h3 + table) for each category/group. Use sub-sections (h4 + indented table with padding-left on tds) for nested groupings. NEVER use margin-left on tables — always use padding-left on the first td to indent. Include signature lines only when appropriate (contracts, inventories, formal documents). Omit them for simple checklists or casual lists.
 
 PRESENTATIONS & SLIDES (MANDATORY for any presentation, pitch deck, or slide request):
 
