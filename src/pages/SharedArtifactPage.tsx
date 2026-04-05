@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import PptxGenJS from 'pptxgenjs';
 
 const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -13,6 +14,7 @@ export default function SharedArtifactPage() {
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const fetchArtifact = async (pw?: string) => {
     if (!token) return;
@@ -62,6 +64,58 @@ export default function SharedArtifactPage() {
     setPasswordError('');
     await fetchArtifact(password);
     setSubmitting(false);
+  };
+
+  const handleDownloadPpt = async () => {
+    const pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_WIDE';
+    pptx.author = 'N4 DataDesk';
+    pptx.title = title;
+
+    const iframe = iframeRef.current;
+    const doc = iframe?.contentDocument || iframe?.contentWindow?.document;
+    if (!doc) return;
+
+    const bodyText = doc.body.innerText || '';
+    const lines = bodyText.split('\n').filter((l: string) => l.trim());
+
+    const slide = pptx.addSlide();
+    slide.background = { color: '0a0a0a' };
+    slide.addText(title, {
+      x: 0.5, y: 0.3, w: 12.3, h: 0.8,
+      fontSize: 24, bold: true, color: 'e0e0e0', fontFace: 'Arial',
+    });
+
+    const chunkSize = 30;
+    const firstChunk = lines.slice(0, chunkSize);
+    slide.addText(firstChunk.join('\n'), {
+      x: 0.5, y: 1.2, w: 12.3, h: 6.0,
+      fontSize: 10, color: 'cccccc', fontFace: 'Arial', valign: 'top', wrap: true,
+    });
+
+    for (let i = chunkSize; i < lines.length; i += chunkSize) {
+      const chunk = lines.slice(i, i + chunkSize);
+      const extraSlide = pptx.addSlide();
+      extraSlide.background = { color: '0a0a0a' };
+      extraSlide.addText(title + ' (continued)', {
+        x: 0.5, y: 0.3, w: 12.3, h: 0.6,
+        fontSize: 16, bold: true, color: '888888', fontFace: 'Arial',
+      });
+      extraSlide.addText(chunk.join('\n'), {
+        x: 0.5, y: 1.0, w: 12.3, h: 6.2,
+        fontSize: 10, color: 'cccccc', fontFace: 'Arial', valign: 'top', wrap: true,
+      });
+    }
+
+    const fileName = title.replace(/[^a-zA-Z0-9]/g, '_');
+    await pptx.writeFile({ fileName });
+  };
+
+  const handleDownloadPdf = () => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.print();
+    }
   };
 
   const wrappedHtml = htmlContent ? `<!DOCTYPE html>
@@ -217,9 +271,58 @@ ${htmlContent}
           </svg>
           <span style={{ color: '#e0e0e0', fontSize: 14, fontWeight: 600 }}>{title}</span>
         </div>
-        <span style={{ color: '#444', fontSize: 11 }}>Powered by N4</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={handleDownloadPpt}
+            style={{
+              background: '#1a1a1a',
+              border: '1px solid #2a2a2a',
+              borderRadius: 6,
+              color: '#aaa',
+              fontSize: 12,
+              padding: '5px 12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <path d="M2 7h20" />
+              <path d="M8 21h8" />
+              <path d="M12 17v4" />
+            </svg>
+            Download as PPT
+          </button>
+          <button
+            onClick={handleDownloadPdf}
+            style={{
+              background: '#1a1a1a',
+              border: '1px solid #2a2a2a',
+              borderRadius: 6,
+              color: '#aaa',
+              fontSize: 12,
+              padding: '5px 12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <polyline points="9 15 12 18 15 15" />
+            </svg>
+            Download as PDF
+          </button>
+          <span style={{ color: '#444', fontSize: 11, marginLeft: 8 }}>Powered by N4</span>
+        </div>
       </div>
       <iframe
+        ref={iframeRef}
         srcDoc={wrappedHtml}
         sandbox="allow-scripts allow-same-origin"
         style={{
