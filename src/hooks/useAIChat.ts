@@ -110,12 +110,15 @@ function parseSearchTags(fullText: string): {
 
 function parseArtifactTags(fullText: string): ArtifactData[] {
   const artifacts: ArtifactData[] = [];
-  const regex = /<artifact\s+(?:type="([^"]*?)"\s+title="([^"]*?)"|title="([^"]*?)"\s+type="([^"]*?)")\s*>([\s\S]*?)<\/artifact>/g;
+  const regex = /<artifact\s+([^>]*?)>([\s\S]*?)<\/artifact>/g;
   let match;
   while ((match = regex.exec(fullText)) !== null) {
-    const type = match[1] || match[4] || 'html';
-    const title = match[2] || match[3] || 'Artifact';
-    const html = (match[5] || '').trim();
+    const attrs = match[1];
+    const typeMatch = attrs.match(/type=["']([^"']*?)["']/);
+    const titleMatch = attrs.match(/title=["']([^"']*?)["']/);
+    const type = typeMatch?.[1] || 'html';
+    const title = titleMatch?.[1] || 'Artifact';
+    const html = (match[2] || '').trim();
     if (html) {
       artifacts.push({ type, title, html });
     }
@@ -125,7 +128,7 @@ function parseArtifactTags(fullText: string): ArtifactData[] {
 
 function stripArtifactTags(text: string): string {
   return text
-    .replace(/<artifact\s+(?:type="[^"]*?"\s+title="[^"]*?"|title="[^"]*?"\s+type="[^"]*?")\s*>[\s\S]*?<\/artifact>/g, '')
+    .replace(/<artifact\s+[^>]*>[\s\S]*?<\/artifact>/g, '')
     .trim();
 }
 
@@ -454,7 +457,7 @@ export function useAIChat(
     }
     setIsStreaming(false);
     setSearchProgress(null);
-    const partial = streamingContent
+    const cleaned = streamingContent
       .replace(/<think>[\s\S]*?<\/think>/g, '')
       .replace(/<think>[\s\S]*$/g, '')
       .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '')
@@ -463,12 +466,15 @@ export function useAIChat(
       .replace(/<search_sources>[\s\S]*?<\/search_sources>/g, '')
       .trim();
     setStreamingContent('');
-    if (partial) {
+    if (cleaned) {
+      const artifacts = parseArtifactTags(cleaned);
+      const content = stripArtifactTags(cleaned);
       const partialMsg: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: partial,
+        content,
         timestamp: Date.now(),
+        artifacts: artifacts.length > 0 ? artifacts : undefined,
       };
       setMessages(prev => [...prev, partialMsg]);
     }
@@ -541,7 +547,7 @@ export function useAIChat(
           artifacts: artifacts.length > 0 ? artifacts : undefined,
         };
         setMessages(prev => [...prev, assistantMsg]);
-        saveAIMessage(sessionId, 'assistant', cleanContent, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined).then(() => refreshSessions()).catch(() => {});
+        saveAIMessage(sessionId, 'assistant', parsed.text, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined).then(() => refreshSessions()).catch(() => {});
       },
       (err) => {
         setIsStreaming(false);
@@ -721,7 +727,7 @@ export function useAIChat(
             artifacts: artifacts.length > 0 ? artifacts : undefined,
           };
           setMessages(p => [...p, assistantMsg]);
-          saveAIMessage(sessionId, 'assistant', cleanContent, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined)
+          saveAIMessage(sessionId, 'assistant', parsed.text, parsed.toolCalls.length > 0 ? parsed.toolCalls : undefined)
             .then(() => refreshSessions()).catch(() => {});
         },
         (err) => {

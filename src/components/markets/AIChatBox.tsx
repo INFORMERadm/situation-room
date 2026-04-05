@@ -312,8 +312,8 @@ export default function AIChatBox({
     .replace(/<search_status>[\s\S]*$/g, '')
     .replace(/<search_sources>[\s\S]*?<\/search_sources>/g, '')
     .replace(/<search_sources>[\s\S]*$/g, '')
-    .replace(/<artifact\s+(?:type="[^"]*?"\s+title="[^"]*?"|title="[^"]*?"\s+type="[^"]*?")\s*>[\s\S]*?<\/artifact>/g, '')
-    .replace(/<artifact\s+[^>]*>[\s\S]*$/g, '')
+    .replace(/<artifact\s+[^>]*>[\s\S]*?<\/artifact>/g, '')
+    .replace(/<artifact[\s\S]*$/g, '')
     .trim();
 
   const activeToolCalls = useMemo(
