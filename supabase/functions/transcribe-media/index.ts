@@ -108,67 +108,11 @@ async function transcribeFile(
   return transcripts.join("\n\n");
 }
 
-async function fetchYouTubeTranscript(videoId: string, language: string): Promise<string> {
-  const innertubeRes = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    },
-    body: JSON.stringify({
-      videoId,
-      context: {
-        client: {
-          clientName: "WEB",
-          clientVersion: "2.20240101.00.00",
-          hl: language || "en",
-        },
-      },
-    }),
-  });
-
-  if (!innertubeRes.ok) {
-    throw new Error("Failed to fetch YouTube video metadata");
-  }
-
-  const playerResponse = await innertubeRes.json();
-
-  const playability = playerResponse?.playabilityStatus?.status;
-  if (playability === "LOGIN_REQUIRED" || playability === "UNPLAYABLE" || playability === "ERROR") {
-    const reason = playerResponse?.playabilityStatus?.reason || "Video is unavailable";
-    throw new Error(reason);
-  }
-
-  const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-  if (!captions || captions.length === 0) {
-    throw new Error("No captions or subtitles available for this video. Only videos with captions (auto-generated or manual) can be transcribed via URL.");
-  }
-
-  let track = captions.find((t: { languageCode: string }) => t.languageCode === language);
-  if (!track) {
-    track = captions.find((t: { languageCode: string }) => t.languageCode.startsWith(language.split("-")[0]));
-  }
-  if (!track) {
-    track = captions.find((t: { languageCode: string }) => t.languageCode === "en");
-  }
-  if (!track) {
-    track = captions[0];
-  }
-
-  const captionUrl = track.baseUrl + "&fmt=srv3";
-  console.log(`[transcribe-media] Fetching captions in ${track.languageCode} from YouTube`);
-
-  const captionRes = await fetch(captionUrl);
-  if (!captionRes.ok) {
-    throw new Error("Failed to download captions from YouTube");
-  }
-
-  const captionXml = await captionRes.text();
-
+function parseCaptionXml(xml: string): string {
   const segments: string[] = [];
   const textRegex = /<text[^>]*>([^<]*)<\/text>/g;
   let match;
-  while ((match = textRegex.exec(captionXml)) !== null) {
+  while ((match = textRegex.exec(xml)) !== null) {
     const text = match[1]
       .replace(/&amp;/g, "&")
       .replace(/&lt;/g, "<")
@@ -179,12 +123,288 @@ async function fetchYouTubeTranscript(videoId: string, language: string): Promis
       .trim();
     if (text) segments.push(text);
   }
+  return segments.join(" ");
+}
 
-  if (segments.length === 0) {
+function pickCaptionTrack(
+  captions: { languageCode: string; baseUrl: string }[],
+  language: string,
+) {
+  let track = captions.find((t) => t.languageCode === language);
+  if (!track) {
+    track = captions.find((t) => t.languageCode.startsWith(language.split("-")[0]));
+  }
+  if (!track) {
+    track = captions.find((t) => t.languageCode === "en");
+  }
+  if (!track) {
+    track = captions[0];
+  }
+  return track;
+}
+
+async function downloadCaptions(baseUrl: string): Promise<string> {
+  const captionUrl = baseUrl + (baseUrl.includes("?") ? "&" : "?") + "fmt=srv3";
+  const res = await fetch(captionUrl);
+  if (!res.ok) {
+    throw new Error("Failed to download captions from YouTube");
+  }
+  const xml = await res.text();
+  const text = parseCaptionXml(xml);
+  if (!text) {
     throw new Error("Captions were found but contained no text");
   }
+  return text;
+}
 
-  return segments.join(" ");
+async function tryInnertubeAndroid(videoId: string, language: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "com.google.android.youtube/19.02.39 (Linux; U; Android 14) gzip",
+      },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: "ANDROID",
+            clientVersion: "19.02.39",
+            androidSdkVersion: 34,
+            hl: language || "en",
+          },
+        },
+      }),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const status = data?.playabilityStatus?.status;
+    if (status !== "OK") return null;
+
+    const captions = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!captions || captions.length === 0) return null;
+
+    const track = pickCaptionTrack(captions, language);
+    console.log(`[transcribe-media] InnerTube ANDROID: captions in ${track.languageCode}`);
+    return await downloadCaptions(track.baseUrl);
+  } catch (e) {
+    console.log(`[transcribe-media] InnerTube ANDROID failed: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+async function tryInnertubeIOS(videoId: string, language: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "com.google.ios.youtube/19.09.3 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)",
+      },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: "IOS",
+            clientVersion: "19.09.3",
+            deviceMake: "Apple",
+            deviceModel: "iPhone16,2",
+            hl: language || "en",
+          },
+        },
+      }),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const status = data?.playabilityStatus?.status;
+    if (status !== "OK") return null;
+
+    const captions = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!captions || captions.length === 0) return null;
+
+    const track = pickCaptionTrack(captions, language);
+    console.log(`[transcribe-media] InnerTube IOS: captions in ${track.languageCode}`);
+    return await downloadCaptions(track.baseUrl);
+  } catch (e) {
+    console.log(`[transcribe-media] InnerTube IOS failed: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+async function tryEmbedPage(videoId: string, language: string): Promise<string | null> {
+  try {
+    const embedRes = await fetch(`https://www.youtube.com/embed/${videoId}`, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
+
+    if (!embedRes.ok) return null;
+    const html = await embedRes.text();
+
+    const configMatch = html.match(/"captions"\s*:\s*(\{.*?"captionTracks"\s*:\s*\[.*?\]\s*\})/s);
+    if (!configMatch) return null;
+
+    let captionsJson: string;
+    let depth = 0;
+    let start = html.indexOf(configMatch[0]);
+    let end = start;
+    for (let i = start; i < html.length; i++) {
+      if (html[i] === '{') depth++;
+      if (html[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+    captionsJson = html.slice(start, end);
+
+    const parsed = JSON.parse(`{${captionsJson}}`);
+    const captions = parsed?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!captions || captions.length === 0) return null;
+
+    const track = pickCaptionTrack(captions, language);
+    console.log(`[transcribe-media] Embed page: captions in ${track.languageCode}`);
+    return await downloadCaptions(track.baseUrl);
+  } catch (e) {
+    console.log(`[transcribe-media] Embed page failed: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+async function tryTimedTextDirect(videoId: string, language: string): Promise<string | null> {
+  const langs = [language, language.split("-")[0], "en"];
+  const seen = new Set<string>();
+
+  for (const lang of langs) {
+    if (!lang || seen.has(lang)) continue;
+    seen.add(lang);
+
+    try {
+      const url = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
+
+      if (!res.ok) continue;
+      const xml = await res.text();
+      if (!xml || xml.length < 50) continue;
+
+      const text = parseCaptionXml(xml);
+      if (text && text.length > 10) {
+        console.log(`[transcribe-media] timedtext direct: captions in ${lang}`);
+        return text;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  for (const lang of langs) {
+    if (!lang || seen.has(`asr_${lang}`)) continue;
+    seen.add(`asr_${lang}`);
+
+    try {
+      const url = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&kind=asr&fmt=srv3`;
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
+
+      if (!res.ok) continue;
+      const xml = await res.text();
+      if (!xml || xml.length < 50) continue;
+
+      const text = parseCaptionXml(xml);
+      if (text && text.length > 10) {
+        console.log(`[transcribe-media] timedtext ASR: captions in ${lang}`);
+        return text;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+async function tryWatchPageScrape(videoId: string, language: string): Promise<string | null> {
+  try {
+    const watchRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+    });
+
+    if (!watchRes.ok) return null;
+    const html = await watchRes.text();
+
+    const marker = 'var ytInitialPlayerResponse = ';
+    const startIdx = html.indexOf(marker);
+    if (startIdx === -1) return null;
+
+    const jsonStart = startIdx + marker.length;
+    let depth = 0;
+    let jsonEnd = jsonStart;
+    for (let i = jsonStart; i < html.length; i++) {
+      if (html[i] === '{') depth++;
+      if (html[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          jsonEnd = i + 1;
+          break;
+        }
+      }
+    }
+
+    if (jsonEnd === jsonStart) return null;
+
+    const playerResponse = JSON.parse(html.slice(jsonStart, jsonEnd));
+    const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!captions || captions.length === 0) return null;
+
+    const track = pickCaptionTrack(captions, language);
+    console.log(`[transcribe-media] Watch page scrape: captions in ${track.languageCode}`);
+    return await downloadCaptions(track.baseUrl);
+  } catch (e) {
+    console.log(`[transcribe-media] Watch page scrape failed: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+async function fetchYouTubeTranscript(videoId: string, language: string): Promise<string> {
+  console.log(`[transcribe-media] Trying multiple strategies for video ${videoId}`);
+
+  const strategies: [string, () => Promise<string | null>][] = [
+    ["InnerTube ANDROID", () => tryInnertubeAndroid(videoId, language)],
+    ["InnerTube IOS", () => tryInnertubeIOS(videoId, language)],
+    ["timedtext direct", () => tryTimedTextDirect(videoId, language)],
+    ["Watch page scrape", () => tryWatchPageScrape(videoId, language)],
+    ["Embed page", () => tryEmbedPage(videoId, language)],
+  ];
+
+  for (const [name, fn] of strategies) {
+    console.log(`[transcribe-media] Trying strategy: ${name}`);
+    const result = await fn();
+    if (result && result.length > 10) {
+      console.log(`[transcribe-media] Success with strategy: ${name} (${result.length} chars)`);
+      return result;
+    }
+  }
+
+  throw new Error(
+    "Could not retrieve captions for this video. The video may have no captions, or YouTube may be blocking server requests. Try uploading the audio/video file directly instead.",
+  );
 }
 
 function errorResponse(message: string, status: number) {
