@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import PptxGenJS from 'pptxgenjs';
 import type { ArtifactData } from '../../hooks/useAIChat';
 import ArtifactFullScreen from './ArtifactFullScreen';
 import ArtifactShareDialog from './ArtifactShareDialog';
@@ -107,6 +108,68 @@ ${artifact.html}
     });
   };
 
+  const handleDownloadPpt = async () => {
+    const pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_WIDE';
+    pptx.author = 'N4 DataDesk';
+    pptx.title = artifact.title;
+
+    const iframe = iframeRef.current;
+    const doc = iframe?.contentDocument || iframe?.contentWindow?.document;
+    if (!doc) return;
+
+    const bodyText = doc.body.innerText || '';
+    const lines = bodyText.split('\n').filter((l: string) => l.trim());
+
+    const slide = pptx.addSlide();
+    slide.background = { color: '0a0a0a' };
+    slide.addText(artifact.title, {
+      x: 0.5, y: 0.3, w: 12.3, h: 0.8,
+      fontSize: 24, bold: true, color: 'e0e0e0', fontFace: 'Arial',
+    });
+
+    const chunkSize = 30;
+    const firstChunk = lines.slice(0, chunkSize);
+    slide.addText(firstChunk.join('\n'), {
+      x: 0.5, y: 1.2, w: 12.3, h: 6.0,
+      fontSize: 10, color: 'cccccc', fontFace: 'Arial', valign: 'top', wrap: true,
+    });
+
+    for (let i = chunkSize; i < lines.length; i += chunkSize) {
+      const chunk = lines.slice(i, i + chunkSize);
+      const extraSlide = pptx.addSlide();
+      extraSlide.background = { color: '0a0a0a' };
+      extraSlide.addText(artifact.title + ' (continued)', {
+        x: 0.5, y: 0.3, w: 12.3, h: 0.6,
+        fontSize: 16, bold: true, color: '888888', fontFace: 'Arial',
+      });
+      extraSlide.addText(chunk.join('\n'), {
+        x: 0.5, y: 1.0, w: 12.3, h: 6.2,
+        fontSize: 10, color: 'cccccc', fontFace: 'Arial', valign: 'top', wrap: true,
+      });
+    }
+
+    const fileName = artifact.title.replace(/[^a-zA-Z0-9]/g, '_');
+    await pptx.writeFile({ fileName });
+  };
+
+  const handleDownloadPdf = () => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.print();
+    }
+  };
+
+  const handleDownloadHtml = () => {
+    const blob = new Blob([wrappedHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${artifact.title.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <>
       <style>{`
@@ -141,6 +204,52 @@ ${artifact.html}
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
             <button
+              onClick={handleDownloadPpt}
+              style={{
+                background: 'none',
+                border: '1px solid #2a2a2a',
+                borderRadius: 5,
+                color: '#888',
+                fontSize: 10,
+                padding: '3px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 3,
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <path d="M2 7h20" />
+                <path d="M8 21h8" />
+                <path d="M12 17v4" />
+              </svg>
+              Download as PPT
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              style={{
+                background: 'none',
+                border: '1px solid #2a2a2a',
+                borderRadius: 5,
+                color: '#888',
+                fontSize: 10,
+                padding: '3px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 3,
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <polyline points="9 15 12 18 15 15" />
+              </svg>
+              Download as PDF
+            </button>
+            <button
               onClick={handleCopyHtml}
               style={{
                 background: 'none',
@@ -156,12 +265,26 @@ ${artifact.html}
               {copied ? 'Copied' : 'Copy HTML'}
             </button>
             <button
-              onClick={() => setShowShareDialog(true)}
+              onClick={handleDownloadHtml}
               style={{
                 background: 'none',
                 border: '1px solid #2a2a2a',
                 borderRadius: 5,
                 color: '#888',
+                fontSize: 10,
+                padding: '3px 8px',
+                cursor: 'pointer',
+              }}
+            >
+              Download
+            </button>
+            <button
+              onClick={() => setShowShareDialog(true)}
+              style={{
+                background: 'none',
+                border: '1px solid #00bcd4',
+                borderRadius: 5,
+                color: '#00bcd4',
                 fontSize: 10,
                 padding: '3px 8px',
                 cursor: 'pointer',
