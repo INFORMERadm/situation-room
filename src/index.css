@@ -87,7 +87,7 @@ html, body, #root {
   }
 }
 
-div:hover > div > .ai-explain-btn {
+div:hover > div > div > .ai-explain-btn {
   opacity: 1 !important;
 }
 
