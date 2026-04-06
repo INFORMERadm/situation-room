@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { encryptAES, decryptAES } from '../lib/encryption';
-import { getConversationKey } from '../lib/keyManager';
+import { getConversationKey, refreshConversationKey } from '../lib/keyManager';
 import type { DecryptedMessage, EncryptedMessageRow, ChatUserProfile } from '../types/chat';
 
 export function useMessaging(conversationId: string | null, userId: string | undefined) {
@@ -47,6 +47,24 @@ export function useMessaging(conversationId: string | null, userId: string | und
     };
   }, []);
 
+  const tryDecryptWithRefresh = useCallback(async (
+    row: EncryptedMessageRow,
+    key: CryptoKey,
+    convId: string,
+    uid: string
+  ): Promise<{ msg: DecryptedMessage; newKey: CryptoKey | null }> => {
+    const msg = await decryptRow(row, key);
+    if (msg.content !== '[unable to decrypt]') {
+      return { msg, newKey: null };
+    }
+    const freshKey = await refreshConversationKey(convId, uid);
+    if (freshKey) {
+      const retried = await decryptRow(row, freshKey);
+      return { msg: retried, newKey: freshKey };
+    }
+    return { msg, newKey: null };
+  }, [decryptRow]);
+
   const loadMessages = useCallback(async () => {
     if (!conversationId || !userId) return;
     setLoading(true);
@@ -85,9 +103,31 @@ export function useMessaging(conversationId: string | null, userId: string | und
       const senderIds = [...new Set(rows.map(r => r.sender_id))];
       await fetchProfiles(senderIds);
 
-      const decrypted = await Promise.all(
-        rows.map(r => decryptRow(r as EncryptedMessageRow, key))
-      );
+      let currentKey = key;
+      const decrypted: DecryptedMessage[] = [];
+      let needsRefresh = false;
+
+      for (const r of rows) {
+        const msg = await decryptRow(r as EncryptedMessageRow, currentKey);
+        if (msg.content === '[unable to decrypt]') {
+          needsRefresh = true;
+        }
+        decrypted.push(msg);
+      }
+
+      if (needsRefresh) {
+        const freshKey = await refreshConversationKey(conversationId, userId);
+        if (freshKey) {
+          currentKey = freshKey;
+          keyRef.current = freshKey;
+          for (let i = 0; i < decrypted.length; i++) {
+            if (decrypted[i].content === '[unable to decrypt]') {
+              const retried = await decryptRow(rows[i] as EncryptedMessageRow, freshKey);
+              decrypted[i] = retried;
+            }
+          }
+        }
+      }
 
       setMessages(decrypted);
       setLoading(false);
@@ -108,7 +148,7 @@ export function useMessaging(conversationId: string | null, userId: string | und
   }, [conversationId, userId, loadMessages]);
 
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !userId) return;
 
     const channel = supabase
       .channel(`messages-${conversationId}`)
@@ -125,7 +165,12 @@ export function useMessaging(conversationId: string | null, userId: string | und
             const row = payload.new as EncryptedMessageRow;
             if (!keyRef.current) return;
             await fetchProfiles([row.sender_id]);
-            const msg = await decryptRow(row, keyRef.current);
+            const { msg, newKey } = await tryDecryptWithRefresh(
+              row, keyRef.current, conversationId, userId
+            );
+            if (newKey) {
+              keyRef.current = newKey;
+            }
             setMessages(prev => {
               if (prev.some(m => m.id === msg.id)) return prev;
               return [...prev, msg];
@@ -135,10 +180,28 @@ export function useMessaging(conversationId: string | null, userId: string | und
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messaging_participants',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        async (payload) => {
+          const row = payload.new as { user_id: string; encrypted_conversation_key?: string };
+          if (row.user_id === userId && row.encrypted_conversation_key) {
+            const freshKey = await refreshConversationKey(conversationId, userId);
+            if (freshKey) {
+              keyRef.current = freshKey;
+            }
+          }
+        }
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [conversationId, fetchProfiles, decryptRow]);
+  }, [conversationId, userId, fetchProfiles, tryDecryptWithRefresh]);
 
   const sendMessage = useCallback(async (text: string, messageType: 'text' | 'link' | 'ai' = 'text', metadata?: Record<string, unknown>) => {
     if (!conversationId || !userId || !text.trim()) return;

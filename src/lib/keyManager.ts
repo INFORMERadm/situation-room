@@ -146,6 +146,21 @@ export async function getConversationKey(
     return importAESKey(stored.aesKeyB64);
   }
 
+  return fetchAndCacheKey(conversationId, userId);
+}
+
+export async function refreshConversationKey(
+  conversationId: string,
+  userId: string
+): Promise<CryptoKey | null> {
+  return fetchAndCacheKey(conversationId, userId);
+}
+
+async function fetchAndCacheKey(
+  conversationId: string,
+  userId: string
+): Promise<CryptoKey | null> {
+  const db = await openDB();
   const { publicKey: currentPublicKey, privateKey } = await getOrCreateIdentity(userId);
 
   const { data: participant } = await supabase
