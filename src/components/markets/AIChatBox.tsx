@@ -170,7 +170,6 @@ export default function AIChatBox({
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
-  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
   const [openMsgMenuId, setOpenMsgMenuId] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [rawMsgId, setRawMsgId] = useState<string | null>(null);
@@ -1151,17 +1150,13 @@ export default function AIChatBox({
               )}
 
               {messages.map(msg => {
-                const isHovered = hoveredMsgId === msg.id;
                 const menuOpen = openMsgMenuId === msg.id;
                 const isCopied = copiedMsgId === msg.id;
                 const showRaw = rawMsgId === msg.id;
-                const showActions = isHovered || menuOpen;
                 return (
                   <div
                     key={msg.id}
                     style={{ padding: '8px 16px', animation: 'aiFadeIn 0.3s ease-out' }}
-                    onMouseEnter={() => setHoveredMsgId(msg.id)}
-                    onMouseLeave={() => { if (openMsgMenuId !== msg.id) setHoveredMsgId(null); }}
                   >
                     <div style={{
                       display: 'flex',
@@ -1231,9 +1226,7 @@ export default function AIChatBox({
                           minHeight: 24,
                           marginTop: 3,
                           position: 'relative',
-                          visibility: showActions ? 'visible' : 'hidden',
                         }}>
-                          {showActions && (
                             <div style={{ display: 'inline-flex' }}>
                               <button
                                 ref={(el) => { if (el) menuBtnRefs.current.set(msg.id, el); else menuBtnRefs.current.delete(msg.id); }}
@@ -1269,7 +1262,6 @@ export default function AIChatBox({
                                 />
                               )}
                             </div>
-                          )}
                         </div>
                       </div>
                     </div>
