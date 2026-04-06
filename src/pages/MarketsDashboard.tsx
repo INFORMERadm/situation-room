@@ -110,7 +110,7 @@ export default function MarketsDashboard() {
       displayName: c.display_name,
     }));
 
-  useMessageNotifications({ userId: user?.id, chatSidebarOpen: platform.chatSidebarOpen });
+  useMessageNotifications({ userId: user?.id });
 
   const newsDeck = useNewsDeckFeeds(user?.id);
 

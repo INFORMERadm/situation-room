@@ -31,18 +31,13 @@ export function testNotification() {
 
 interface Options {
   userId: string | undefined;
-  chatSidebarOpen: boolean;
+  chatSidebarOpen?: boolean;
 }
 
-export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
+export function useMessageNotifications({ userId }: Options) {
   const [convIds, setConvIds] = useState<string[]>([]);
   const [convNames, setConvNames] = useState<Map<string, string>>(new Map());
-  const chatOpenRef = useRef(chatSidebarOpen);
   const userIdRef = useRef(userId);
-
-  useEffect(() => {
-    chatOpenRef.current = chatSidebarOpen;
-  }, [chatSidebarOpen]);
 
   useEffect(() => {
     userIdRef.current = userId;
@@ -143,7 +138,6 @@ export function useMessageNotifications({ userId, chatSidebarOpen }: Options) {
             if (!row.conversation_id) return;
             if (row.sender_id === userIdRef.current) return;
             if (row.message_type === 'system') return;
-            if (chatOpenRef.current) return;
 
             playChatNotification();
 
