@@ -703,16 +703,26 @@ UI TOOLS:
       callSessionConfig.tool_choice = "auto";
     }
 
-    const formData = new FormData();
-    formData.set("sdp", new Blob([sdp], { type: "application/sdp" }), "offer.sdp");
-    formData.set("session", new Blob([JSON.stringify(callSessionConfig)], { type: "application/json" }), "session.json");
+    const boundary = `----FormBoundary${crypto.randomUUID().replace(/-/g, '')}`;
+    const sessionJson = JSON.stringify(callSessionConfig);
+    const multipartBody =
+      `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="sdp"\r\n` +
+      `Content-Type: application/sdp\r\n\r\n` +
+      `${sdp}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="session"\r\n` +
+      `Content-Type: application/json\r\n\r\n` +
+      `${sessionJson}\r\n` +
+      `--${boundary}--\r\n`;
 
     const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
       },
-      body: formData,
+      body: multipartBody,
     });
 
     if (!sdpResponse.ok) {
