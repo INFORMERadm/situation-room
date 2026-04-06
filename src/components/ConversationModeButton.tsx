@@ -113,7 +113,7 @@ export function ConversationModeButton({ status, onToggle, disabled }: Conversat
     if (isListening)   return { ...base, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' };
     if (isActive)      return { ...base, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' };
     if (status === 'error') return { ...base, background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' };
-    return { ...base, background: 'transparent', color: '#aaaaaa', border: '1px solid #333' };
+    return { ...base, background: 'transparent', color: '#999', border: '1px solid #666' };
   };
 
   const getTooltip = () => {
