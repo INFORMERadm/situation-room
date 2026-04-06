@@ -1597,8 +1597,8 @@ export default function AIChatBox({
                     style={{
                       display: 'flex', alignItems: 'center', gap: 5,
                       background: webSearchEnabled ? 'rgba(0,188,212,0.1)' : 'transparent',
-                      border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#333'}`,
-                      borderRadius: 4, color: webSearchEnabled ? '#00bcd4' : '#555',
+                      border: `1px solid ${webSearchEnabled ? '#00bcd4' : '#666'}`,
+                      borderRadius: 4, color: webSearchEnabled ? '#00bcd4' : '#999',
                       padding: '4px 10px', fontSize: 10, fontWeight: 500,
                       cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
                     }}
@@ -1624,9 +1624,9 @@ export default function AIChatBox({
                   title="Attach file (PDF, DOCX, XLSX, PPTX, TXT, MD, MP3, WAV, M4A, MP4, MOV)"
                   style={{
                     background: attachedDoc ? 'rgba(250,238,30,0.1)' : 'transparent',
-                    border: `1px solid ${attachedDoc ? '#ffffff' : '#333'}`,
+                    border: `1px solid ${attachedDoc ? '#ffffff' : '#666'}`,
                     borderRadius: 4,
-                    color: attachedDoc ? '#ffffff' : '#555',
+                    color: attachedDoc ? '#ffffff' : '#999',
                     padding: '4px 8px',
                     cursor: isUploadingDoc ? 'wait' : 'pointer',
                     display: 'flex', alignItems: 'center', gap: 4,
@@ -1635,7 +1635,7 @@ export default function AIChatBox({
                     flexShrink: 0,
                   }}
                   onMouseEnter={e => { if (!attachedDoc) { e.currentTarget.style.borderColor = '#ffffff'; e.currentTarget.style.color = '#ffffff'; } }}
-                  onMouseLeave={e => { if (!attachedDoc) { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#555'; } }}
+                  onMouseLeave={e => { if (!attachedDoc) { e.currentTarget.style.borderColor = '#666'; e.currentTarget.style.color = '#999'; } }}
                 >
                   {isUploadingDoc ? (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
