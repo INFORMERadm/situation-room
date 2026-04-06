@@ -1695,8 +1695,8 @@ export default function AIChatBox({
                   disabled={(!input.trim() && !attachedDoc) || isStreaming || isUploadingDoc}
                   style={{
                     background: (input.trim() || attachedDoc) ? '#ffffff' : 'transparent',
-                    border: (input.trim() || attachedDoc) ? 'none' : '1px solid #292929',
-                    borderRadius: 4, color: (input.trim() || attachedDoc) ? '#000' : '#888',
+                    border: (input.trim() || attachedDoc) ? 'none' : '1px solid #333',
+                    borderRadius: 4, color: (input.trim() || attachedDoc) ? '#000' : '#aaaaaa',
                     padding: '6px 16px', fontSize: 11,
                     cursor: (input.trim() || attachedDoc) ? 'pointer' : 'default',
                     fontFamily: 'inherit', fontWeight: 600, transition: 'all 0.15s',
