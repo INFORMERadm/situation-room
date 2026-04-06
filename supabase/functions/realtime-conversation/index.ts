@@ -680,31 +680,31 @@ UI TOOLS:
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }
 
-    const callSessionConfig: Record<string, unknown> = {
+    const initialSessionConfig = {
       type: "realtime",
       model: "gpt-realtime",
-      instructions: fullInstructions,
-      output_modalities: ["audio"],
       audio: {
-        input: {
-          transcription: {
-            model: "gpt-4o-transcribe",
-          },
-          turn_detection: {
-            type: "semantic_vad",
-          },
-        },
         output: { voice: "marin" },
       },
     };
 
+    const sessionUpdate: Record<string, unknown> = {
+      instructions: fullInstructions,
+      input_audio_transcription: {
+        model: "gpt-4o-transcribe",
+      },
+      turn_detection: {
+        type: "semantic_vad",
+      },
+    };
+
     if (realtimeTools.length > 0) {
-      callSessionConfig.tools = realtimeTools;
-      callSessionConfig.tool_choice = "auto";
+      sessionUpdate.tools = realtimeTools;
+      sessionUpdate.tool_choice = "auto";
     }
 
     const boundary = `----FormBoundary${crypto.randomUUID().replace(/-/g, '')}`;
-    const sessionJson = JSON.stringify(callSessionConfig);
+    const sessionJson = JSON.stringify(initialSessionConfig);
     const multipartBody =
       `--${boundary}\r\n` +
       `Content-Disposition: form-data; name="sdp"\r\n` +
@@ -735,7 +735,7 @@ UI TOOLS:
 
     const answerSdp = await sdpResponse.text();
 
-    console.log(`[realtime] Call config keys: ${Object.keys(callSessionConfig).join(', ')}`);
+    console.log(`[realtime] Initial config: ${JSON.stringify(initialSessionConfig)}`);
     console.log(`[realtime] Tools count: ${realtimeTools.length}`);
 
     return new Response(
@@ -743,6 +743,7 @@ UI TOOLS:
         sdp: answerSdp,
         toolServerMap,
         toolCount: realtimeTools.length,
+        sessionUpdate,
         skippedServers,
         diagnostics: {
           serversReceived: mcpServers.length,

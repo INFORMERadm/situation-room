@@ -254,8 +254,16 @@ export async function startConversationSession(
   const completedToolCalls: CompletedToolCall[] = [];
   let currentResponseText = '';
   let isResponseActive = false;
+  let pendingSessionUpdate: Record<string, unknown> | null = null;
 
   dataChannel.onopen = () => {
+    if (pendingSessionUpdate && dataChannel.readyState === 'open') {
+      dataChannel.send(JSON.stringify({
+        type: 'session.update',
+        session: pendingSessionUpdate,
+      }));
+      pendingSessionUpdate = null;
+    }
     updateStatus('active');
   };
 
@@ -398,6 +406,7 @@ export async function startConversationSession(
     sdp: string;
     toolServerMap: Record<string, MCPServerConfig>;
     toolCount?: number;
+    sessionUpdate?: Record<string, unknown>;
   };
 
   try {
@@ -434,6 +443,17 @@ export async function startConversationSession(
   if (!currentSession) return;
 
   currentSession.toolServerMap = data.toolServerMap || {};
+
+  if (data.sessionUpdate) {
+    if (dataChannel.readyState === 'open') {
+      dataChannel.send(JSON.stringify({
+        type: 'session.update',
+        session: data.sessionUpdate,
+      }));
+    } else {
+      pendingSessionUpdate = data.sessionUpdate;
+    }
+  }
 
   try {
     await peerConnection.setRemoteDescription({
