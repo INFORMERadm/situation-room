@@ -635,21 +635,38 @@ UI TOOLS:
     let newsContext = "";
     try {
       const news = await fetchMarketNewsFromCache(supabaseUrl, supabaseServiceKey);
+      console.log(`[realtime] News cache returned ${news.length} items`);
       newsContext = formatNewsForContext(news);
-    } catch { /* non-fatal */ }
+      if (newsContext) console.log(`[realtime] News context injected (${newsContext.length} chars)`);
+      else console.log(`[realtime] WARNING: No news context available`);
+    } catch (e) {
+      console.error(`[realtime] Failed to fetch news:`, e);
+    }
 
     let fullInstructions = (systemPrompt || defaultInstructions) + customGptInstruction + webSearchInstruction + newsContext;
     if (conversationContext) {
       fullInstructions += `\n\nRecent conversation context:\n${conversationContext}`;
     }
 
-    const initialSessionConfig = {
+    const initialSessionConfig: Record<string, unknown> = {
       type: "realtime",
       model: "gpt-realtime",
+      instructions: fullInstructions,
+      input_audio_transcription: {
+        model: "gpt-4o-transcribe",
+      },
+      turn_detection: {
+        type: "semantic_vad",
+      },
       audio: {
         output: { voice: "marin" },
       },
     };
+
+    if (realtimeTools.length > 0) {
+      initialSessionConfig.tools = realtimeTools;
+      initialSessionConfig.tool_choice = "auto";
+    }
 
     const sessionUpdate: Record<string, unknown> = {
       instructions: fullInstructions,
