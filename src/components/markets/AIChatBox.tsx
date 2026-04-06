@@ -185,7 +185,6 @@ export default function AIChatBox({
   const searchMenuRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -263,7 +262,7 @@ export default function AIChatBox({
       case 'edit':
         setInput(msg.content);
         onDeleteMessage(id);
-        setTimeout(() => inputRef.current?.focus(), 50);
+        setTimeout(() => textareaRef.current?.focus(), 50);
         break;
       case 'delete':
         onDeleteMessage(id);
@@ -294,6 +293,7 @@ export default function AIChatBox({
     const text = input.trim();
     if (!text && !attachedDoc) return;
     setInput('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     onSend(text);
   }, [input, onSend, attachedDoc]);
 
@@ -376,7 +376,7 @@ export default function AIChatBox({
     return (
       <div style={{
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         gap: 8,
         padding: '6px 12px',
         borderTop: '1px solid #292929',
@@ -456,12 +456,18 @@ export default function AIChatBox({
             </svg>
           )}
         </button>
-        <input
-          ref={inputRef}
+        <textarea
+          ref={textareaRef}
           value={input}
-          onChange={e => setInput(e.target.value)}
+          onChange={e => {
+            setInput(e.target.value);
+            const el = e.target;
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 80) + 'px';
+          }}
           onKeyDown={handleKeyDown}
           placeholder={attachedDoc ? `${attachedDoc.filename} attached${attachedDoc.mediaType ? ' (transcribed)' : ''} — ask anything...` : "Ask DATADESK... (e.g. 'Show me TSLA balance sheet')"}
+          rows={1}
           style={{
             flex: 1,
             background: 'transparent',
@@ -470,6 +476,10 @@ export default function AIChatBox({
             color: '#e0e0e0',
             fontSize: 11,
             fontFamily: 'JetBrains Mono, monospace',
+            resize: 'none',
+            lineHeight: 1.4,
+            maxHeight: 80,
+            overflowY: 'auto',
           }}
         />
         {inlineStatus && (
@@ -1581,7 +1591,7 @@ export default function AIChatBox({
                 style={{ display: 'none' }}
               />
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
+                display: 'flex', alignItems: 'flex-end', gap: 8,
                 padding: '8px 12px', border: '2px solid #ffffff',
                 borderRadius: 6, background: '#0a0a0a',
               }}>
@@ -1676,14 +1686,19 @@ export default function AIChatBox({
                 <textarea
                   ref={textareaRef}
                   value={input}
-                  onChange={e => setInput(e.target.value)}
+                  onChange={e => {
+                    setInput(e.target.value);
+                    const el = e.target;
+                    el.style.height = 'auto';
+                    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder={attachedDoc ? (attachedDoc.mediaType ? 'Ask about the transcribed audio/video...' : 'Ask about the attached document...') : 'Ask DATADESK about any financial data...'}
                   rows={1}
                   style={{
                     flex: 1, background: 'transparent', border: 'none', outline: 'none',
                     color: '#e0e0e0', fontSize: 12, fontFamily: 'JetBrains Mono, monospace',
-                    resize: 'none', lineHeight: 1.4,
+                    resize: 'none', lineHeight: 1.4, maxHeight: 120, overflowY: 'auto',
                   }}
                 />
                 <ConversationModeButton
