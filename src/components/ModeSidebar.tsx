@@ -7,7 +7,7 @@ type Mode = 'markets' | 'news' | 'pa' | 'law' | 'flights' | 'chat' | 'mail' | 'a
 const WORKSPACE_MODES: Set<string> = new Set(['markets', 'news', 'pa', 'law', 'flights']);
 
 const MODES: { key: Mode; label: string }[] = [
-  { key: 'markets', label: 'Markets' },
+  { key: 'markets', label: 'Main' },
   { key: 'news', label: 'News' },
   { key: 'pa', label: 'PA' },
   { key: 'law', label: 'Law' },
