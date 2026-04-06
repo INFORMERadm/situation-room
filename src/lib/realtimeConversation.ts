@@ -255,15 +255,20 @@ export async function startConversationSession(
   let currentResponseText = '';
   let isResponseActive = false;
   let pendingSessionUpdate: Record<string, unknown> | null = null;
+  let sessionCreatedReceived = false;
 
-  dataChannel.onopen = () => {
-    if (pendingSessionUpdate && dataChannel.readyState === 'open') {
+  function trySendSessionUpdate() {
+    if (pendingSessionUpdate && sessionCreatedReceived && dataChannel.readyState === 'open') {
       dataChannel.send(JSON.stringify({
         type: 'session.update',
         session: pendingSessionUpdate,
       }));
       pendingSessionUpdate = null;
     }
+  }
+
+  dataChannel.onopen = () => {
+    trySendSessionUpdate();
     updateStatus('active');
   };
 
@@ -273,6 +278,8 @@ export async function startConversationSession(
 
       switch (message.type) {
         case 'session.created':
+          sessionCreatedReceived = true;
+          trySendSessionUpdate();
           break;
 
         case 'session.updated':
@@ -445,14 +452,8 @@ export async function startConversationSession(
   currentSession.toolServerMap = data.toolServerMap || {};
 
   if (data.sessionUpdate) {
-    if (dataChannel.readyState === 'open') {
-      dataChannel.send(JSON.stringify({
-        type: 'session.update',
-        session: data.sessionUpdate,
-      }));
-    } else {
-      pendingSessionUpdate = data.sessionUpdate;
-    }
+    pendingSessionUpdate = data.sessionUpdate;
+    trySendSessionUpdate();
   }
 
   try {
