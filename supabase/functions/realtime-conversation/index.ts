@@ -704,8 +704,8 @@ UI TOOLS:
     }
 
     const formData = new FormData();
-    formData.set("sdp", sdp);
-    formData.set("session", JSON.stringify(callSessionConfig));
+    formData.set("sdp", new Blob([sdp], { type: "application/sdp" }), "offer.sdp");
+    formData.set("session", new Blob([JSON.stringify(callSessionConfig)], { type: "application/json" }), "session.json");
 
     const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
       method: "POST",
