@@ -47,22 +47,10 @@ export function useMessaging(conversationId: string | null, userId: string | und
     };
   }, []);
 
-  const tryDecryptWithRefresh = useCallback(async (
-    row: EncryptedMessageRow,
-    key: CryptoKey,
-    convId: string,
-    uid: string
-  ): Promise<{ msg: DecryptedMessage; newKey: CryptoKey | null }> => {
-    const msg = await decryptRow(row, key);
-    if (msg.content !== '[unable to decrypt]') {
-      return { msg, newKey: null };
-    }
-    const freshKey = await refreshConversationKey(convId, uid);
-    if (freshKey) {
-      const retried = await decryptRow(row, freshKey);
-      return { msg: retried, newKey: freshKey };
-    }
-    return { msg, newKey: null };
+  const refreshingRef = useRef(false);
+
+  const decryptBatch = useCallback(async (rows: EncryptedMessageRow[], key: CryptoKey) => {
+    return Promise.all(rows.map(r => decryptRow(r, key)));
   }, [decryptRow]);
 
   const loadMessages = useCallback(async () => {
@@ -103,29 +91,20 @@ export function useMessaging(conversationId: string | null, userId: string | und
       const senderIds = [...new Set(rows.map(r => r.sender_id))];
       await fetchProfiles(senderIds);
 
-      let currentKey = key;
-      const decrypted: DecryptedMessage[] = [];
-      let needsRefresh = false;
+      const decrypted = await decryptBatch(rows as EncryptedMessageRow[], key);
 
-      for (const r of rows) {
-        const msg = await decryptRow(r as EncryptedMessageRow, currentKey);
-        if (msg.content === '[unable to decrypt]') {
-          needsRefresh = true;
-        }
-        decrypted.push(msg);
-      }
+      const hasUndecryptable = decrypted.some(m =>
+        m.content === '[unable to decrypt]' && m.message_type !== 'system'
+      );
 
-      if (needsRefresh) {
+      if (hasUndecryptable) {
         const freshKey = await refreshConversationKey(conversationId, userId);
         if (freshKey) {
-          currentKey = freshKey;
           keyRef.current = freshKey;
-          for (let i = 0; i < decrypted.length; i++) {
-            if (decrypted[i].content === '[unable to decrypt]') {
-              const retried = await decryptRow(rows[i] as EncryptedMessageRow, freshKey);
-              decrypted[i] = retried;
-            }
-          }
+          const retried = await decryptBatch(rows as EncryptedMessageRow[], freshKey);
+          setMessages(retried);
+          setLoading(false);
+          return;
         }
       }
 
@@ -136,7 +115,7 @@ export function useMessaging(conversationId: string | null, userId: string | und
       setError('Failed to decrypt messages');
       setLoading(false);
     }
-  }, [conversationId, userId, fetchProfiles, decryptRow]);
+  }, [conversationId, userId, fetchProfiles, decryptBatch]);
 
   useEffect(() => {
     setMessages([]);
@@ -165,12 +144,32 @@ export function useMessaging(conversationId: string | null, userId: string | und
             const row = payload.new as EncryptedMessageRow;
             if (!keyRef.current) return;
             await fetchProfiles([row.sender_id]);
-            const { msg, newKey } = await tryDecryptWithRefresh(
-              row, keyRef.current, conversationId, userId
-            );
-            if (newKey) {
-              keyRef.current = newKey;
+            const msg = await decryptRow(row, keyRef.current);
+
+            if (msg.content === '[unable to decrypt]') {
+              if (!refreshingRef.current) {
+                refreshingRef.current = true;
+                try {
+                  const freshKey = await refreshConversationKey(conversationId, userId);
+                  if (freshKey) {
+                    keyRef.current = freshKey;
+                    const retried = await decryptRow(row, freshKey);
+                    if (retried.content !== '[unable to decrypt]') {
+                      setMessages(prev => {
+                        if (prev.some(m => m.id === retried.id)) return prev;
+                        return [...prev, retried];
+                      });
+                      return;
+                    }
+                  }
+                  loadMessages();
+                } finally {
+                  refreshingRef.current = false;
+                }
+              }
+              return;
             }
+
             setMessages(prev => {
               if (prev.some(m => m.id === msg.id)) return prev;
               return [...prev, msg];
@@ -180,28 +179,10 @@ export function useMessaging(conversationId: string | null, userId: string | und
           }
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'messaging_participants',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        async (payload) => {
-          const row = payload.new as { user_id: string; encrypted_conversation_key?: string };
-          if (row.user_id === userId && row.encrypted_conversation_key) {
-            const freshKey = await refreshConversationKey(conversationId, userId);
-            if (freshKey) {
-              keyRef.current = freshKey;
-            }
-          }
-        }
-      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [conversationId, userId, fetchProfiles, tryDecryptWithRefresh]);
+  }, [conversationId, userId, fetchProfiles, decryptRow, loadMessages]);
 
   const sendMessage = useCallback(async (text: string, messageType: 'text' | 'link' | 'ai' = 'text', metadata?: Record<string, unknown>) => {
     if (!conversationId || !userId || !text.trim()) return;
@@ -215,7 +196,20 @@ export function useMessaging(conversationId: string | null, userId: string | und
         keyRef.current = key;
       }
 
-      const { ciphertext, iv } = await encryptAES(text, key);
+      let ciphertext: string;
+      let iv: string;
+      try {
+        const encrypted = await encryptAES(text, key);
+        ciphertext = encrypted.ciphertext;
+        iv = encrypted.iv;
+      } catch {
+        const freshKey = await refreshConversationKey(conversationId, userId);
+        if (!freshKey) { setSending(false); return; }
+        keyRef.current = freshKey;
+        const encrypted = await encryptAES(text, freshKey);
+        ciphertext = encrypted.ciphertext;
+        iv = encrypted.iv;
+      }
 
       await supabase.from('messaging_messages').insert({
         conversation_id: conversationId,

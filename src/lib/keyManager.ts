@@ -146,19 +146,28 @@ export async function getConversationKey(
     return importAESKey(stored.aesKeyB64);
   }
 
-  return fetchAndCacheKey(conversationId, userId);
+  return fetchKeyFromServer(conversationId, userId, true);
 }
 
 export async function refreshConversationKey(
   conversationId: string,
   userId: string
 ): Promise<CryptoKey | null> {
-  return fetchAndCacheKey(conversationId, userId);
+  const db = await openDB();
+  const tx = db.transaction(CONV_KEY_STORE, 'readwrite');
+  tx.objectStore(CONV_KEY_STORE).delete(conversationId);
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+
+  return fetchKeyFromServer(conversationId, userId, false);
 }
 
-async function fetchAndCacheKey(
+async function fetchKeyFromServer(
   conversationId: string,
-  userId: string
+  userId: string,
+  allowRekey: boolean
 ): Promise<CryptoKey | null> {
   const db = await openDB();
   const { publicKey: currentPublicKey, privateKey } = await getOrCreateIdentity(userId);
@@ -180,6 +189,11 @@ async function fetchAndCacheKey(
     await idbPut(db, CONV_KEY_STORE, { conversationId, aesKeyB64 });
     return aesKey;
   } catch {
+    if (!allowRekey) {
+      console.warn('[keyManager] Cannot unwrap key for conversation (no re-key):', conversationId);
+      return null;
+    }
+
     console.warn('[keyManager] Key mismatch detected -- re-keying conversation:', conversationId);
 
     const { data: serverBundle } = await supabase
