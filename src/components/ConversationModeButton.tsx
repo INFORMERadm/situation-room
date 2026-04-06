@@ -8,7 +8,7 @@ interface ConversationModeButtonProps {
   disabled?: boolean;
 }
 
-const ICON_SIZE = { width: 16, height: 16 };
+const ICON_SIZE = { width: 20, height: 20 };
 
 function WaveIcon() {
   return (
@@ -95,7 +95,7 @@ export function ConversationModeButton({ status, onToggle, disabled }: Conversat
   const getButtonStyle = (): React.CSSProperties => {
     const base: React.CSSProperties = {
       position: 'relative',
-      padding: '4px',
+      padding: '6px',
       borderRadius: '4px',
       border: 'none',
       cursor: disabled || isConnecting ? 'default' : 'pointer',
