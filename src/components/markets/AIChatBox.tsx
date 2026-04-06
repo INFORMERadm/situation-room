@@ -376,7 +376,7 @@ export default function AIChatBox({
     return (
       <div style={{
         display: 'flex',
-        alignItems: 'flex-end',
+        alignItems: 'center',
         gap: 8,
         padding: '6px 12px',
         borderTop: '1px solid #292929',
@@ -1591,7 +1591,7 @@ export default function AIChatBox({
                 style={{ display: 'none' }}
               />
               <div style={{
-                display: 'flex', alignItems: 'flex-end', gap: 8,
+                display: 'flex', alignItems: 'center', gap: 8,
                 padding: '8px 12px', border: '2px solid #ffffff',
                 borderRadius: 6, background: '#0a0a0a',
               }}>
