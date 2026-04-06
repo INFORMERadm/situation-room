@@ -154,9 +154,38 @@ ${artifact.html}
   };
 
   const handleDownloadPdf = () => {
-    const iframe = iframeRef.current;
-    if (iframe?.contentWindow) {
-      iframe.contentWindow.print();
+    const printHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${artifact.title}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  body { padding: 24px 32px; }
+  @media print {
+    body { padding: 0; }
+    @page { margin: 1cm; }
+  }
+</style>
+</head>
+<body>
+${artifact.html}
+<script>
+  window.onafterprint = function() { window.close(); };
+  setTimeout(function() { window.print(); }, 400);
+</script>
+</body>
+</html>`;
+    const blob = new Blob([printHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.onload = () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      URL.revokeObjectURL(url);
     }
   };
 
