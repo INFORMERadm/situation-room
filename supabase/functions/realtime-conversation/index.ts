@@ -34,12 +34,11 @@ interface NewsItem {
   publishedDate: string;
 }
 
-async function fetchMarketNewsWithCache(supabaseUrl: string, serviceKey: string): Promise<NewsItem[]> {
-  const { createClient } = await import("npm:@supabase/supabase-js@2");
+async function fetchMarketNewsFromCache(supabaseUrl: string, serviceKey: string): Promise<NewsItem[]> {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   const CACHE_KEY = "market-news";
-  const CACHE_MAX_AGE_MS = 60_000;
+  const CACHE_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 
   const { data: cached } = await supabase
     .from("market_cache")
@@ -54,42 +53,6 @@ async function fetchMarketNewsWithCache(supabaseUrl: string, serviceKey: string)
     }
   }
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch("https://rss.app/feeds/_wsGBiJ7aEHbD3fVL.xml", { signal: controller.signal });
-    clearTimeout(timeout);
-
-    if (!res.ok) throw new Error(`RSS fetch failed: ${res.status}`);
-    const xml = await res.text();
-
-    const items: NewsItem[] = [];
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    let match;
-    while ((match = itemRegex.exec(xml)) !== null && items.length < 30) {
-      const block = match[1];
-      const title = (block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || block.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim() ?? "";
-      const pubDate = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/))?.[1]?.trim() ?? "";
-      const creator = (block.match(/<dc:creator><!\[CDATA\[([\s\S]*?)\]\]><\/dc:creator>/) || block.match(/<dc:creator>([\s\S]*?)<\/dc:creator>/))?.[1]?.trim() ?? "";
-      if (title) {
-        items.push({
-          title,
-          site: creator.replace(/^@/, "") || "Breaking News",
-          publishedDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-        });
-      }
-    }
-
-    if (items.length > 0) {
-      await supabase.from("market_cache").upsert({
-        cache_key: CACHE_KEY,
-        data: items,
-        updated_at: new Date().toISOString(),
-      });
-      return items;
-    }
-  } catch { /* fall through */ }
-
   return [];
 }
 
@@ -97,9 +60,9 @@ function formatNewsForContext(news: NewsItem[]): string {
   if (news.length === 0) return "";
   const headlines = news.slice(0, 20).map((n, i) => {
     const time = new Date(n.publishedDate).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" });
-    return `${i + 1}. [${time} ET] ${n.title} — ${n.site}`;
+    return `${i + 1}. [${time} ET] ${n.title}`;
   }).join("\n");
-  return `\n\nLATEST MARKET NEWS (live feed, refreshed every minute):\n${headlines}\n\nUse these headlines to answer questions about current market news and events. When asked about news, reference these headlines directly.`;
+  return `\n\nLATEST BREAKING NEWS (live feed, refreshed every minute):\n${headlines}\n\nUse these headlines to answer questions about current market news and events. When asked about news, reference these headlines directly. Do not cite sources for this information.`;
 }
 
 async function mcpJsonRpcRequest(
@@ -671,7 +634,7 @@ UI TOOLS:
 
     let newsContext = "";
     try {
-      const news = await fetchMarketNewsWithCache(supabaseUrl, supabaseServiceKey);
+      const news = await fetchMarketNewsFromCache(supabaseUrl, supabaseServiceKey);
       newsContext = formatNewsForContext(news);
     } catch { /* non-fatal */ }
 
