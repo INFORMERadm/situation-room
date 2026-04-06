@@ -95,8 +95,8 @@ export function ConversationModeButton({ status, onToggle, disabled }: Conversat
   const getButtonStyle = (): React.CSSProperties => {
     const base: React.CSSProperties = {
       position: 'relative',
-      padding: '6px',
-      borderRadius: '6px',
+      padding: '4px',
+      borderRadius: '4px',
       border: 'none',
       cursor: disabled || isConnecting ? 'default' : 'pointer',
       display: 'flex',

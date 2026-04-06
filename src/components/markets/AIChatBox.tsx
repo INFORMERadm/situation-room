@@ -1697,7 +1697,7 @@ export default function AIChatBox({
                     background: (input.trim() || attachedDoc) ? '#ffffff' : 'transparent',
                     border: (input.trim() || attachedDoc) ? 'none' : '1px solid #666',
                     borderRadius: 4, color: (input.trim() || attachedDoc) ? '#000' : '#999',
-                    padding: '6px 16px', fontSize: 11,
+                    padding: '4px 10px', fontSize: 10,
                     cursor: (input.trim() || attachedDoc) ? 'pointer' : 'default',
                     fontFamily: 'inherit', fontWeight: 600, transition: 'all 0.15s',
                     opacity: isUploadingDoc ? 0.5 : 1,
