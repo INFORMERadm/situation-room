@@ -666,24 +666,6 @@ UI TOOLS:
       initialSessionConfig.tool_choice = "auto";
     }
 
-    const sessionUpdate: Record<string, unknown> = {
-      type: "realtime",
-      model: "gpt-realtime",
-      instructions: fullInstructions,
-      audio: {
-        input: {
-          transcription: { model: "gpt-4o-transcribe" },
-          turn_detection: { type: "semantic_vad" },
-        },
-        output: { voice: "marin" },
-      },
-    };
-
-    if (realtimeTools.length > 0) {
-      sessionUpdate.tools = realtimeTools;
-      sessionUpdate.tool_choice = "auto";
-    }
-
     const boundary = `----FormBoundary${crypto.randomUUID().replace(/-/g, '')}`;
     const sessionJson = JSON.stringify(initialSessionConfig);
     const multipartBody =
@@ -724,7 +706,6 @@ UI TOOLS:
         sdp: answerSdp,
         toolServerMap,
         toolCount: realtimeTools.length,
-        sessionUpdate,
         skippedServers,
         diagnostics: {
           serversReceived: mcpServers.length,
