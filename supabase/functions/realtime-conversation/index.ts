@@ -75,7 +75,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-const MCP_SERVER_TIMEOUT_MS = 5000;
+const MCP_SERVER_TIMEOUT_MS = 8000;
 
 async function mcpJsonRpcRequest(
   server: MCPServerConfig,
