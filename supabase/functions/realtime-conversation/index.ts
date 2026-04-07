@@ -667,12 +667,15 @@ UI TOOLS:
     }
 
     const sessionUpdate: Record<string, unknown> = {
+      type: "realtime",
+      model: "gpt-realtime",
       instructions: fullInstructions,
-      input_audio_transcription: {
-        model: "gpt-4o-transcribe",
-      },
-      turn_detection: {
-        type: "semantic_vad",
+      audio: {
+        input: {
+          transcription: { model: "gpt-4o-transcribe" },
+          turn_detection: { type: "semantic_vad" },
+        },
+        output: { voice: "marin" },
       },
     };
 
