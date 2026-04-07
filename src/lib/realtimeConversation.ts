@@ -226,10 +226,12 @@ export async function startConversationSession(
 
   const audioElement = new Audio();
   audioElement.autoplay = true;
+  audioElement.play().catch(() => {});
 
   peerConnection.ontrack = (event) => {
     if (event.streams && event.streams[0]) {
       audioElement.srcObject = event.streams[0];
+      audioElement.play().catch(() => {});
     }
   };
 

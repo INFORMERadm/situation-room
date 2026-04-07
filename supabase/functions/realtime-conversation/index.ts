@@ -652,6 +652,7 @@ UI TOOLS:
       type: "realtime",
       model: "gpt-realtime",
       instructions: fullInstructions,
+      output_modalities: ["audio", "text"],
       audio: {
         input: {
           transcription: { model: "gpt-4o-transcribe" },
