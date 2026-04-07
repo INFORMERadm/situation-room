@@ -65,6 +65,18 @@ function formatNewsForContext(news: NewsItem[]): string {
   return `\n\nLATEST BREAKING NEWS (live feed, refreshed every minute):\n${headlines}\n\nUse these headlines to answer questions about current market news and events. When asked about news, reference these headlines directly. Do not cite sources for this information.`;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms: ${label}`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+const MCP_SERVER_TIMEOUT_MS = 8000;
+
 async function mcpJsonRpcRequest(
   server: MCPServerConfig,
   method: string,
@@ -125,16 +137,25 @@ async function mcpJsonRpcRequest(
     }
   }
 
-  const response = await fetch(targetUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: crypto.randomUUID(),
-      method,
-      params,
-    }),
-  });
+  const fetchController = new AbortController();
+  const fetchTimer = setTimeout(() => fetchController.abort(), MCP_SERVER_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(targetUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: crypto.randomUUID(),
+        method,
+        params,
+      }),
+      signal: fetchController.signal,
+    });
+  } finally {
+    clearTimeout(fetchTimer);
+  }
 
   const contentType = response.headers.get("content-type") || "";
 
@@ -180,15 +201,23 @@ async function fetchMCPTools(server: MCPServerConfig): Promise<MCPTool[]> {
   let sessionId: string | undefined;
 
   if (!isSmitheryDirect) {
-    const { sessionId: newSessionId } = await mcpJsonRpcRequest(server, "initialize", {
-      protocolVersion: "2024-11-05",
-      capabilities: { tools: {} },
-      clientInfo: { name: "n4-realtime", version: "1.0.0" },
-    });
+    const { sessionId: newSessionId } = await withTimeout(
+      mcpJsonRpcRequest(server, "initialize", {
+        protocolVersion: "2024-11-05",
+        capabilities: { tools: {} },
+        clientInfo: { name: "n4-realtime", version: "1.0.0" },
+      }),
+      MCP_SERVER_TIMEOUT_MS,
+      `initialize ${server.url}`
+    );
     sessionId = newSessionId as string | undefined;
   }
 
-  const { result } = await mcpJsonRpcRequest(server, "tools/list", {}, sessionId);
+  const { result } = await withTimeout(
+    mcpJsonRpcRequest(server, "tools/list", {}, sessionId),
+    MCP_SERVER_TIMEOUT_MS,
+    `tools/list ${server.url}`
+  );
   const tools = (result as { tools?: MCPTool[] })?.tools || [];
   return tools;
 }
@@ -680,14 +709,29 @@ UI TOOLS:
       `${sessionJson}\r\n` +
       `--${boundary}--\r\n`;
 
-    const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": `multipart/form-data; boundary=${boundary}`,
-      },
-      body: multipartBody,
-    });
+    const openaiController = new AbortController();
+    const openaiTimeout = setTimeout(() => openaiController.abort(), 15000);
+
+    let sdpResponse: Response;
+    try {
+      sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body: multipartBody,
+        signal: openaiController.signal,
+      });
+    } catch (fetchErr) {
+      clearTimeout(openaiTimeout);
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      return new Response(
+        JSON.stringify({ error: `OpenAI realtime call failed: ${msg}` }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    clearTimeout(openaiTimeout);
 
     if (!sdpResponse.ok) {
       const errorText = await sdpResponse.text();
