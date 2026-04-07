@@ -652,12 +652,6 @@ UI TOOLS:
       type: "realtime",
       model: "gpt-realtime",
       instructions: fullInstructions,
-      input_audio_transcription: {
-        model: "gpt-4o-transcribe",
-      },
-      turn_detection: {
-        type: "semantic_vad",
-      },
       audio: {
         output: { voice: "marin" },
       },
