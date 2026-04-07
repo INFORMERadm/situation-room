@@ -75,7 +75,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-const MCP_SERVER_TIMEOUT_MS = 8000;
+const MCP_SERVER_TIMEOUT_MS = 5000;
 
 async function mcpJsonRpcRequest(
   server: MCPServerConfig,
@@ -709,29 +709,14 @@ UI TOOLS:
       `${sessionJson}\r\n` +
       `--${boundary}--\r\n`;
 
-    const openaiController = new AbortController();
-    const openaiTimeout = setTimeout(() => openaiController.abort(), 15000);
-
-    let sdpResponse: Response;
-    try {
-      sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": `multipart/form-data; boundary=${boundary}`,
-        },
-        body: multipartBody,
-        signal: openaiController.signal,
-      });
-    } catch (fetchErr) {
-      clearTimeout(openaiTimeout);
-      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
-      return new Response(
-        JSON.stringify({ error: `OpenAI realtime call failed: ${msg}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    clearTimeout(openaiTimeout);
+    const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      },
+      body: multipartBody,
+    });
 
     if (!sdpResponse.ok) {
       const errorText = await sdpResponse.text();
