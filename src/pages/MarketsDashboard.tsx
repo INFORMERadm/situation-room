@@ -28,6 +28,7 @@ import { useWatchlist } from '../context/WatchlistContext';
 import { executeToolCall as execClientTool } from '../lib/aiTools';
 import type { PlatformActions } from '../lib/aiTools';
 import { playNewsAlarm } from '../lib/alarmSound';
+import { supabase } from '../lib/supabase';
 import {
   startConversationSession,
   stopConversationSession,
@@ -98,7 +99,7 @@ const panelDivider: React.CSSProperties = {
 export default function MarketsDashboard() {
   const data = useMarketsDashboard();
   const platform = usePlatform();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const smithery = useSmitheryConnections(user?.id);
 
   const smitheryMcpServers = smithery.connections
@@ -203,7 +204,8 @@ export default function MarketsDashboard() {
           .map(m => `${m.role}: ${m.content}`)
           .join('\n');
 
-        const userToken = session?.access_token;
+        const { data: freshSession } = await supabase.auth.getSession();
+        const userToken = freshSession.session?.access_token;
 
         let smitheryServiceToken: string | undefined;
         if (smithery.connections.length > 0 && userToken) {
@@ -277,7 +279,7 @@ export default function MarketsDashboard() {
         setConversationStatus('error');
       }
     }
-  }, [ai.messages, ai.addVoiceMessage, ai.searchMode, user?.id, session?.access_token, smithery.connections, handleClientToolCall]);
+  }, [ai.messages, ai.addVoiceMessage, ai.searchMode, user?.id, smithery.connections, handleClientToolCall]);
 
   const handleToggleIndicator = (id: string) => {
     platform.toggleIndicator(id);
