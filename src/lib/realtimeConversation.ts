@@ -7,6 +7,22 @@ export type ConversationStatus =
   | 'tool_calling'
   | 'error';
 
+export type VoiceErrorCode =
+  | 'microphone_denied'
+  | 'auth_failed'
+  | 'service_unavailable'
+  | 'webrtc_failed'
+  | 'unknown';
+
+export class VoiceError extends Error {
+  code: VoiceErrorCode;
+  constructor(message: string, code: VoiceErrorCode) {
+    super(message);
+    this.code = code;
+    this.name = 'VoiceError';
+  }
+}
+
 export interface TranscriptionEvent {
   text: string;
   isFinal: boolean;
@@ -212,7 +228,7 @@ export async function startConversationSession(
     });
   } catch (err) {
     handlers.onStatusChange?.('error');
-    handlers.onError?.(new Error(`Microphone access denied: ${err instanceof Error ? err.message : String(err)}`));
+    handlers.onError?.(new VoiceError(`Microphone access denied: ${err instanceof Error ? err.message : String(err)}`, 'microphone_denied'));
     return;
   }
 
@@ -381,7 +397,7 @@ export async function startConversationSession(
   peerConnection.oniceconnectionstatechange = () => {
     if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
       updateStatus('error');
-      handlers.onError?.(new Error('WebRTC connection failed'));
+      handlers.onError?.(new VoiceError('WebRTC connection lost', 'webrtc_failed'));
     }
   };
 
@@ -392,7 +408,7 @@ export async function startConversationSession(
   } catch (err) {
     stopConversationSession();
     handlers.onStatusChange?.('error');
-    handlers.onError?.(new Error(`WebRTC offer failed: ${err instanceof Error ? err.message : String(err)}`));
+    handlers.onError?.(new VoiceError(`WebRTC offer failed: ${err instanceof Error ? err.message : String(err)}`, 'webrtc_failed'));
     return;
   }
 
@@ -422,14 +438,21 @@ export async function startConversationSession(
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Session creation failed: ${errorText}`);
+      const code: VoiceErrorCode = response.status === 401 ? 'auth_failed'
+        : (response.status === 502 || response.status === 504) ? 'service_unavailable'
+        : 'unknown';
+      throw new VoiceError(`Session creation failed (${response.status}): ${errorText}`, code);
     }
 
     data = await response.json();
   } catch (err) {
     stopConversationSession();
     handlers.onStatusChange?.('error');
-    handlers.onError?.(new Error(`Failed to connect to voice service: ${err instanceof Error ? err.message : String(err)}`));
+    if (err instanceof VoiceError) {
+      handlers.onError?.(err);
+    } else {
+      handlers.onError?.(new VoiceError(`Failed to connect to voice service: ${err instanceof Error ? err.message : String(err)}`, 'unknown'));
+    }
     return;
   }
 
@@ -445,7 +468,7 @@ export async function startConversationSession(
   } catch (err) {
     stopConversationSession();
     handlers.onStatusChange?.('error');
-    handlers.onError?.(new Error(`WebRTC answer failed: ${err instanceof Error ? err.message : String(err)}`));
+    handlers.onError?.(new VoiceError(`WebRTC answer failed: ${err instanceof Error ? err.message : String(err)}`, 'webrtc_failed'));
     return;
   }
 

@@ -33,8 +33,11 @@ import {
   startConversationSession,
   stopConversationSession,
   isConversationActive,
+  VoiceError,
   type ConversationStatus,
 } from '../lib/realtimeConversation';
+import { useToast } from '../hooks/useToast';
+import ToastContainer from '../components/Toast';
 
 const pageStyle: React.CSSProperties = {
   display: 'grid',
@@ -133,6 +136,7 @@ export default function MarketsDashboard() {
 
   const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, watchlists, setActiveWatchlistId } = useWatchlist();
 
+  const toast = useToast();
   const [conversationStatus, setConversationStatus] = useState<ConversationStatus>('idle');
   const [showMCPPanel, setShowMCPPanel] = useState(false);
   const [newsAlarmMuted, setNewsAlarmMuted] = useState(() => {
@@ -204,8 +208,19 @@ export default function MarketsDashboard() {
           .map(m => `${m.role}: ${m.content}`)
           .join('\n');
 
-        const { data: freshSession } = await supabase.auth.getSession();
-        const userToken = freshSession.session?.access_token;
+        let userToken: string | undefined;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData.session;
+        if (session) {
+          const now = Math.floor(Date.now() / 1000);
+          const expiresAt = session.expires_at ?? 0;
+          if (expiresAt - 60 < now) {
+            const { data: refreshed } = await supabase.auth.refreshSession();
+            userToken = refreshed.session?.access_token ?? session.access_token;
+          } else {
+            userToken = session.access_token;
+          }
+        }
 
         let smitheryServiceToken: string | undefined;
         if (smithery.connections.length > 0 && userToken) {
@@ -255,6 +270,17 @@ export default function MarketsDashboard() {
             onError: (error) => {
               console.error('Conversation error:', error);
               setConversationStatus('error');
+              if (error instanceof VoiceError) {
+                const messages: Record<string, string> = {
+                  microphone_denied: 'Microphone access denied — check browser permissions',
+                  auth_failed: 'Voice authentication failed — please refresh the page',
+                  service_unavailable: 'Voice service unavailable — try again in a moment',
+                  webrtc_failed: 'Voice connection lost',
+                };
+                toast.show(messages[error.code] || 'Voice connection failed — please try again');
+              } else {
+                toast.show('Voice connection failed — please try again');
+              }
             },
             onSpeakingStart: () => {},
             onSpeakingEnd: () => {},
@@ -277,9 +303,10 @@ export default function MarketsDashboard() {
       } catch (error) {
         console.error('Failed to start conversation:', error);
         setConversationStatus('error');
+        toast.show('Voice connection failed — please try again');
       }
     }
-  }, [ai.messages, ai.addVoiceMessage, ai.searchMode, user?.id, smithery.connections, handleClientToolCall]);
+  }, [ai.messages, ai.addVoiceMessage, ai.searchMode, user?.id, smithery.connections, handleClientToolCall, toast.show]);
 
   const handleToggleIndicator = (id: string) => {
     platform.toggleIndicator(id);
@@ -514,6 +541,8 @@ export default function MarketsDashboard() {
           }}
         />
       )}
+
+      <ToastContainer toasts={toast.toasts} onDismiss={toast.dismiss} />
     </div>
   );
 }
