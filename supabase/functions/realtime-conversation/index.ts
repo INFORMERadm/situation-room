@@ -521,8 +521,8 @@ UI TOOLS:
 
     function buildFormData(config: Record<string, unknown>, sdpOffer: string): FormData {
       const fd = new FormData();
-      fd.set("sdp", new Blob([sdpOffer], { type: "application/sdp" }), "offer.sdp");
-      fd.set("session", new Blob([JSON.stringify(config)], { type: "application/json" }), "session.json");
+      fd.set("sdp", sdpOffer);
+      fd.set("session", JSON.stringify(config));
       return fd;
     }
 
