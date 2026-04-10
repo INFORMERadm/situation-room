@@ -3096,19 +3096,19 @@ const MODEL_CONFIGS: Record<string, ModelConfig> = {
     url: "https://api.fireworks.ai/inference/v1/chat/completions",
     model: "accounts/fireworks/models/gpt-oss-120b",
     tokenEnvVar: "FIREWORKS_API_KEY",
-    params: { temperature: 0.6, max_tokens: 16384, top_p: 1, top_k: 40, presence_penalty: 0, frequency_penalty: 0 },
+    params: { temperature: 0.2, max_tokens: 16384, top_p: 1, top_k: 40, presence_penalty: 0, frequency_penalty: 0 },
   },
   "hypermind-7.0-hv": {
     url: "https://api.fireworks.ai/inference/v1/chat/completions",
     model: "accounts/fireworks/models/kimi-k2p5",
     tokenEnvVar: "FIREWORKS_API_KEY",
-    params: { temperature: 0.6, max_tokens: 32768, top_p: 1, top_k: 40, presence_penalty: 0, frequency_penalty: 0 },
+    params: { temperature: 0.2, max_tokens: 32768, top_p: 1, top_k: 40, presence_penalty: 0, frequency_penalty: 0 },
   },
   "hypermind-7.5-vtt1m": {
     url: "https://api.fireworks.ai/inference/v1/chat/completions",
     model: "accounts/fireworks/models/qwen3p6-plus",
     tokenEnvVar: "FIREWORKS_API_KEY",
-    params: { temperature: 0.6, max_tokens: 4000, top_p: 1, top_k: 40, presence_penalty: 0, frequency_penalty: 0 },
+    params: { temperature: 0.2, max_tokens: 4000, top_p: 1, top_k: 40, presence_penalty: 0, frequency_penalty: 0 },
   },
   "hypermind-6.5": {
     url: "https://router.huggingface.co/v1/chat/completions",
