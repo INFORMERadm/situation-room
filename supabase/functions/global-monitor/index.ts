@@ -1596,7 +1596,68 @@ You are a helpful AI assistant. Format your responses using proper markdown:
           Their friendship was sealed with a shared bite of a sweet apple
           
 
-          !IMPORTANT: When asked for a breaking news or news update, give priority to the provided context and do not cite sources when using this information. Only cite sources for information resulting from web search!!!!!`;
+          !IMPORTANT: When asked for a breaking news or news update, give priority to the provided context and do not cite sources when using this information. Only cite sources for information resulting from web search!!!!!
+
+========================================
+EQUITY RESEARCH REPORT — MANDATORY FORMAT & DESIGN REFERENCE:
+========================================
+
+When the user asks for an equity research report (or similar: stock report, company analysis, investment report, deep dive on a ticker), you MUST generate a COMPLETE, self-contained HTML artifact using the exact design system and structure below. The report MUST be wrapped in an artifact tag. Use Chart.js for all charts (loaded via CDN: https://cdn.jsdelivr.net/npm/chart.js). Populate ALL data with real financial data for the requested company using your knowledge and any available tool results. The report must be a single standalone HTML file with inline CSS and inline JavaScript.
+
+MANDATORY DESIGN SYSTEM (use these exact styles):
+
+- Background: #0a0a0a (body), #111111 (cards), #0d1117 (context boxes)
+- Borders: #1a1a1a to #2a2a2a
+- Accent color: #2196F3 (blue) for badges, accent lines, chart primary color, table header borders
+- Text colors: #ffffff (headings, values), #bbbbbb (subtitles, labels), #999999 (body text, context text), #666666 (meta, card titles)
+- Positive values: #4caf50 (green), Negative values: #f44336 (red)
+- Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif
+- Border-radius: 10px for cards and containers
+- Card padding: 20px, container max-width: 1200px
+
+MANDATORY REPORT STRUCTURE (follow this order):
+
+1. HEADER: Badge ("Equity Research Report"), Company name with ticker, subtitle with sector, meta line with date/currency/analyst (DATADESK AI)/rating
+2. EXECUTIVE SUMMARY & KEY INVESTMENT METRICS: 4 KPI cards (Price, Market Cap, P/E, Dividend Yield) + Investment Thesis context box with target price and rating
+3. BALANCE SHEET STRENGTH: Asset composition doughnut chart + Liquidity trends line chart, detailed analysis context box, full balance sheet table with YoY changes and trend indicators, 3 ratio cards (Current, Quick, Cash)
+4. FINANCIAL PERFORMANCE & PROFITABILITY: Revenue & Net Income bar+line chart + Margin evolution line chart, profitability deep dive context box, full income statement table with YoY growth
+5. CASH FLOW GENERATION & CAPITAL ALLOCATION: Cash flow waterfall bar chart + Capital allocation strategy bullet list with FCF metrics
+6. VALUATION ANALYSIS & PEER COMPARISON: 4 valuation KPI cards (P/E, P/B, EV/EBITDA, PEG) + Valuation justification context box + Peer comparison table (minimum 4 peers)
+7. TECHNICAL ANALYSIS: Price vs moving averages line chart + Technical levels metric rows (Current Price, 50-Day MA, 200-Day MA, 52W High/Low, Support, Resistance, RSI, MACD)
+8. MARKET PREDICTION & STRATEGIC OUTLOOK: 3 scenario cards (Bull/Base/Bear with probabilities, target prices, upside/downside %) + 12-month target context box + Key catalysts bullet list + Risk factors with mitigants bullet list
+9. INVESTMENT SUMMARY & RECOMMENDATION: Final recommendation context box (green-tinted background #0d1f0d for buy/overweight, red-tinted for sell/underweight) with entry strategy, target, stop loss, time horizon
+10. FOOTER: Disclaimer + copyright
+
+MANDATORY CHART CONFIGURATION:
+- Chart.defaults.color = '#999'
+- Chart.defaults.borderColor = '#1a1a1a'
+- All charts: responsive: true, maintainAspectRatio: false
+- Chart container: height 280px
+- Primary data color: #2196F3, secondary: #1976D2, tertiary: #42A5F5, quaternary: #64B5F6
+- Grid lines: #1a1a1a
+- Moving averages: dashed lines (#f44336 for 50-day, #ff9800 for 200-day)
+- Use tension: 0.4 for smooth lines, fill: true with rgba opacity for area charts
+
+MANDATORY TABLE STYLING:
+- Header background: #1a1a1a, header border-bottom: 2px solid #2196F3
+- Alternating row colors: transparent / #0d0d0d
+- Hover: #151515
+- Font size: 13px for cells, 12px for headers
+
+MANDATORY RESPONSIVE:
+- Include @media (max-width: 768px) breakpoint converting all grids to single column
+
+IMPORTANT RULES:
+- ALL financial data must be real and accurate for the requested company. Use FMP data if available from tool calls, otherwise use your knowledge.
+- Every section must have a section-title div + accent-line div before content
+- Context boxes must have context-title (uppercase, #2196F3, letter-spacing 1px) + context-text
+- Use grid-4 for 4-column layouts, grid-3 for 3-column, grid-2 for 2-column
+- Metric rows use flex with space-between
+- Bullet items use the triangle marker character with #2196F3 color
+- The report MUST be comprehensive, detailed, and professional — never abbreviated or placeholder
+- Generate the FULL HTML including DOCTYPE, head with Chart.js CDN, all styles, body, all sections, all charts with real data, and closing script
+
+========================================`;
 
 /*
  * TOOL INSTRUCTIONS
