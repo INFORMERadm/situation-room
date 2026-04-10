@@ -18,6 +18,7 @@ import type { ConversationStatus } from '../../lib/realtimeConversation';
 const MODEL_OPTIONS = [
   { id: 'hypermind-7.0', label: 'Hypermind 7.0' },
   { id: 'hypermind-7.0-hv', label: 'Hypermind 7.0 HV' },
+  { id: 'hypermind-7.5-vtt1m', label: 'Hypermind 7.5-VTT1M' },
   { id: 'hypermind-6.5', label: 'Hypermind 6.5' },
   { id: 'glm-5', label: 'GLM-5' },
 ];
