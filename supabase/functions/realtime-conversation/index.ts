@@ -519,38 +519,28 @@ UI TOOLS:
       initialSessionConfig.tool_choice = "auto";
     }
 
-    function buildMultipartBody(config: Record<string, unknown>, sdpOffer: string) {
-      const boundary = `----FormBoundary${crypto.randomUUID().replace(/-/g, '')}`;
-      const sessionJson = JSON.stringify(config);
-      const body =
-        `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="sdp"\r\n` +
-        `Content-Type: application/sdp\r\n\r\n` +
-        `${sdpOffer}\r\n` +
-        `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="session"\r\n` +
-        `Content-Type: application/json\r\n\r\n` +
-        `${sessionJson}\r\n` +
-        `--${boundary}--\r\n`;
-      return { boundary, body, payloadSize: body.length };
+    function buildFormData(config: Record<string, unknown>, sdpOffer: string): FormData {
+      const fd = new FormData();
+      fd.set("sdp", new Blob([sdpOffer], { type: "application/sdp" }), "offer.sdp");
+      fd.set("session", new Blob([JSON.stringify(config)], { type: "application/json" }), "session.json");
+      return fd;
     }
 
-    const { boundary, body: multipartBody, payloadSize } = buildMultipartBody(initialSessionConfig, sdp);
-    console.log(`[realtime] Payload size: ${payloadSize} bytes, tools: ${realtimeTools.length}`);
+    console.log(`[realtime] Tools: ${realtimeTools.length}, instructions length: ${fullInstructions.length}`);
 
     async function attemptOpenAI(config: Record<string, unknown>, label: string): Promise<Response> {
-      const { boundary: b, body: reqBody, payloadSize: ps } = buildMultipartBody(config, sdp);
-      console.log(`[realtime] ${label}: payload ${ps} bytes, tools: ${Array.isArray(config.tools) ? (config.tools as unknown[]).length : 0}`);
+      const fd = buildFormData(config, sdp);
+      const toolCount = Array.isArray(config.tools) ? (config.tools as unknown[]).length : 0;
+      console.log(`[realtime] ${label}: tools=${toolCount}, instructions=${(config.instructions as string || '').length} chars`);
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15000);
+      const timer = setTimeout(() => controller.abort(), 20000);
       try {
         return await fetch("https://api.openai.com/v1/realtime/calls", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${OPENAI_API_KEY}`,
-            "Content-Type": `multipart/form-data; boundary=${b}`,
           },
-          body: reqBody,
+          body: fd,
           signal: controller.signal,
         });
       } finally {
@@ -558,17 +548,29 @@ UI TOOLS:
       }
     }
 
-    let sdpResponse: Response | null = null;
-
-    try {
-      sdpResponse = await attemptOpenAI(initialSessionConfig, "Attempt 1 (full)");
-    } catch (e) {
-      console.log(`[realtime] Attempt 1 failed: ${e instanceof Error ? e.message : e}`);
+    async function tryAttempt(config: Record<string, unknown>, label: string): Promise<{ response: Response | null; errorBody: string }> {
+      try {
+        const resp = await attemptOpenAI(config, label);
+        if (!resp.ok) {
+          const body = await resp.text().catch(() => "");
+          console.error(`[realtime] ${label} failed (${resp.status}): ${body.slice(0, 500)}`);
+          return { response: null, errorBody: body };
+        }
+        return { response: resp, errorBody: "" };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`[realtime] ${label} exception: ${msg}`);
+        return { response: null, errorBody: msg };
+      }
     }
 
-    if (!sdpResponse || !sdpResponse.ok) {
-      if (sdpResponse) console.log(`[realtime] Attempt 1 returned ${sdpResponse.status}, retrying with reduced payload...`);
+    let lastErrorBody = "";
+    let lastStatus = 504;
 
+    let { response: sdpResponse, errorBody } = await tryAttempt(initialSessionConfig, "Attempt 1 (full)");
+    if (errorBody) { lastErrorBody = errorBody; lastStatus = 504; }
+
+    if (!sdpResponse) {
       const reducedConfig = { ...initialSessionConfig };
       if (Array.isArray(reducedConfig.tools)) {
         const currentTools = reducedConfig.tools as unknown[];
@@ -579,39 +581,35 @@ UI TOOLS:
         reducedConfig.instructions = instr.slice(0, 3000);
       }
 
-      try {
-        sdpResponse = await attemptOpenAI(reducedConfig, "Attempt 2 (reduced)");
-      } catch (e) {
-        console.log(`[realtime] Attempt 2 failed: ${e instanceof Error ? e.message : e}`);
-        sdpResponse = null;
-      }
+      const r2 = await tryAttempt(reducedConfig, "Attempt 2 (reduced)");
+      sdpResponse = r2.response;
+      if (r2.errorBody) { lastErrorBody = r2.errorBody; }
     }
 
-    if (!sdpResponse || !sdpResponse.ok) {
-      if (sdpResponse) console.log(`[realtime] Attempt 2 returned ${sdpResponse.status}, retrying with minimal payload...`);
-
+    if (!sdpResponse) {
       const minimalConfig: Record<string, unknown> = {
         type: "realtime",
         model: "gpt-realtime",
-        instructions: (systemPrompt || defaultInstructions).slice(0, 2000),
+        instructions: "You are a helpful voice assistant. Be concise and conversational.",
         output_modalities: ["audio", "text"],
-        audio: initialSessionConfig.audio,
+        audio: {
+          input: {
+            transcription: { model: "gpt-4o-transcribe" },
+            turn_detection: { type: "semantic_vad" },
+          },
+          output: { voice: "marin" },
+        },
       };
 
-      try {
-        sdpResponse = await attemptOpenAI(minimalConfig, "Attempt 3 (minimal)");
-      } catch (e) {
-        console.log(`[realtime] Attempt 3 failed: ${e instanceof Error ? e.message : e}`);
-        sdpResponse = null;
-      }
+      const r3 = await tryAttempt(minimalConfig, "Attempt 3 (minimal)");
+      sdpResponse = r3.response;
+      if (r3.errorBody) { lastErrorBody = r3.errorBody; }
     }
 
-    if (!sdpResponse || !sdpResponse.ok) {
-      const status = sdpResponse?.status ?? 504;
-      const errorText = sdpResponse ? await sdpResponse.text().catch(() => "") : "All attempts timed out";
-      console.error(`[realtime] OpenAI final error (${status}): ${errorText.slice(0, 500)}`);
+    if (!sdpResponse) {
+      console.error(`[realtime] All 3 attempts failed. Last error: ${lastErrorBody.slice(0, 500)}`);
       return new Response(
-        JSON.stringify({ error: `OpenAI realtime call failed (${status})` }),
+        JSON.stringify({ error: `OpenAI realtime call failed (${lastStatus})`, details: lastErrorBody.slice(0, 200) }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
