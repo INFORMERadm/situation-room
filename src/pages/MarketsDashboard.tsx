@@ -43,7 +43,7 @@ const pageStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateRows: 'auto auto 1fr',
   height: '100vh',
-  background: '#000000',
+  background: '#0a0a0a',
   overflow: 'hidden',
   gap: 0,
 };
