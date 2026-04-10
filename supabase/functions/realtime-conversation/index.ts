@@ -519,28 +519,31 @@ UI TOOLS:
       initialSessionConfig.tool_choice = "auto";
     }
 
-    function buildFormData(config: Record<string, unknown>, sdpOffer: string): FormData {
-      const fd = new FormData();
-      fd.set("sdp", sdpOffer);
-      fd.set("session", JSON.stringify(config));
-      return fd;
+    function buildMultipartBody(config: Record<string, unknown>, sdpOffer: string): { body: string; boundary: string } {
+      const boundary = `----FormBoundary${crypto.randomUUID().replace(/-/g, '')}`;
+      const parts: string[] = [];
+      parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="sdp"\r\nContent-Type: application/sdp\r\n\r\n${sdpOffer}`);
+      parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="session"\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(config)}`);
+      parts.push(`--${boundary}--`);
+      return { body: parts.join("\r\n"), boundary };
     }
 
     console.log(`[realtime] Tools: ${realtimeTools.length}, instructions length: ${fullInstructions.length}`);
 
     async function attemptOpenAI(config: Record<string, unknown>, label: string): Promise<Response> {
-      const fd = buildFormData(config, sdp);
+      const { body, boundary } = buildMultipartBody(config, sdp);
       const toolCount = Array.isArray(config.tools) ? (config.tools as unknown[]).length : 0;
       console.log(`[realtime] ${label}: tools=${toolCount}, instructions=${(config.instructions as string || '').length} chars`);
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 20000);
+      const timer = setTimeout(() => controller.abort(), 25000);
       try {
         return await fetch("https://api.openai.com/v1/realtime/calls", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
           },
-          body: fd,
+          body,
           signal: controller.signal,
         });
       } finally {
