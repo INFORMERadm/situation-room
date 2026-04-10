@@ -644,41 +644,50 @@ async function fetchMarketNews() {
   let rssItems: NewsItem[] = [];
   let fmpItems: NewsItem[] = [];
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(
-      "https://rss.app/feeds/_wsGBiJ7aEHbD3fVL.xml",
-      { signal: controller.signal }
-    );
-    clearTimeout(timeout);
+  const rssFeedUrls = [
+    "https://rss.app/feeds/_wsGBiJ7aEHbD3fVL.xml",
+    "https://rss.app/feeds/gMRVlMnegSjW9hP9.xml",
+  ];
 
-    if (res.ok) {
-      const xml = await res.text();
-      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-      let match;
-      while ((match = itemRegex.exec(xml)) !== null && rssItems.length < 100) {
-        const block = match[1];
-        const rawTitle = (block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || block.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim() ?? "";
-        const description = (block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) || block.match(/<description>([\s\S]*?)<\/description>/))?.[1]?.trim() ?? "";
-        const rawText = rawTitle || description;
-        const title = rawText.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-        const link = (block.match(/<link>([\s\S]*?)<\/link>/))?.[1]?.trim() ?? "";
-        const pubDate = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/))?.[1]?.trim() ?? "";
-        const creator = (block.match(/<dc:creator><!\[CDATA\[([\s\S]*?)\]\]><\/dc:creator>/) || block.match(/<dc:creator>([\s\S]*?)<\/dc:creator>/))?.[1]?.trim() ?? "";
-        if (title) {
-          rssItems.push({
-            title,
-            site: creator.replace(/^@/, "") || "Breaking News",
-            url: link,
-            publishedDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-            symbol: "",
-            image: "",
-          });
+  for (const feedUrl of rssFeedUrls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(feedUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const xml = await res.text();
+        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+        let match;
+        while ((match = itemRegex.exec(xml)) !== null && rssItems.length < 150) {
+          const block = match[1];
+          const rawTitle = (block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || block.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim() ?? "";
+          const description = (block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) || block.match(/<description>([\s\S]*?)<\/description>/))?.[1]?.trim() ?? "";
+          const rawText = rawTitle || description;
+          const title = rawText.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+          const link = (block.match(/<link>([\s\S]*?)<\/link>/))?.[1]?.trim() ?? "";
+          const pubDate = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/))?.[1]?.trim() ?? "";
+          const creator = (block.match(/<dc:creator><!\[CDATA\[([\s\S]*?)\]\]><\/dc:creator>/) || block.match(/<dc:creator>([\s\S]*?)<\/dc:creator>/))?.[1]?.trim() ?? "";
+          const enclosureUrl = (block.match(/<enclosure[^>]+url="([^"]+)"/))?.[1]?.trim() ?? "";
+          const mediaUrl = (block.match(/<media:content[^>]+url="([^"]+)"/))?.[1]?.trim() ?? "";
+          const image = enclosureUrl || mediaUrl;
+          if (title) {
+            rssItems.push({
+              title,
+              site: creator.replace(/^@/, "") || "Breaking News",
+              url: link,
+              publishedDate: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+              symbol: "",
+              image,
+            });
+          }
         }
       }
-    }
-  } catch { /* ignore, will supplement with FMP */ }
+    } catch { /* ignore, will supplement with FMP */ }
+  }
+
+  rssItems.sort((a, b) => new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime());
 
   const remaining = 100 - rssItems.length;
   if (remaining > 0) {

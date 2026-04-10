@@ -225,6 +225,23 @@ export default function MarketNews({ news, newItemUrls, alarmMuted, onToggleMute
               >
                 {item.title}
               </span>
+              {item.image && (
+                <img
+                  src={item.image}
+                  alt=""
+                  loading="lazy"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    maxHeight: 160,
+                    objectFit: 'cover',
+                    borderRadius: 4,
+                    marginTop: 6,
+                    opacity: 0.9,
+                  }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              )}
             </div>
           );
         })}
