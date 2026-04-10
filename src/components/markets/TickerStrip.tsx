@@ -124,7 +124,7 @@ export default function TickerStrip({ items, onSelect }: Props) {
         minHeight: 42,
         position: 'relative',
         background: '#1a1a1a',
-        marginTop: 3,
+        marginTop: 5,
       }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
