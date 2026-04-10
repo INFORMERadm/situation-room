@@ -385,7 +385,7 @@ Deno.serve(async (req: Request) => {
           return { server, tools };
         })
       ),
-      12000,
+      8000,
       "MCP tool fetch phase"
     );
     let results: PromiseSettledResult<{ server: MCPServerConfig; tools: MCPTool[] }>[];
@@ -504,7 +504,7 @@ UI TOOLS:
       type: "realtime",
       model: "gpt-realtime",
       instructions: fullInstructions,
-      output_modalities: ["audio", "text"],
+      output_modalities: ["audio"],
       audio: {
         input: {
           transcription: { model: "gpt-4o-transcribe" },
@@ -519,31 +519,25 @@ UI TOOLS:
       initialSessionConfig.tool_choice = "auto";
     }
 
-    function buildMultipartBody(config: Record<string, unknown>, sdpOffer: string): { body: string; boundary: string } {
-      const boundary = `----FormBoundary${crypto.randomUUID().replace(/-/g, '')}`;
-      const parts: string[] = [];
-      parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="sdp"\r\nContent-Type: application/sdp\r\n\r\n${sdpOffer}`);
-      parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="session"\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(config)}`);
-      parts.push(`--${boundary}--`);
-      return { body: parts.join("\r\n"), boundary };
-    }
-
     console.log(`[realtime] Tools: ${realtimeTools.length}, instructions length: ${fullInstructions.length}`);
 
     async function attemptOpenAI(config: Record<string, unknown>, label: string): Promise<Response> {
-      const { body, boundary } = buildMultipartBody(config, sdp);
       const toolCount = Array.isArray(config.tools) ? (config.tools as unknown[]).length : 0;
       console.log(`[realtime] ${label}: tools=${toolCount}, instructions=${(config.instructions as string || '').length} chars`);
+
+      const fd = new FormData();
+      fd.set("sdp", sdp);
+      fd.set("session", JSON.stringify(config));
+
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 25000);
+      const timer = setTimeout(() => controller.abort(), 30000);
       try {
         return await fetch("https://api.openai.com/v1/realtime/calls", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${OPENAI_API_KEY}`,
-            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
           },
-          body,
+          body: fd,
           signal: controller.signal,
         });
       } finally {
@@ -593,15 +587,7 @@ UI TOOLS:
       const minimalConfig: Record<string, unknown> = {
         type: "realtime",
         model: "gpt-realtime",
-        instructions: "You are a helpful voice assistant. Be concise and conversational.",
-        output_modalities: ["audio", "text"],
-        audio: {
-          input: {
-            transcription: { model: "gpt-4o-transcribe" },
-            turn_detection: { type: "semantic_vad" },
-          },
-          output: { voice: "marin" },
-        },
+        audio: { output: { voice: "marin" } },
       };
 
       const r3 = await tryAttempt(minimalConfig, "Attempt 3 (minimal)");
