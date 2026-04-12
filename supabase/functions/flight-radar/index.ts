@@ -160,6 +160,8 @@ async function fetchFR24Flights(bounds?: string, timeoutMs = 25000): Promise<unk
     if (parts.length === 4) {
       url.searchParams.set("bounds", `${parts[0]},${parts[2]},${parts[3]},${parts[1]}`);
     }
+  } else {
+    url.searchParams.set("bounds", "90,-90,-180,180");
   }
 
   const controller = new AbortController();
