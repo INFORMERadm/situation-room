@@ -35,7 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <img src="/super-new.png" alt="DataDesk" style={{ height: 30, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
+        <img src="/noBgColor_green.png" alt="DataDesk" style={{ height: 30, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
         <span style={{
           fontSize: 10,
           fontWeight: 500,
