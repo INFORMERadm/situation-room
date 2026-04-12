@@ -35,18 +35,7 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
           whiteSpace: 'nowrap',
         }}
       >
-        <img src="/datadesk_new_icon.png" alt="DataDesk" style={{ height: 38, marginRight: 10, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
-        <span style={{
-          fontSize: 10,
-          fontWeight: 500,
-          letterSpacing: 2,
-          fontFamily: 'Arial, Helvetica, sans-serif',
-          textTransform: 'none',
-          color: '#ffffff',
-          position: 'relative',
-          top: 4,
-          marginLeft: 4,
-        }}>AI For Executives</span>
+        <img src="/datadesk-latest-logo.png" alt="DataDesk" style={{ height: 34, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks
