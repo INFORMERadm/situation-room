@@ -113,11 +113,15 @@ async function getOpenSkyToken(): Promise<string | null> {
       client_secret: OPENSKY_CLIENT_SECRET,
     });
 
+    const tokenController = new AbortController();
+    const tokenTimer = setTimeout(() => tokenController.abort(), 8000);
     const res = await fetch(OPENSKY_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
+      signal: tokenController.signal,
     });
+    clearTimeout(tokenTimer);
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
@@ -143,6 +147,7 @@ async function fetchOpenSky(
   endpoint: string,
   params: Record<string, string> = {},
   timeoutMs = 20000,
+  preAuthToken?: string | null,
 ): Promise<unknown> {
   if (isRateLimited()) {
     throw new RateLimitError();
@@ -154,7 +159,7 @@ async function fetchOpenSky(
   }
 
   const headers: Record<string, string> = { Accept: "application/json" };
-  const token = await getOpenSkyToken();
+  const token = preAuthToken !== undefined ? preAuthToken : await getOpenSkyToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const controller = new AbortController();
@@ -551,14 +556,14 @@ const REGIONS: { name: string; lamin: number; lamax: number; lomin: number; loma
   { name: "Oceania", lamin: -50, lamax: 5, lomin: 100, lomax: 180 },
 ];
 
-async function fetchRegion(region: typeof REGIONS[number]): Promise<unknown[]> {
+async function fetchRegion(region: typeof REGIONS[number], token?: string | null): Promise<unknown[]> {
   try {
     const data = (await fetchOpenSky("/states/all", {
       lamin: String(region.lamin),
       lamax: String(region.lamax),
       lomin: String(region.lomin),
       lomax: String(region.lomax),
-    }, 15000)) as { states: StateVector[] | null };
+    }, 15000, token)) as { states: StateVector[] | null };
     const states = data?.states ?? [];
     const flights = states
       .map(mapStateToFlight)
@@ -572,8 +577,6 @@ async function fetchRegion(region: typeof REGIONS[number]): Promise<unknown[]> {
   }
 }
 
-const OVERALL_FETCH_TIMEOUT_MS = 60000;
-
 async function fetchOpenSkyAllStates(): Promise<unknown[]> {
   const token = await getOpenSkyToken();
   const authenticated = !!token;
@@ -582,19 +585,9 @@ async function fetchOpenSkyAllStates(): Promise<unknown[]> {
   const seen = new Set<string>();
   const allFlights: unknown[] = [];
 
-  const timeoutPromise = new Promise<"timeout">((resolve) =>
-    setTimeout(() => resolve("timeout"), OVERALL_FETCH_TIMEOUT_MS)
-  );
+  const results = await Promise.allSettled(REGIONS.map(r => fetchRegion(r, token)));
 
-  const regionsPromise = Promise.allSettled(REGIONS.map(r => fetchRegion(r)));
-  const raceResult = await Promise.race([regionsPromise, timeoutPromise]);
-
-  if (raceResult === "timeout") {
-    console.warn("OpenSky: overall fetch timeout reached, returning partial results");
-    return allFlights;
-  }
-
-  for (const result of raceResult) {
+  for (const result of results) {
     if (result.status === "fulfilled") {
       for (const f of result.value) {
         const flight = f as { icao24: string };
@@ -681,24 +674,40 @@ Deno.serve(async (req: Request) => {
         return await serveCachedOrEmpty();
       }
 
-      try {
-        const flights = await fetchLiveFlights();
-
-        if (flights.length > 0) {
-          cachedFlights = flights;
-          cachedFlightsAt = Date.now();
-          EdgeRuntime.waitUntil(setDbCachedFlights(flights));
+      const RESPONSE_DEADLINE_MS = 25000;
+      const fetchPromise = (async () => {
+        try {
+          const flights = await fetchLiveFlights();
+          if (flights.length > 0) {
+            cachedFlights = flights;
+            cachedFlightsAt = Date.now();
+            await setDbCachedFlights(flights);
+          }
+          return flights;
+        } catch (err) {
+          if (err instanceof RateLimitError) return null;
+          console.error("Live flights error:", err instanceof Error ? err.message : String(err));
+          return null;
         }
+      })();
 
-        return jsonResponse({ flights });
-      } catch (err) {
-        if (err instanceof RateLimitError) {
-          return await serveCachedOrEmpty();
-        }
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error("Live flights error:", msg);
+      const deadlinePromise = new Promise<"deadline">((resolve) =>
+        setTimeout(() => resolve("deadline"), RESPONSE_DEADLINE_MS)
+      );
+
+      const result = await Promise.race([fetchPromise, deadlinePromise]);
+
+      if (result === "deadline") {
+        console.warn("Live flights: response deadline reached, returning cache");
+        EdgeRuntime.waitUntil(fetchPromise);
         return await serveCachedOrEmpty();
       }
+
+      if (result && Array.isArray(result) && result.length > 0) {
+        return jsonResponse({ flights: result });
+      }
+
+      return await serveCachedOrEmpty();
     }
 
     if (feed === "flight-details") {
