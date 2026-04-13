@@ -367,6 +367,87 @@ async function handleStrikeEvents() {
   return jsonResponse({ events: data || [] });
 }
 
+async function handleWarDashboard() {
+  const supabase = getSupabaseClient();
+
+  const [strikesRes, infraRes, navyRes, basesRes, timelineRes] =
+    await Promise.all([
+      supabase.rpc("get_strike_summary"),
+      supabase.rpc("get_infrastructure_summary"),
+      supabase
+        .from("military_naval_assets")
+        .select("name, asset_type, operator, hull_number, class_name, region, status, last_reported_date, latitude, longitude, heading")
+        .order("operator"),
+      supabase
+        .from("military_bases")
+        .select("operator, base_type, country")
+        .eq("is_active", true),
+      supabase.rpc("get_strike_timeline"),
+    ]);
+
+  const strikesByCountry = strikesRes.data || [];
+  const infraSummary = infraRes.data || [];
+  const navalAssets = navyRes.data || [];
+  const bases = basesRes.data || [];
+  const timeline = timelineRes.data || [];
+
+  const navalByOperator: Record<string, { count: number; types: Record<string, number> }> = {};
+  for (const a of navalAssets) {
+    if (!navalByOperator[a.operator]) navalByOperator[a.operator] = { count: 0, types: {} };
+    navalByOperator[a.operator].count++;
+    navalByOperator[a.operator].types[a.asset_type] =
+      (navalByOperator[a.operator].types[a.asset_type] || 0) + 1;
+  }
+
+  const basesByOperator: Record<string, number> = {};
+  for (const b of bases) {
+    const key = b.operator.split(" ")[0];
+    basesByOperator[key] = (basesByOperator[key] || 0) + 1;
+  }
+
+  const totalStrikes = strikesByCountry.reduce(
+    (s: number, r: { total_strikes: number }) => s + Number(r.total_strikes),
+    0
+  );
+  const totalProjectiles = strikesByCountry.reduce(
+    (s: number, r: { total_projectiles: number }) => s + Number(r.total_projectiles),
+    0
+  );
+
+  const infraDamaged = infraSummary
+    .filter((r: { status: string }) => r.status === "damaged")
+    .reduce((s: number, r: { cnt: number }) => s + Number(r.cnt), 0);
+  const infraDestroyed = infraSummary
+    .filter((r: { status: string }) => r.status === "destroyed")
+    .reduce((s: number, r: { cnt: number }) => s + Number(r.cnt), 0);
+  const infraIntact = infraSummary
+    .filter((r: { status: string }) => r.status === "intact")
+    .reduce((s: number, r: { cnt: number }) => s + Number(r.cnt), 0);
+
+  return jsonResponse({
+    summary: {
+      totalStrikes,
+      totalProjectiles,
+      uniqueTargets: strikesByCountry.reduce(
+        (s: number, r: { unique_targets: number }) => s + Number(r.unique_targets),
+        0
+      ),
+      infraDamaged,
+      infraDestroyed,
+      infraIntact,
+      infraTotal: infraDamaged + infraDestroyed + infraIntact,
+      navalVessels: navalAssets.length,
+      militaryBases: bases.length,
+    },
+    strikesByCountry,
+    infraByTypeStatus: infraSummary,
+    navalAssets,
+    navalByOperator,
+    basesByOperator,
+    timeline,
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -385,9 +466,11 @@ Deno.serve(async (req: Request) => {
         return await handleVessels();
       case "strike-events":
         return await handleStrikeEvents();
+      case "war-dashboard":
+        return await handleWarDashboard();
       default:
         return errorResponse(
-          "Unknown feed. Use: military-data, zones, vessels, strike-events",
+          "Unknown feed. Use: military-data, zones, vessels, strike-events, war-dashboard",
           400
         );
     }

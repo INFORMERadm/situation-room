@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import FlightMap from './FlightMap';
 import FlightDetailPanel from './FlightDetailPanel';
 import FlightSearchPanel from './FlightSearchPanel';
+import WarDashboard from './WarDashboard';
 import { useFlightsDashboard } from '../../hooks/useFlightsDashboard';
 import { useFlightInterpolation } from '../../hooks/useFlightInterpolation';
 import useFlightSearch from '../../hooks/useFlightSearch';
@@ -18,6 +19,7 @@ interface FlightsDashboardProps {
 }
 
 export default function FlightsDashboard({ active }: FlightsDashboardProps) {
+  const [showWarDashboard, setShowWarDashboard] = useState(false);
   const {
     flights,
     selectedFlight,
@@ -98,6 +100,38 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         onSearchTrack={search.searchAircraftTrack}
       />
       <LiveCamButton />
+      <button
+        onClick={() => setShowWarDashboard(true)}
+        style={{
+          position: 'absolute',
+          bottom: 14,
+          left: 14,
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '7px 14px',
+          background: 'rgba(0,0,0,0.75)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 6,
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: 'pointer',
+          backdropFilter: 'blur(8px)',
+          letterSpacing: 0.5,
+          transition: 'background 0.2s',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,23,68,0.3)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,0,0,0.75)'; }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff1744" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18M9 3v18" />
+        </svg>
+        WAR DASHBOARD
+      </button>
+      {showWarDashboard && <WarDashboard onClose={() => setShowWarDashboard(false)} />}
       {selectedFlightId && (
         <FlightDetailPanel
           detail={selectedFlight}
