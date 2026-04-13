@@ -8,6 +8,9 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const FR24_API_TOKEN = Deno.env.get("FR24_API_TOKEN") ?? "";
+const FR24_API = "https://fr24api.flightradar24.com/api";
+
 const OPENSKY_CLIENT_ID = Deno.env.get("OPENSKY_CLIENT_ID") ?? "";
 const OPENSKY_CLIENT_SECRET = Deno.env.get("OPENSKY_CLIENT_SECRET") ?? "";
 const OPENSKY_TOKEN_URL =
@@ -640,9 +643,178 @@ async function fetchOpenSkyAllStates(): Promise<unknown[]> {
   return allFlights;
 }
 
+interface FR24Flight {
+  fr24_id?: string;
+  flight?: string;
+  callsign?: string;
+  lat?: number;
+  lon?: number;
+  alt?: number;
+  gspd?: number;
+  track?: number;
+  vspd?: number;
+  squawk?: string;
+  timestamp?: number;
+  source?: string;
+  on_ground?: boolean;
+  registration?: string;
+  painted_as?: string;
+  operating_as?: string;
+  orig_iata?: string;
+  orig_icao?: string;
+  dest_iata?: string;
+  dest_icao?: string;
+  aircraft_code?: string;
+  airline_iata?: string;
+  [key: string]: unknown;
+}
+
+function mapFR24ToFlight(f: FR24Flight) {
+  const lat = f.lat ?? 0;
+  const lon = f.lon ?? 0;
+  if (lat === 0 && lon === 0) return null;
+
+  const callsign = String(f.callsign ?? f.flight ?? "").trim();
+  return {
+    icao24: String(f.fr24_id ?? callsign ?? ""),
+    callsign,
+    origin_country: "",
+    lat,
+    lon,
+    alt: f.alt ?? 0,
+    gspd: f.gspd ?? 0,
+    track: f.track ?? 0,
+    vspd: f.vspd ?? 0,
+    on_ground: f.on_ground ?? false,
+    squawk: String(f.squawk ?? ""),
+    geo_alt: f.alt ?? 0,
+    baro_alt: f.alt ?? 0,
+    last_contact: f.timestamp ?? Math.floor(Date.now() / 1000),
+    category: 0,
+    registration: f.registration ?? "",
+    aircraft_type: f.aircraft_code ?? "",
+    orig_iata: f.orig_iata ?? "",
+    orig_icao: f.orig_icao ?? "",
+    dest_iata: f.dest_iata ?? "",
+    dest_icao: f.dest_icao ?? "",
+    operating_as: f.operating_as ?? f.airline_iata ?? "",
+    painted_as: f.painted_as ?? "",
+  };
+}
+
+const FR24_REGION_BOUNDS = [
+  { name: "North America", bounds: "72,15,-170,-50" },
+  { name: "Europe", bounds: "72,35,-15,45" },
+  { name: "Middle East", bounds: "45,10,25,75" },
+  { name: "East Asia", bounds: "55,10,75,150" },
+  { name: "South America", bounds: "15,-60,-90,-30" },
+  { name: "Africa", bounds: "38,-40,-20,55" },
+  { name: "Oceania", bounds: "5,-50,100,180" },
+];
+
+async function fetchFR24Region(
+  regionName: string,
+  bounds: string,
+  limit = 1500,
+): Promise<unknown[]> {
+  const url = new URL(`${FR24_API}/live/flight-positions/full`);
+  url.searchParams.set("bounds", bounds);
+  url.searchParams.set("limit", String(limit));
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "Accept-Version": "v1",
+        Authorization: `Bearer ${FR24_API_TOKEN}`,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`FR24 [${regionName}] error: ${res.status} ${text}`);
+      return [];
+    }
+
+    const json = await res.json();
+    const data = Array.isArray(json) ? json : json?.data ?? [];
+    const flights = data
+      .map((f: FR24Flight) => mapFR24ToFlight(f))
+      .filter((f: unknown): f is NonNullable<typeof f> => f !== null);
+    console.log(`FR24 [${regionName}]: ${flights.length} flights`);
+    return flights;
+  } catch (err) {
+    clearTimeout(timeout);
+    console.error(`FR24 [${regionName}] failed:`, err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+async function fetchFR24AllFlights(): Promise<unknown[]> {
+  if (!FR24_API_TOKEN) {
+    console.log("FR24: No API token configured, skipping");
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const allFlights: unknown[] = [];
+
+  const results = await Promise.allSettled(
+    FR24_REGION_BOUNDS.map((r) => fetchFR24Region(r.name, r.bounds)),
+  );
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const f of result.value) {
+        const flight = f as { icao24: string; callsign: string };
+        const key = flight.icao24 || flight.callsign;
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          allFlights.push(f);
+        }
+      }
+    }
+  }
+
+  console.log(`FR24: fetched ${allFlights.length} unique flights total`);
+  return allFlights;
+}
+
 async function fetchLiveFlights(): Promise<unknown[]> {
-  const flights = await fetchOpenSkyAllStates();
-  return flights;
+  const fr24Flights = await fetchFR24AllFlights();
+  if (fr24Flights.length > 500) {
+    console.log(`Using FR24 as primary source: ${fr24Flights.length} flights`);
+    return fr24Flights;
+  }
+
+  console.log(`FR24 returned ${fr24Flights.length}, falling back to OpenSky`);
+  const openskyFlights = await fetchOpenSkyAllStates();
+
+  if (fr24Flights.length === 0) return openskyFlights;
+  if (openskyFlights.length === 0) return fr24Flights;
+
+  const seen = new Set<string>();
+  const merged: unknown[] = [];
+  for (const f of fr24Flights) {
+    const flight = f as { icao24: string; callsign: string };
+    const key = flight.icao24 || flight.callsign;
+    if (key) seen.add(key);
+    merged.push(f);
+  }
+  for (const f of openskyFlights) {
+    const flight = f as { icao24: string; callsign: string };
+    const key = flight.icao24 || flight.callsign;
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      merged.push(f);
+    }
+  }
+  console.log(`Merged: ${merged.length} flights (FR24: ${fr24Flights.length}, OpenSky added: ${merged.length - fr24Flights.length})`);
+  return merged;
 }
 
 async function serveCachedOrEmpty(): Promise<Response> {
