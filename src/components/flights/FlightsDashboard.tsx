@@ -105,7 +105,7 @@ export default function FlightsDashboard({ active }: FlightsDashboardProps) {
         style={{
           position: 'absolute',
           bottom: 14,
-          left: 14,
+          right: 130,
           zIndex: 1000,
           display: 'flex',
           alignItems: 'center',
