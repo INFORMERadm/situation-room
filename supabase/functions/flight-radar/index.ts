@@ -161,6 +161,7 @@ async function fetchOpenSky(
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = preAuthToken !== undefined ? preAuthToken : await getOpenSkyToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  console.log(`OpenSky fetch: ${endpoint} auth=${!!token} params=${JSON.stringify(params)}`);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -170,6 +171,7 @@ async function fetchOpenSky(
       signal: controller.signal,
     });
     clearTimeout(timeout);
+    console.log(`OpenSky response: ${endpoint} status=${res.status}`);
 
     if (res.status === 429) {
       const retryHeader = res.headers.get("X-Rate-Limit-Retry-After-Seconds") ||
@@ -579,14 +581,16 @@ async function fetchRegion(region: typeof REGIONS[number], token?: string | null
 
 async function fetchGlobalStates(token: string | null): Promise<unknown[]> {
   try {
-    const data = (await fetchOpenSky("/states/all", {}, 20000, token)) as {
+    const data = (await fetchOpenSky("/states/all", {}, 25000, token)) as {
       states: StateVector[] | null;
+      time?: number;
     };
     const states = data?.states ?? [];
+    console.log(`OpenSky [global] raw states: ${states.length}, time=${data?.time ?? 'n/a'}`);
     const flights = states
       .map(mapStateToFlight)
       .filter((f): f is NonNullable<typeof f> => f !== null);
-    console.log(`OpenSky [global]: ${flights.length} flights`);
+    console.log(`OpenSky [global]: ${flights.length} flights after filtering`);
     return flights;
   } catch (err) {
     if (err instanceof RateLimitError) throw err;
