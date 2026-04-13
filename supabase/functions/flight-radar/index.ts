@@ -95,7 +95,10 @@ class RateLimitError extends Error {
 }
 
 async function getOpenSkyToken(): Promise<string | null> {
-  if (!OPENSKY_CLIENT_ID || !OPENSKY_CLIENT_SECRET) return null;
+  if (!OPENSKY_CLIENT_ID || !OPENSKY_CLIENT_SECRET) {
+    console.log("OpenSky: No client credentials configured, using anonymous access");
+    return null;
+  }
 
   const now = Date.now();
   if (cachedToken && tokenExpiresAt > now + 60_000) {
@@ -103,6 +106,7 @@ async function getOpenSkyToken(): Promise<string | null> {
   }
 
   try {
+    console.log(`OpenSky: Requesting token for client_id=${OPENSKY_CLIENT_ID}`);
     const body = new URLSearchParams({
       grant_type: "client_credentials",
       client_id: OPENSKY_CLIENT_ID,
@@ -117,7 +121,7 @@ async function getOpenSkyToken(): Promise<string | null> {
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      console.error("OpenSky token error:", res.status, text);
+      console.error(`OpenSky token error: ${res.status} ${text}`);
       cachedToken = null;
       return null;
     }
@@ -126,6 +130,7 @@ async function getOpenSkyToken(): Promise<string | null> {
     cachedToken = json.access_token ?? null;
     const expiresIn = json.expires_in ?? 1800;
     tokenExpiresAt = now + expiresIn * 1000;
+    console.log(`OpenSky: Token obtained, expires in ${expiresIn}s`);
     return cachedToken;
   } catch (err) {
     console.error("OpenSky token fetch failed:", err);
@@ -536,16 +541,61 @@ function enrichFlightResult(f: Record<string, unknown>) {
   };
 }
 
+const REGIONS: { name: string; lamin: number; lamax: number; lomin: number; lomax: number }[] = [
+  { name: "North America", lamin: 15, lamax: 72, lomin: -170, lomax: -50 },
+  { name: "Europe", lamin: 35, lamax: 72, lomin: -15, lomax: 45 },
+  { name: "Middle East & Central Asia", lamin: 10, lamax: 45, lomin: 25, lomax: 75 },
+  { name: "East Asia", lamin: 10, lamax: 55, lomin: 75, lomax: 150 },
+  { name: "South America", lamin: -60, lamax: 15, lomin: -90, lomax: -30 },
+  { name: "Africa", lamin: -40, lamax: 38, lomin: -20, lomax: 55 },
+  { name: "Oceania", lamin: -50, lamax: 5, lomin: 100, lomax: 180 },
+];
+
+async function fetchRegion(region: typeof REGIONS[number]): Promise<unknown[]> {
+  try {
+    const data = (await fetchOpenSky("/states/all", {
+      lamin: String(region.lamin),
+      lamax: String(region.lamax),
+      lomin: String(region.lomin),
+      lomax: String(region.lomax),
+    }, 25000)) as { states: StateVector[] | null };
+    const states = data?.states ?? [];
+    const flights = states
+      .map(mapStateToFlight)
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+    console.log(`OpenSky [${region.name}]: ${flights.length} flights`);
+    return flights;
+  } catch (err) {
+    if (err instanceof RateLimitError) throw err;
+    console.error(`OpenSky [${region.name}] failed:`, err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
 async function fetchOpenSkyAllStates(): Promise<unknown[]> {
-  const data = (await fetchOpenSky("/states/all", {})) as {
-    states: StateVector[] | null;
-  };
-  const states = data?.states ?? [];
-  const flights = states
-    .map(mapStateToFlight)
-    .filter((f): f is NonNullable<typeof f> => f !== null);
-  console.log(`OpenSky: fetched ${flights.length} flights`);
-  return flights;
+  const token = await getOpenSkyToken();
+  const authenticated = !!token;
+  console.log(`OpenSky: authenticated=${authenticated}, fetching ${REGIONS.length} regions`);
+
+  const seen = new Set<string>();
+  const allFlights: unknown[] = [];
+
+  const results = await Promise.allSettled(REGIONS.map(r => fetchRegion(r)));
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const f of result.value) {
+        const flight = f as { icao24: string };
+        if (!seen.has(flight.icao24)) {
+          seen.add(flight.icao24);
+          allFlights.push(f);
+        }
+      }
+    }
+  }
+
+  console.log(`OpenSky: fetched ${allFlights.length} unique flights total`);
+  return allFlights;
 }
 
 async function fetchLiveFlights(): Promise<unknown[]> {
