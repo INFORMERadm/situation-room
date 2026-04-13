@@ -577,13 +577,46 @@ async function fetchRegion(region: typeof REGIONS[number], token?: string | null
   }
 }
 
+async function fetchGlobalStates(token: string | null): Promise<unknown[]> {
+  try {
+    const data = (await fetchOpenSky("/states/all", {}, 20000, token)) as {
+      states: StateVector[] | null;
+    };
+    const states = data?.states ?? [];
+    const flights = states
+      .map(mapStateToFlight)
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+    console.log(`OpenSky [global]: ${flights.length} flights`);
+    return flights;
+  } catch (err) {
+    if (err instanceof RateLimitError) throw err;
+    console.error("OpenSky [global] failed:", err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
 async function fetchOpenSkyAllStates(): Promise<unknown[]> {
   const token = await getOpenSkyToken();
   const authenticated = !!token;
-  console.log(`OpenSky: authenticated=${authenticated}, fetching ${REGIONS.length} regions`);
+  console.log(`OpenSky: authenticated=${authenticated}`);
+
+  const globalFlights = await fetchGlobalStates(token);
+  if (globalFlights.length > 500) {
+    return globalFlights;
+  }
+
+  console.log(`OpenSky: global returned ${globalFlights.length}, falling back to regional fetch`);
 
   const seen = new Set<string>();
   const allFlights: unknown[] = [];
+
+  for (const f of globalFlights) {
+    const flight = f as { icao24: string };
+    if (!seen.has(flight.icao24)) {
+      seen.add(flight.icao24);
+      allFlights.push(f);
+    }
+  }
 
   const results = await Promise.allSettled(REGIONS.map(r => fetchRegion(r, token)));
 
