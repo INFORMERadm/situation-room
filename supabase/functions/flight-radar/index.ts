@@ -703,55 +703,85 @@ function mapFR24ToFlight(f: FR24Flight) {
 }
 
 const FR24_REGION_BOUNDS = [
-  { name: "North America", bounds: "72,15,-170,-50" },
-  { name: "Europe", bounds: "72,35,-15,45" },
-  { name: "Middle East", bounds: "45,10,25,75" },
-  { name: "East Asia", bounds: "55,10,75,150" },
-  { name: "South America", bounds: "15,-60,-90,-30" },
-  { name: "Africa", bounds: "38,-40,-20,55" },
+  { name: "NA-West", bounds: "72,35,-170,-110" },
+  { name: "NA-Central", bounds: "72,35,-110,-80" },
+  { name: "NA-East", bounds: "72,35,-80,-50" },
+  { name: "NA-South", bounds: "35,15,-170,-50" },
+  { name: "EU-NorthWest", bounds: "72,50,-15,10" },
+  { name: "EU-NorthEast", bounds: "72,50,10,45" },
+  { name: "EU-SouthWest", bounds: "50,35,-15,10" },
+  { name: "EU-SouthEast", bounds: "50,35,10,45" },
+  { name: "ME-West", bounds: "45,25,25,50" },
+  { name: "ME-East", bounds: "45,10,50,75" },
+  { name: "SA-India", bounds: "35,10,65,90" },
+  { name: "EA-China", bounds: "55,25,75,120" },
+  { name: "EA-Japan-Korea", bounds: "55,25,120,150" },
+  { name: "SEA", bounds: "25,0,90,130" },
+  { name: "SA-North", bounds: "15,-20,-90,-30" },
+  { name: "SA-South", bounds: "-20,-60,-90,-30" },
+  { name: "AF-North", bounds: "38,5,-20,55" },
+  { name: "AF-South", bounds: "5,-40,-20,55" },
   { name: "Oceania", bounds: "5,-50,100,180" },
+  { name: "CentralAsia-Russia", bounds: "72,45,45,120" },
+  { name: "Atlantic", bounds: "60,10,-50,-15" },
+  { name: "Pacific-East", bounds: "60,10,150,180" },
+  { name: "Pacific-West", bounds: "60,10,-180,-170" },
+  { name: "Caribbean", bounds: "30,10,-100,-55" },
 ];
 
 async function fetchFR24Region(
   regionName: string,
   bounds: string,
-  limit = 1500,
 ): Promise<unknown[]> {
-  const url = new URL(`${FR24_API}/live/flight-positions/full`);
-  url.searchParams.set("bounds", bounds);
-  url.searchParams.set("limit", String(limit));
+  const allFlights: unknown[] = [];
+  let page = 1;
+  const limit = 1500;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  try {
-    const res = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "Accept-Version": "v1",
-        Authorization: `Bearer ${FR24_API_TOKEN}`,
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+  while (page <= 5) {
+    const url = new URL(`${FR24_API}/live/flight-positions/full`);
+    url.searchParams.set("bounds", bounds);
+    url.searchParams.set("limit", String(limit));
+    if (page > 1) url.searchParams.set("page", String(page));
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error(`FR24 [${regionName}] error: ${res.status} ${text}`);
-      return [];
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch(url.toString(), {
+        headers: {
+          Accept: "application/json",
+          "Accept-Version": "v1",
+          Authorization: `Bearer ${FR24_API_TOKEN}`,
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.error(`FR24 [${regionName}] p${page} error: ${res.status} ${text}`);
+        break;
+      }
+
+      const json = await res.json();
+      const data = Array.isArray(json) ? json : json?.data ?? [];
+      if (!Array.isArray(data) || data.length === 0) break;
+
+      const flights = data
+        .map((f: FR24Flight) => mapFR24ToFlight(f))
+        .filter((f: unknown): f is NonNullable<typeof f> => f !== null);
+      allFlights.push(...flights);
+
+      if (data.length < limit) break;
+      page++;
+    } catch (err) {
+      clearTimeout(timeout);
+      console.error(`FR24 [${regionName}] p${page} failed:`, err instanceof Error ? err.message : err);
+      break;
     }
-
-    const json = await res.json();
-    const data = Array.isArray(json) ? json : json?.data ?? [];
-    const flights = data
-      .map((f: FR24Flight) => mapFR24ToFlight(f))
-      .filter((f: unknown): f is NonNullable<typeof f> => f !== null);
-    console.log(`FR24 [${regionName}]: ${flights.length} flights`);
-    return flights;
-  } catch (err) {
-    clearTimeout(timeout);
-    console.error(`FR24 [${regionName}] failed:`, err instanceof Error ? err.message : err);
-    return [];
   }
+
+  console.log(`FR24 [${regionName}]: ${allFlights.length} flights`);
+  return allFlights;
 }
 
 async function fetchFR24AllFlights(): Promise<unknown[]> {
@@ -762,19 +792,23 @@ async function fetchFR24AllFlights(): Promise<unknown[]> {
 
   const seen = new Set<string>();
   const allFlights: unknown[] = [];
+  const BATCH_SIZE = 8;
 
-  const results = await Promise.allSettled(
-    FR24_REGION_BOUNDS.map((r) => fetchFR24Region(r.name, r.bounds)),
-  );
+  for (let i = 0; i < FR24_REGION_BOUNDS.length; i += BATCH_SIZE) {
+    const batch = FR24_REGION_BOUNDS.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map((r) => fetchFR24Region(r.name, r.bounds)),
+    );
 
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      for (const f of result.value) {
-        const flight = f as { icao24: string; callsign: string };
-        const key = flight.icao24 || flight.callsign;
-        if (key && !seen.has(key)) {
-          seen.add(key);
-          allFlights.push(f);
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        for (const f of result.value) {
+          const flight = f as { icao24: string; callsign: string };
+          const key = flight.icao24 || flight.callsign;
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            allFlights.push(f);
+          }
         }
       }
     }
