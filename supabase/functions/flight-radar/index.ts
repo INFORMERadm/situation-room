@@ -649,28 +649,45 @@ function enrichFlightResult(f: Record<string, unknown>) {
   };
 }
 
-async function fetchLiveFlightsWithFallback(bounds?: string): Promise<unknown[]> {
-  if (FR24_API_TOKEN) {
-    try {
-      const flights = await fetchFR24Flights(bounds);
-      if (flights.length > 0) {
-        console.log(`FR24: fetched ${flights.length} flights`);
-        return flights;
-      }
-      console.warn("FR24 returned 0 flights, falling back to OpenSky");
-    } catch (err) {
-      if (err instanceof RateLimitError) throw err;
-      console.error("FR24 failed, falling back to OpenSky:", err instanceof Error ? err.message : err);
-    }
-  }
-
+async function fetchOpenSkyAllStates(): Promise<unknown[]> {
   const data = (await fetchOpenSky("/states/all", {})) as {
     states: StateVector[] | null;
   };
   const states = data?.states ?? [];
-  return states
+  const flights = states
     .map(mapStateToFlight)
     .filter((f): f is NonNullable<typeof f> => f !== null);
+  console.log(`OpenSky: fetched ${flights.length} flights`);
+  return flights;
+}
+
+async function fetchLiveFlightsWithFallback(bounds?: string): Promise<unknown[]> {
+  try {
+    const flights = await fetchOpenSkyAllStates();
+    if (flights.length > 0) return flights;
+    console.warn("OpenSky returned 0 flights, falling back to FR24");
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      console.warn("OpenSky rate-limited, falling back to FR24");
+    } else {
+      console.error("OpenSky failed, falling back to FR24:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  if (FR24_API_TOKEN) {
+    try {
+      const flights = await fetchFR24Flights(bounds);
+      if (flights.length > 0) {
+        console.log(`FR24 fallback: fetched ${flights.length} flights`);
+        return flights;
+      }
+    } catch (err) {
+      if (err instanceof RateLimitError) throw err;
+      console.error("FR24 fallback also failed:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  return [];
 }
 
 async function serveCachedOrEmpty(): Promise<Response> {
