@@ -21,12 +21,14 @@ async function refreshTokenOnce(): Promise<string | null> {
 }
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   try {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
       return {
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        Authorization: `Bearer ${anonKey}`,
+        apikey: anonKey,
         'Content-Type': 'application/json',
       };
     }
@@ -38,17 +40,20 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
       const token = await refreshTokenOnce();
       return {
         Authorization: `Bearer ${token ?? session.access_token}`,
+        apikey: anonKey,
         'Content-Type': 'application/json',
       };
     }
 
     return {
       Authorization: `Bearer ${session.access_token}`,
+      apikey: anonKey,
       'Content-Type': 'application/json',
     };
   } catch {
     return {
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      Authorization: `Bearer ${anonKey}`,
+      apikey: anonKey,
       'Content-Type': 'application/json',
     };
   }
