@@ -210,6 +210,18 @@ Deno.serve(async (req: Request) => {
       );
       if (!isParticipant) return errorResponse("Not a participant", 403);
 
+      let userProfileSection = "";
+      try {
+        const { data: profileData } = await serviceClient
+          .from("user_profiles")
+          .select("first_name, last_name, bio")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profileData?.first_name) {
+          userProfileSection = `\nUSER PROFILE:\nName: ${profileData.first_name} ${profileData.last_name || ""}\n${profileData.bio ? `Bio: ${profileData.bio}\n` : ""}Use the user's name naturally in conversation. Personalize your responses based on their profile when relevant.\n`;
+        }
+      } catch { /* ignore */ }
+
       const [newsItems, tavilyResult] = await Promise.all([
         fetchNewsFromCache(serviceClient),
         TAVILY_API_KEY
@@ -436,7 +448,7 @@ Format your responses with clear structure using markdown:
 - Keep responses informative but concise for a chat context
 
 When asked about breaking news or news updates, give priority to the provided news context and do not cite sources when using this information.
-When using web search results, reference sources by number [1], [2], etc.${newsContext}${webSearchContext}`;
+When using web search results, reference sources by number [1], [2], etc.${userProfileSection}${newsContext}${webSearchContext}`;
 
       const contextMessages = Array.isArray(messages)
         ? messages.slice(-20)

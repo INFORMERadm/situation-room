@@ -6,6 +6,7 @@ export default function OnboardingPage() {
   const { user, refreshProfile } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [bio, setBio] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedEmail, setGeneratedEmail] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export default function OnboardingPage() {
         id: user.id,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
+        bio: bio.trim(),
         n4_email: n4Email,
         display_name: displayName,
         onboarding_completed: true,
@@ -130,6 +132,16 @@ export default function OnboardingPage() {
             style={styles.input}
             placeholder="Smith"
           />
+
+          <label style={styles.label}>Bio</label>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            style={{ ...styles.input, minHeight: 80, resize: 'vertical' } as React.CSSProperties}
+            placeholder="Tell us about yourself -- your role, interests, expertise. This helps the AI personalize responses for you."
+            maxLength={500}
+          />
+          <span style={{ fontSize: 10, color: '#555', textAlign: 'right' as const }}>{bio.length}/500</span>
 
           {firstName.trim() && lastName.trim() && (
             <div style={styles.preview}>

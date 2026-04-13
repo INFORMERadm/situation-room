@@ -3833,7 +3833,17 @@ async function handleAIChat(req: Request): Promise<Response> {
 
     const toolInstructions = TOOL_INSTRUCTIONS.replace("{{WEB_SEARCH_SECTION}}", webSearchSection);
     const newsContext = await fetchNewsForAIContext();
-    const baseSystemContent = AI_SYSTEM_PROMPT + toolInstructions + customGptSection + contextStr + newsContext;
+
+    let userProfileSection = "";
+    try {
+      const ctx = platformContext || {};
+      const up = (ctx as Record<string, unknown>).userProfile as { firstName?: string; lastName?: string; bio?: string } | null;
+      if (up && up.firstName) {
+        userProfileSection = `\n\nUSER PROFILE:\nName: ${up.firstName} ${up.lastName || ""}\n${up.bio ? `Bio: ${up.bio}\n` : ""}Use the user's name naturally in conversation. Personalize your responses based on their profile when relevant.\n`;
+      }
+    } catch { /* ignore */ }
+
+    const baseSystemContent = AI_SYSTEM_PROMPT + userProfileSection + toolInstructions + customGptSection + contextStr + newsContext;
     const MAX_CHAIN_DEPTH = 5;
 
     const stream = new ReadableStream({

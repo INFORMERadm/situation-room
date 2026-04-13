@@ -5,6 +5,7 @@ import { parseAIResponse, executeToolCall, isClientToolCall, isChartNavToolCall,
 import type { PlatformActions } from '../lib/aiTools';
 import { usePlatform } from '../context/PlatformContext';
 import { useWatchlist } from '../context/WatchlistContext';
+import { useAuth } from '../context/AuthContext';
 import type { SearchSource, SearchImage, SearchProgress } from '../types/index';
 import { useDocumentAttachment } from './useDocumentAttachment';
 import type { AttachedDoc } from './useDocumentAttachment';
@@ -142,6 +143,7 @@ export function useAIChat(
   alertActions?: { createAlert: (params: { alert_type: 'keyword' | 'price'; name: string; keywords?: string[]; symbol?: string; price_condition?: 'above' | 'below'; price_target?: number; natural_language_query?: string }) => Promise<unknown> },
 ): UseAIChatReturn {
   const platform = usePlatform();
+  const { profile: authProfile } = useAuth();
   const { addToActiveWatchlist, removeFromActiveWatchlist, createWatchlist, activeWatchlist, watchlists, setActiveWatchlistId } = useWatchlist();
   const {
     attachedDoc,
@@ -325,6 +327,7 @@ export function useAIChat(
       leftTab: platform.leftTab,
       activeWatchlistName: activeWatchlist?.name,
       allWatchlists: watchlists.map(w => ({ name: w.name, symbolCount: w.items.length })),
+      userProfile: authProfile ? { firstName: authProfile.first_name, lastName: authProfile.last_name, bio: authProfile.bio } : null,
     });
 
     const webSearch = searchMode !== 'off';
@@ -512,6 +515,7 @@ export function useAIChat(
       leftTab: platform.leftTab,
       activeWatchlistName: activeWatchlist?.name,
       allWatchlists: watchlists.map(w => ({ name: w.name, symbolCount: w.items.length })),
+      userProfile: authProfile ? { firstName: authProfile.first_name, lastName: authProfile.last_name, bio: authProfile.bio } : null,
     });
 
     const webSearch = searchMode !== 'off';

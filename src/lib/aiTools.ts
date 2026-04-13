@@ -382,6 +382,7 @@ export function buildContextPayload(state: {
   activeWatchlistName?: string;
   allWatchlists?: { name: string; symbolCount: number }[];
   customTickerSymbols?: string[];
+  userProfile?: { firstName: string; lastName: string; bio: string } | null;
 }): Record<string, unknown> {
   return {
     currentSymbol: state.selectedSymbol,
@@ -397,5 +398,6 @@ export function buildContextPayload(state: {
     rightPanel: state.rightPanelView,
     leftTab: state.leftTab,
     customTickerSymbols: state.customTickerSymbols || [],
+    userProfile: state.userProfile || null,
   };
 }
