@@ -1099,7 +1099,7 @@ export default function AIChatBox({
                     textAlign: 'center',
                   }}>
                     Welcome to <span style={{ color: '#00c853', fontWeight: 700 }}>DATADESK</span>
-                    {profile?.first_name ? `, ${profile.first_name}` : ''}
+                    {profile?.first_name ? `, ${profile.first_name}!` : '!'}
                   </h2>
                   <span style={{ fontSize: 12, textAlign: 'center', maxWidth: 420, lineHeight: 1.6 }}>
                     Ask about financial information, geopolitical events or brainstorm and check your emails, calendar and other connected services
