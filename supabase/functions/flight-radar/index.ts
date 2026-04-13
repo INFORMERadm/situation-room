@@ -558,7 +558,7 @@ async function fetchRegion(region: typeof REGIONS[number]): Promise<unknown[]> {
       lamax: String(region.lamax),
       lomin: String(region.lomin),
       lomax: String(region.lomax),
-    }, 25000)) as { states: StateVector[] | null };
+    }, 15000)) as { states: StateVector[] | null };
     const states = data?.states ?? [];
     const flights = states
       .map(mapStateToFlight)
@@ -572,6 +572,8 @@ async function fetchRegion(region: typeof REGIONS[number]): Promise<unknown[]> {
   }
 }
 
+const OVERALL_FETCH_TIMEOUT_MS = 60000;
+
 async function fetchOpenSkyAllStates(): Promise<unknown[]> {
   const token = await getOpenSkyToken();
   const authenticated = !!token;
@@ -580,9 +582,19 @@ async function fetchOpenSkyAllStates(): Promise<unknown[]> {
   const seen = new Set<string>();
   const allFlights: unknown[] = [];
 
-  const results = await Promise.allSettled(REGIONS.map(r => fetchRegion(r)));
+  const timeoutPromise = new Promise<"timeout">((resolve) =>
+    setTimeout(() => resolve("timeout"), OVERALL_FETCH_TIMEOUT_MS)
+  );
 
-  for (const result of results) {
+  const regionsPromise = Promise.allSettled(REGIONS.map(r => fetchRegion(r)));
+  const raceResult = await Promise.race([regionsPromise, timeoutPromise]);
+
+  if (raceResult === "timeout") {
+    console.warn("OpenSky: overall fetch timeout reached, returning partial results");
+    return allFlights;
+  }
+
+  for (const result of raceResult) {
     if (result.status === "fulfilled") {
       for (const f of result.value) {
         const flight = f as { icao24: string };
