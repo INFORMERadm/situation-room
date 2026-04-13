@@ -14,6 +14,7 @@ import MessageDropdownMenu from './MessageDropdownMenu';
 import type { MessageMenuAction } from './MessageDropdownMenu';
 import { ConversationModeButton } from '../ConversationModeButton';
 import type { ConversationStatus } from '../../lib/realtimeConversation';
+import { useAuth } from '../../context/AuthContext';
 
 const MODEL_OPTIONS = [
   { id: 'hypermind-7.0', label: 'Hypermind 7.0' },
@@ -188,6 +189,7 @@ export default function AIChatBox({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { profile } = useAuth();
   const webSearchEnabled = searchMode !== 'off';
 
   useEffect(() => {
@@ -1088,6 +1090,17 @@ export default function AIChatBox({
                   color: '#888',
                   gap: 16,
                 }}>
+                  <h2 style={{
+                    fontSize: 20,
+                    fontWeight: 600,
+                    color: '#fff',
+                    letterSpacing: 0.5,
+                    margin: 0,
+                    textAlign: 'center',
+                  }}>
+                    Welcome to <span style={{ color: '#00c853', fontWeight: 700 }}>DATADESK</span>
+                    {profile?.first_name ? `, ${profile.first_name}` : ''}
+                  </h2>
                   <span style={{ fontSize: 12, textAlign: 'center', maxWidth: 420, lineHeight: 1.6 }}>
                     Ask about financial information, geopolitical events or brainstorm and check your emails, calendar and other connected services
                   </span>

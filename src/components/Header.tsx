@@ -1,6 +1,5 @@
 import WorldClocks from './WorldClocks';
 import UserMenu from './UserMenu';
-import { useAuth } from '../context/AuthContext';
 
 interface Props {
   externalClocks?: { label: string; zone: string }[];
@@ -10,17 +9,7 @@ interface Props {
   mcpCount?: number;
 }
 
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
-}
-
 export default function Header({ externalClocks, onAddClock, onRemoveClock, onMCPSettings, mcpCount }: Props) {
-  const { profile } = useAuth();
-  const displayName = profile?.first_name || null;
-
   return (
     <div
       style={{
@@ -47,33 +36,17 @@ export default function Header({ externalClocks, onAddClock, onRemoveClock, onMC
         }}
       >
         <img src="/noBgWhite_newest_x.png" alt="DataDesk" style={{ height: 30, marginLeft: -3, flexShrink: 0, objectFit: 'contain', imageRendering: 'auto', WebkitFontSmoothing: 'antialiased' }} />
-        {displayName ? (
-          <span style={{
-            fontSize: 11,
-            fontWeight: 500,
-            letterSpacing: 1.2,
-            fontFamily: 'Arial, Helvetica, sans-serif',
-            textTransform: 'none',
-            color: '#b0b0b0',
-            position: 'relative',
-            top: 3,
-            marginLeft: 14,
-          }}>
-            {getGreeting()}, <span style={{ color: '#ffffff', fontWeight: 600 }}>{displayName}</span>
-          </span>
-        ) : (
-          <span style={{
-            fontSize: 10,
-            fontWeight: 500,
-            letterSpacing: 2,
-            fontFamily: 'Arial, Helvetica, sans-serif',
-            textTransform: 'none',
-            color: '#ffffff',
-            position: 'relative',
-            top: 3,
-            marginLeft: 10,
-          }}>AI For Executives</span>
-        )}
+        <span style={{
+          fontSize: 10,
+          fontWeight: 500,
+          letterSpacing: 2,
+          fontFamily: 'Arial, Helvetica, sans-serif',
+          textTransform: 'none',
+          color: '#ffffff',
+          position: 'relative',
+          top: 3,
+          marginLeft: 10,
+        }}>AI For Executives</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <WorldClocks
